@@ -14,4 +14,11 @@ class PersonTest < ActiveSupport::TestCase
     assert_not person.valid?
     assert_includes person.errors[:name], "can't be blank"
   end
+
+  test "does not require a login" do
+    person = people(:without_login)
+
+    assert_predicate person, :persisted?
+    assert_nil person.user
+  end
 end

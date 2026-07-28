@@ -65,6 +65,21 @@ class HouseholdTest < ActiveSupport::TestCase
     Household.define_singleton_method(:new, original_new) if original_new
   end
 
+  test "resolves a selected person within the household with a fallback" do
+    household = bootstrap
+    fallback = household.people.first
+    selected = household.people.create!(name: "Guest")
+
+    assert_equal selected, household.person_for(selected.id, fallback: fallback)
+    assert_equal fallback, household.person_for(nil, fallback: fallback)
+    assert_equal fallback, household.person_for(0, fallback: fallback)
+    assert_equal fallback, household.person_for("not-an-id", fallback: fallback)
+
+    stale_id = selected.id
+    selected.destroy!
+    assert_equal fallback, household.person_for(stale_id, fallback: fallback)
+  end
+
   private
     def bootstrap(
       household_attributes: { name: "Home" },

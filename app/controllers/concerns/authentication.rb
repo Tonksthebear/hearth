@@ -29,6 +29,12 @@ module Authentication
       Session.find_by(id: cookies.signed[:session_id]) if cookies.signed[:session_id]
     end
 
+    def establish_current_context
+      Current.household = Current.user.person.household
+      Current.person = Current.household.person_for(session[:person_id], fallback: Current.user.person)
+      session[:person_id] = Current.person.id if session[:person_id] != Current.person.id
+    end
+
     def request_authentication
       if Household.configured?
         session[:return_to_after_authenticating] = request.url
@@ -52,5 +58,6 @@ module Authentication
     def terminate_session
       Current.session.destroy
       cookies.delete(:session_id)
+      session.delete(:person_id)
     end
 end

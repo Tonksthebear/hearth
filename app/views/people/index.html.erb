@@ -1,0 +1,19 @@
+<section aria-labelledby="people-heading">
+  <div class="flex items-end justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household</p>
+      <h1 id="people-heading" class="mt-2 text-4xl font-bold tracking-tight">People</h1>
+      <p class="mt-3 text-stone-600">People can participate in household health tracking without having a login.</p>
+    </div>
+    <%= link_to "Add person", new_person_path, class: "rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+  </div>
+
+  <ul class="mt-8 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white shadow-sm">
+    <% @people.each do |person| %>
+      <li class="flex items-center justify-between gap-4 px-5 py-4">
+        <span class="font-medium"><%= person.name %></span>
+        <%= link_to "Edit", edit_person_path(person), class: "text-sm font-medium text-amber-800 underline hover:no-underline", "aria-label": "Edit #{person.name}" %>
+      </li>
+    <% end %>
+  </ul>
+</section>

@@ -1,0 +1,22 @@
+<%= form_with model: person, class: "mt-8 space-y-6" do |form| %>
+  <% if person.errors.any? %>
+    <div id="person-errors" class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+      <p class="font-semibold">Please correct the following:</p>
+      <ul class="mt-2 list-disc pl-5">
+        <% person.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :name, "Name", class: "block text-sm font-medium" %>
+    <%= form.text_field :name, required: true, autocomplete: "name", class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <%= form.submit class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+    <%= link_to "Cancel", people_path, class: "text-sm font-medium text-stone-700 underline hover:no-underline" %>
+  </div>
+<% end %>

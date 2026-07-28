@@ -15,7 +15,7 @@ class HouseholdSetupAndAuthenticationTest < ApplicationSystemTestCase
     click_button "Create household"
 
     assert_selector "section[aria-labelledby='household-heading'] h1", text: "Bear House"
-    assert_selector "section[aria-labelledby='household-heading'] p", text: /Tonks/
+    assert_selector "section[aria-labelledby='current-person-heading'] h2", text: "Tonks"
 
     click_button "Sign out"
     assert_selector "h1", text: "Sign in"
