@@ -28,4 +28,9 @@
 #       enabled: "ON"
 
 en:
-  hello: "Hello world"
+  activerecord:
+    attributes:
+      household:
+        name: "Household name"
+      person:
+        name: "Your name"

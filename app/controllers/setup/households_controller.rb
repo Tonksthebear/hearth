@@ -15,6 +15,7 @@ module Setup
       )
       @person = @household.people.first
       @user = @person&.user
+      @setup_error_messages = @household.setup_error_messages
 
       if @household.persisted?
         start_new_session_for(@user)
@@ -29,6 +30,7 @@ module Setup
         @household = Household.new
         @person = @household.people.build
         @user = @person.build_user
+        @setup_error_messages = @household.setup_error_messages
       end
 
       def setup_params

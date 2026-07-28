@@ -25,21 +25,16 @@ class Setup::HouseholdsControllerTest < ActionDispatch::IntegrationTest
 
   test "invalid create renders errors and persists nothing" do
     clear_installation
+    params = valid_setup_params
+    params[:setup][:person_name] = ""
 
     assert_no_difference [ "Household.count", "Person.count", "User.count", "Session.count" ] do
-      post setup_household_path, params: {
-        setup: {
-          household_name: "",
-          person_name: "",
-          email_address: "",
-          password: "",
-          password_confirmation: ""
-        }
-      }
+      post setup_household_path, params: params
     end
 
     assert_response :unprocessable_entity
-    assert_select "#setup-errors"
+    assert_select "#setup-errors li", count: 1, text: "Your name can't be blank"
+    assert_select "#setup-errors", count: 0, text: /People is invalid/
     assert_nil cookies[:session_id]
   end
 

@@ -1,6 +1,8 @@
 require "test_helper"
 
 class AuthenticationDefaultsTest < ActiveSupport::TestCase
+  UnsupportedAuthenticationCallback = Class.new(StandardError)
+
   EXPECTED_UNGUARDED_ACTIONS = Set[
     "PasswordsController#create",
     "PasswordsController#edit",
@@ -18,6 +20,16 @@ class AuthenticationDefaultsTest < ActiveSupport::TestCase
     assert_equal EXPECTED_UNGUARDED_ACTIONS, unguarded_actions
   end
 
+  test "unsupported authentication skip shapes fail loudly" do
+    assert_raises UnsupportedAuthenticationCallback do
+      skipped_actions(authentication_callback_for(skip_options: { except: :show }))
+    end
+
+    assert_raises UnsupportedAuthenticationCallback do
+      skipped_actions(authentication_callback_for(skip_options: { if: -> { true } }))
+    end
+  end
+
   private
     def unguarded_actions
       ApplicationController.descendants.each_with_object(Set.new) do |controller, actions|
@@ -31,8 +43,19 @@ class AuthenticationDefaultsTest < ActiveSupport::TestCase
     end
 
     def skipped_actions(callback)
-      callback.instance_variable_get(:@unless).flat_map do |condition|
-        condition.instance_variable_get(:@actions)&.to_a || []
+      conditions = callback.instance_variable_get(:@unless)
+
+      if callback.instance_variable_get(:@if).any? || conditions.any? { |condition| !condition.instance_variable_defined?(:@actions) }
+        raise UnsupportedAuthenticationCallback, "Authentication skip uses a shape this whitelist cannot inspect"
       end
+
+      conditions.flat_map { |condition| condition.instance_variable_get(:@actions).to_a }
+    end
+
+    def authentication_callback_for(skip_options:)
+      Class.new(ActionController::Base) do
+        before_action :require_authentication
+        skip_before_action :require_authentication, **skip_options
+      end._process_action_callbacks.find { |callback| callback.filter == :require_authentication }
     end
 end
