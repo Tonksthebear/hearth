@@ -77,4 +77,14 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
     assert_select "#person-errors", text: /Your name can't be blank/
     assert_equal "Jordan", person.reload.name
   end
+
+  test "unknown person id is not found" do
+    sign_in_as users(:one)
+
+    get edit_person_path(0)
+    assert_response :not_found
+
+    patch person_path(0), params: { person: { name: "Nope" } }
+    assert_response :not_found
+  end
 end

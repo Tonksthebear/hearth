@@ -42,4 +42,21 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to root_url
   end
+
+  test "sign out clears the selected person context before another user signs in" do
+    sign_in_as users(:two)
+    patch person_context_path, params: { person_id: people(:without_login).id }
+    delete session_path
+
+    post session_path, params: {
+      email_address: users(:one).email_address,
+      password: "password"
+    }
+    get root_path
+
+    assert_select "section[aria-labelledby='current-person-heading']" do
+      assert_select "h2", people(:one).name
+      assert_select "h2", text: people(:without_login).name, count: 0
+    end
+  end
 end

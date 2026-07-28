@@ -23,8 +23,6 @@ module Authentication
 
     def resume_session
       Current.session ||= find_session_by_cookie
-      establish_current_context if Current.session
-      Current.session
     end
 
     def find_session_by_cookie
@@ -34,7 +32,7 @@ module Authentication
     def establish_current_context
       Current.household = Current.user.person.household
       Current.person = Current.household.person_for(session[:person_id], fallback: Current.user.person)
-      session[:person_id] = Current.person.id
+      session[:person_id] = Current.person.id if session[:person_id] != Current.person.id
     end
 
     def request_authentication
@@ -60,5 +58,6 @@ module Authentication
     def terminate_session
       Current.session.destroy
       cookies.delete(:session_id)
+      session.delete(:person_id)
     end
 end
