@@ -1,0 +1,39 @@
+class Household < ApplicationRecord
+  has_many :people, dependent: :destroy
+  has_many :users, through: :people
+
+  validates :name, presence: true
+  validates :installation_key, inclusion: { in: [ 1 ] }, uniqueness: true
+
+  def setup_error_messages
+    [
+      *setup_errors_for(self, except: :people),
+      *setup_errors_for(people.first, except: :user),
+      *setup_errors_for(people.first&.user)
+    ].uniq
+  end
+
+  class << self
+    def configured?
+      exists?
+    end
+
+    def bootstrap(household_attributes:, person_attributes:, user_attributes:)
+      household = new(household_attributes)
+      person = household.people.build(person_attributes)
+      person.build_user(user_attributes)
+      household.save
+      household
+    rescue ActiveRecord::RecordNotUnique
+      household.errors.add(:base, "Household setup is no longer available.")
+      household
+    end
+  end
+
+  private
+    def setup_errors_for(record, except: nil)
+      return [] unless record
+
+      record.errors.reject { |error| error.attribute == except }.map(&:full_message)
+    end
+end

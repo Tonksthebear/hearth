@@ -23,8 +23,17 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <main class="container mx-auto mt-28 px-5 flex">
+  <body class="min-h-screen bg-stone-50 text-stone-900">
+    <% if authenticated? %>
+      <header class="border-b border-stone-200 bg-white">
+        <div class="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
+          <%= link_to "Hearth", root_path, class: "text-xl font-semibold tracking-tight text-amber-800" %>
+          <%= button_to "Sign out", session_path, method: :delete, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-100" %>
+        </div>
+      </header>
+    <% end %>
+
+    <main class="mx-auto w-full max-w-5xl px-5 py-12">
       <%= yield %>
     </main>
   </body>
