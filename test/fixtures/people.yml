@@ -5,3 +5,7 @@ one:
 two:
   name: Sam
   household: home
+
+without_login:
+  name: Jordan
+  household: home

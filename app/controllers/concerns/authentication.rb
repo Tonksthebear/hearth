@@ -23,10 +23,18 @@ module Authentication
 
     def resume_session
       Current.session ||= find_session_by_cookie
+      establish_current_context if Current.session
+      Current.session
     end
 
     def find_session_by_cookie
       Session.find_by(id: cookies.signed[:session_id]) if cookies.signed[:session_id]
+    end
+
+    def establish_current_context
+      Current.household = Current.user.person.household
+      Current.person = Current.household.person_for(session[:person_id], fallback: Current.user.person)
+      session[:person_id] = Current.person.id
     end
 
     def request_authentication

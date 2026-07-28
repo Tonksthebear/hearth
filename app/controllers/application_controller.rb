@@ -5,4 +5,13 @@ class ApplicationController < ActionController::Base
 
   # Changes to the importmap will invalidate the etag for HTML responses
   stale_when_importmap_changes
+
+  before_action :prepare_navigation, if: :authenticated?
+
+  private
+    def prepare_navigation
+      @navigation_household = Current.household
+      @current_person = Current.person
+      @household_people = Current.household.people.order(:name)
+    end
 end
