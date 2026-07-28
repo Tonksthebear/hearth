@@ -14,7 +14,7 @@ class ApplicationController < ActionController::Base
 
       establish_current_context
       @household = Current.household
-      @person = Current.person
+      @current_person = Current.person
       @household_people = Current.household.people.order(:name)
     end
 end

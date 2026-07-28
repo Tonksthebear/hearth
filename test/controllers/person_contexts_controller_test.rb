@@ -61,4 +61,25 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
       assert_select "h2", text: selected.name, count: 0
     end
   end
+
+  test "person switcher marks the selected context on every authenticated person page" do
+    sign_in_as users(:one)
+    selected = people(:two)
+    patch person_context_path, params: { person_id: selected.id }
+
+    [
+      -> { get root_path },
+      -> { get people_path },
+      -> { get new_person_path },
+      -> { get edit_person_path(people(:without_login)) },
+      -> { post people_path, params: { person: { name: "" } } },
+      -> { patch person_path(people(:without_login)), params: { person: { name: "" } } }
+    ].each do |request|
+      request.call
+
+      assert_select "section[aria-labelledby='person-context-heading'] [aria-current]", selected.name
+      assert_select "section[aria-labelledby='person-context-heading'] button",
+        text: /Switch to #{selected.name}/, count: 0
+    end
+  end
 end

@@ -45,7 +45,7 @@
               <p id="person-context-heading" class="text-xs font-semibold uppercase tracking-wider text-stone-500">Person context</p>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <% @household_people.each do |person| %>
-                  <% if person == @person %>
+                  <% if person == @current_person %>
                     <span aria-current="true" class="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900"><%= person.name %></span>
                   <% else %>
                     <%= button_to "Switch to #{person.name}", person_context_path, method: :patch, params: { person_id: person.id }, class: "rounded-full border border-stone-300 px-3 py-1 text-sm font-medium hover:bg-stone-100" %>
