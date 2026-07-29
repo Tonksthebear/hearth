@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   resource :session, only: %i[ new create destroy ]
   resources :passwords, param: :token, only: %i[ new create edit update ]
   resources :people, only: %i[ index new create edit update ]
+  resources :recipes, only: %i[ index show new create edit update ]
   resource :person_context, only: :update
 
   root "dashboard#show"

@@ -1,0 +1,19 @@
+porridge_cook:
+  recipe: porridge
+  body: Simmer the oats until tender.
+  position: 1
+
+porridge_finish:
+  recipe: porridge
+  body: Top with blueberries.
+  position: 2
+
+salad_toss:
+  recipe: salad
+  body: Toss everything together.
+  position: 1
+
+soup_simmer:
+  recipe: observed_soup
+  body: Simmer until the vegetables are tender.
+  position: 1
