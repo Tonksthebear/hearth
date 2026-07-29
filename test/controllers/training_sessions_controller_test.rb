@@ -1,6 +1,26 @@
 require "test_helper"
 
 class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
+  test "new uses the selected logging date" do
+    sign_in_as users(:one)
+
+    get new_training_session_path(date: "2026-08-03")
+
+    assert_response :success
+    assert_select "input[name='training_session[performed_on]'][value='2026-08-03']"
+  end
+
+  test "new falls back to the current date when the selected date is malformed" do
+    travel_to Time.zone.local(2026, 7, 27, 12) do
+      sign_in_as users(:one)
+
+      get new_training_session_path(date: "not-a-date")
+
+      assert_response :success
+      assert_select "input[name='training_session[performed_on]'][value='2026-07-27']"
+    end
+  end
+
   test "starts a template snapshot draft for Current person" do
     sign_in_as users(:one)
 

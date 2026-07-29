@@ -16,13 +16,13 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
     assert_response :see_other
 
     get root_path
-    assert_select "section[aria-labelledby='current-person-heading'] h2", people(:two).name
+    assert_select "article[data-current-person='true'] h3", people(:two).name
 
     patch person_context_path, params: { person_id: people(:one).id }
     assert_redirected_to root_path
 
     get root_path
-    assert_select "section[aria-labelledby='current-person-heading'] h2", people(:one).name
+    assert_select "article[data-current-person='true'] h3", people(:one).name
   end
 
   test "unknown numeric selection returns not found without changing context" do
@@ -33,7 +33,7 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
     get root_path
-    assert_select "section[aria-labelledby='current-person-heading'] h2", people(:two).name
+    assert_select "article[data-current-person='true'] h3", people(:two).name
   end
 
   test "garbage selection returns not found without changing context" do
@@ -44,7 +44,7 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
     get root_path
-    assert_select "section[aria-labelledby='current-person-heading'] h2", people(:two).name
+    assert_select "article[data-current-person='true'] h3", people(:two).name
   end
 
   test "stale selection falls back to the signed in person" do
@@ -56,9 +56,9 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :success
-    assert_select "section[aria-labelledby='current-person-heading']" do
-      assert_select "h2", people(:one).name
-      assert_select "h2", text: selected.name, count: 0
+    assert_select "article[data-current-person='true']" do
+      assert_select "h3", people(:one).name
+      assert_select "h3", text: selected.name, count: 0
     end
   end
 

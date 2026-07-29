@@ -30,21 +30,21 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
 
     assert_no_selector "html[aria-busy='true']"
     click_button_and_wait_for_path "Switch to Taylor Updated", root_path
-    assert_selector "section[aria-labelledby='current-person-heading'] h2", text: "Taylor Updated"
-    assert_selector "section[aria-labelledby='household-heading'] h1", text: households(:home).name
+    assert_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
+    assert_selector "[data-household-name]", text: /#{Regexp.escape(households(:home).name)}/i
 
     assert_no_selector "html[aria-busy='true']"
     click_link_and_wait_for_path "Manage people", people_path
     assert_selector "section[aria-labelledby='people-heading'] h1", text: "People"
     assert_no_selector "html[aria-busy='true']"
     click_link_and_wait_for_path "Hearth", root_path
-    assert_selector "section[aria-labelledby='current-person-heading'] h2", text: "Taylor Updated"
-    assert_no_selector "section[aria-labelledby='current-person-heading'] h2", text: people(:one).name
+    assert_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
+    assert_no_selector "article[data-current-person='true'] h3", text: people(:one).name
 
     assert_no_selector "html[aria-busy='true']"
     click_button_and_wait_for_text "Switch to #{people(:one).name}", people(:one).name
-    assert_selector "section[aria-labelledby='current-person-heading'] h2", text: people(:one).name
-    assert_no_selector "section[aria-labelledby='current-person-heading'] h2", text: "Taylor Updated"
+    assert_selector "article[data-current-person='true'] h3", text: people(:one).name
+    assert_no_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
   end
 
   private
@@ -72,7 +72,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
       button = find_button(label)
       button.click
       page.has_selector?(
-        "section[aria-labelledby='current-person-heading'] h2",
+        "article[data-current-person='true'] h3",
         text: text,
         wait: 5
       )
