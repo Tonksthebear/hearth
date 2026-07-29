@@ -4,6 +4,8 @@ class Person < ApplicationRecord
   has_many :planned_meals, dependent: :destroy
   has_many :meal_logs, dependent: :destroy
   has_many :training_sessions, dependent: :destroy
+  has_many :person_habits, dependent: :destroy
+  has_many :habit_check_ins, through: :person_habits
 
   validates :name, presence: true
   validates_associated :user

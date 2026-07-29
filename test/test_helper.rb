@@ -21,7 +21,13 @@ module ActiveSupport
         TrainingSessionExercise.delete_all
         TrainingSessionBlock.delete_all
         TrainingSession.delete_all
+        HabitCheckInMeasurement.delete_all
+        HabitCheckIn.delete_all
+        PersonHabitMetric.delete_all
+        PersonHabit.delete_all
         Person.delete_all
+        HabitMetric.delete_all
+        Habit.delete_all
         ExercisePrescription.delete_all
         WorkoutBlock.delete_all
         WorkoutTemplate.delete_all

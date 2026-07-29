@@ -17,6 +17,10 @@ Rails.application.routes.draw do
   resources :meal_logs, only: %i[ create destroy ]
   resource :shopping_list, only: :show
   resource :person_context, only: :update
+  resources :habits, only: %i[ index new create edit update ]
+  resources :person_habits, only: %i[ create edit update ]
+  resource :recovery_day, only: :show
+  resources :habit_check_ins, only: %i[ create update destroy ]
 
   root "dashboard#show"
 

@@ -1,0 +1,19 @@
+<% field = TypedHabitValue::VALUE_COLUMNS.fetch(metric.value_type) %>
+<%= form.label field, label, class: "block text-sm font-medium" %>
+<% input_class = "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+<% case metric.value_type %>
+<% when "number" %>
+  <div class="flex items-center gap-2">
+    <%= form.number_field field, step: "any", required: required, class: input_class %>
+    <span class="text-sm text-stone-500"><%= metric.unit %></span>
+  </div>
+<% when "duration" %>
+  <div class="flex items-center gap-2">
+    <%= form.number_field field, min: 0, step: 1, required: required, class: input_class %>
+    <span class="text-sm text-stone-500"><%= metric.unit %></span>
+  </div>
+<% when "time_of_day" %>
+  <%= form.time_field field, required: required, class: input_class %>
+<% when "boolean" %>
+  <%= form.select field, [ [ "Yes", true ], [ "No", false ] ], { include_blank: required ? "Choose" : "No target" }, required: required, class: input_class %>
+<% end %>

@@ -1,0 +1,30 @@
+sauna_duration:
+  habit: sauna
+  key: duration
+  label: Duration
+  value_type: duration
+  unit: minutes
+  position: 1
+
+sauna_temperature:
+  habit: sauna
+  key: temperature
+  label: Temperature
+  value_type: number
+  unit: °F
+  position: 2
+
+lights_out_time:
+  habit: lights_out
+  key: bedtime
+  label: Bedtime
+  value_type: time_of_day
+  position: 1
+
+movement_duration:
+  habit: movement
+  key: duration
+  label: Duration
+  value_type: duration
+  unit: minutes
+  position: 1

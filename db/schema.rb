@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_29_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_29_020000) do
   create_table "exercise_prescriptions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "dose_class"
@@ -52,6 +52,58 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_29_010000) do
     t.check_constraint "movement_pattern IN ('squat', 'hinge', 'lunge', 'horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'carry', 'core', 'locomotion_cardio', 'mobility', 'balance', 'other')", name: "exercises_movement_pattern"
   end
 
+  create_table "habit_check_in_measurements", force: :cascade do |t|
+    t.boolean "boolean_value"
+    t.datetime "created_at", null: false
+    t.integer "duration_value"
+    t.integer "habit_check_in_id", null: false
+    t.integer "habit_metric_id", null: false
+    t.decimal "number_value", precision: 12, scale: 3
+    t.time "time_of_day_value"
+    t.datetime "updated_at", null: false
+    t.index ["habit_check_in_id", "habit_metric_id"], name: "index_habit_measurements_on_check_in_and_metric", unique: true
+    t.index ["habit_check_in_id"], name: "index_habit_check_in_measurements_on_habit_check_in_id"
+    t.index ["habit_metric_id"], name: "index_habit_check_in_measurements_on_habit_metric_id"
+    t.check_constraint "(CASE WHEN habit_check_in_measurements.number_value IS NULL THEN 0 ELSE 1 END) + (CASE WHEN habit_check_in_measurements.duration_value IS NULL THEN 0 ELSE 1 END) + (CASE WHEN habit_check_in_measurements.time_of_day_value IS NULL THEN 0 ELSE 1 END) + (CASE WHEN habit_check_in_measurements.boolean_value IS NULL THEN 0 ELSE 1 END) = 1", name: "habit_measurements_one_typed_value"
+    t.check_constraint "duration_value IS NULL OR duration_value >= 0", name: "habit_measurements_nonnegative_duration"
+  end
+
+  create_table "habit_check_ins", force: :cascade do |t|
+    t.date "checked_on", null: false
+    t.datetime "created_at", null: false
+    t.text "notes"
+    t.integer "person_habit_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_habit_id", "checked_on"], name: "index_habit_check_ins_on_person_habit_id_and_checked_on", unique: true
+    t.index ["person_habit_id"], name: "index_habit_check_ins_on_person_habit_id"
+  end
+
+  create_table "habit_metrics", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "habit_id", null: false
+    t.string "key", null: false
+    t.string "label", null: false
+    t.integer "position", null: false
+    t.string "unit"
+    t.datetime "updated_at", null: false
+    t.string "value_type", null: false
+    t.index ["habit_id", "key"], name: "index_habit_metrics_on_habit_id_and_key", unique: true
+    t.index ["habit_id", "position"], name: "index_habit_metrics_on_habit_id_and_position", unique: true
+    t.index ["habit_id"], name: "index_habit_metrics_on_habit_id"
+    t.check_constraint "position > 0", name: "habit_metrics_positive_position"
+    t.check_constraint "value_type IN ('number', 'duration', 'time_of_day', 'boolean')", name: "habit_metrics_value_type"
+  end
+
+  create_table "habits", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "household_id", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "name"], name: "index_habits_on_household_id_and_name", unique: true
+    t.index ["household_id"], name: "index_habits_on_household_id"
+  end
+
   create_table "households", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "installation_key", default: 1, null: false
@@ -90,6 +142,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_29_010000) do
     t.check_constraint "weekly_structured_minutes_target IS NULL OR weekly_structured_minutes_target > 0", name: "people_positive_structured_minutes_target"
     t.check_constraint "weekly_vigorous_minutes_target IS NULL OR weekly_vigorous_minutes_target > 0", name: "people_positive_vigorous_minutes_target"
     t.check_constraint "weekly_zone2_minutes_target IS NULL OR weekly_zone2_minutes_target > 0", name: "people_positive_zone2_minutes_target"
+  end
+
+  create_table "person_habit_metrics", force: :cascade do |t|
+    t.boolean "boolean_value"
+    t.datetime "created_at", null: false
+    t.integer "duration_value"
+    t.integer "habit_metric_id", null: false
+    t.decimal "number_value", precision: 12, scale: 3
+    t.integer "person_habit_id", null: false
+    t.time "time_of_day_value"
+    t.datetime "updated_at", null: false
+    t.index ["habit_metric_id"], name: "index_person_habit_metrics_on_habit_metric_id"
+    t.index ["person_habit_id", "habit_metric_id"], name: "index_person_habit_metrics_on_configuration_and_metric", unique: true
+    t.index ["person_habit_id"], name: "index_person_habit_metrics_on_person_habit_id"
+    t.check_constraint "(CASE WHEN person_habit_metrics.number_value IS NULL THEN 0 ELSE 1 END) + (CASE WHEN person_habit_metrics.duration_value IS NULL THEN 0 ELSE 1 END) + (CASE WHEN person_habit_metrics.time_of_day_value IS NULL THEN 0 ELSE 1 END) + (CASE WHEN person_habit_metrics.boolean_value IS NULL THEN 0 ELSE 1 END) <= 1", name: "person_habit_metrics_one_typed_value"
+    t.check_constraint "duration_value IS NULL OR duration_value >= 0", name: "person_habit_metrics_nonnegative_duration"
+  end
+
+  create_table "person_habits", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.boolean "friday", default: true, null: false
+    t.integer "habit_id", null: false
+    t.boolean "monday", default: true, null: false
+    t.integer "person_id", null: false
+    t.integer "position", null: false
+    t.boolean "saturday", default: true, null: false
+    t.boolean "sunday", default: true, null: false
+    t.boolean "thursday", default: true, null: false
+    t.boolean "tuesday", default: true, null: false
+    t.datetime "updated_at", null: false
+    t.boolean "wednesday", default: true, null: false
+    t.index ["habit_id"], name: "index_person_habits_on_habit_id"
+    t.index ["person_id", "habit_id"], name: "index_person_habits_on_person_id_and_habit_id", unique: true
+    t.index ["person_id", "position"], name: "index_person_habits_on_person_id_and_position"
+    t.index ["person_id"], name: "index_person_habits_on_person_id"
+    t.check_constraint "position > 0", name: "person_habits_positive_position"
   end
 
   create_table "planned_meals", force: :cascade do |t|
@@ -291,10 +380,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_29_010000) do
   add_foreign_key "exercise_prescriptions", "exercises", on_delete: :restrict
   add_foreign_key "exercise_prescriptions", "workout_blocks"
   add_foreign_key "exercises", "households"
+  add_foreign_key "habit_check_in_measurements", "habit_check_ins"
+  add_foreign_key "habit_check_in_measurements", "habit_metrics"
+  add_foreign_key "habit_check_ins", "person_habits"
+  add_foreign_key "habit_metrics", "habits"
+  add_foreign_key "habits", "households"
   add_foreign_key "meal_logs", "households"
   add_foreign_key "meal_logs", "people"
   add_foreign_key "meal_logs", "recipes"
   add_foreign_key "people", "households"
+  add_foreign_key "person_habit_metrics", "habit_metrics"
+  add_foreign_key "person_habit_metrics", "person_habits"
+  add_foreign_key "person_habits", "habits"
+  add_foreign_key "person_habits", "people"
   add_foreign_key "planned_meals", "households"
   add_foreign_key "planned_meals", "people"
   add_foreign_key "planned_meals", "recipes"

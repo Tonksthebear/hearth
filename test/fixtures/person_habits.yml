@@ -1,0 +1,64 @@
+alex_sauna:
+  person: one
+  habit: sauna
+  active: true
+  position: 1
+  monday: true
+  tuesday: true
+  wednesday: true
+  thursday: true
+  friday: true
+  saturday: false
+  sunday: false
+
+alex_water:
+  person: one
+  habit: water
+  active: true
+  position: 2
+  monday: true
+  tuesday: true
+  wednesday: true
+  thursday: true
+  friday: true
+  saturday: true
+  sunday: true
+
+alex_lights_out:
+  person: one
+  habit: lights_out
+  active: false
+  position: 3
+  monday: true
+  tuesday: true
+  wednesday: true
+  thursday: true
+  friday: true
+  saturday: true
+  sunday: true
+
+sam_sauna:
+  person: two
+  habit: sauna
+  active: true
+  position: 1
+  monday: true
+  tuesday: true
+  wednesday: true
+  thursday: true
+  friday: true
+  saturday: true
+  sunday: true
+
+sam_movement:
+  person: two
+  habit: movement
+  active: true
+  position: 2
+  monday: true
+  tuesday: true
+  wednesday: true
+  thursday: true
+  friday: true
+  saturday: true
+  sunday: true
