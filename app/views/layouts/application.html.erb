@@ -41,6 +41,9 @@
                 <%= link_to "Recipes", recipes_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
                 <%= link_to "Meals", meal_week_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
                 <%= link_to "Shopping", shopping_list_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
+                <%= link_to "Exercises", exercises_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
+                <%= link_to "Workout templates", workout_templates_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
+                <%= link_to "Training", training_week_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
               </div>
             </section>
 
@@ -64,6 +67,9 @@
     <main class="mx-auto w-full max-w-5xl px-5 py-12">
       <% if notice = flash[:notice] %>
         <p id="notice" class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800"><%= notice %></p>
+      <% end %>
+      <% if alert = flash[:alert] %>
+        <p id="alert" class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800"><%= alert %></p>
       <% end %>
 
       <%= yield %>

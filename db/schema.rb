@@ -10,7 +10,48 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_28_230001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_29_010000) do
+  create_table "exercise_prescriptions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "dose_class"
+    t.string "entry_kind", default: "set", null: false
+    t.integer "exercise_id", null: false
+    t.text "load_guidance"
+    t.text "notes"
+    t.integer "position", null: false
+    t.integer "rep_max"
+    t.integer "rep_min"
+    t.integer "rest_seconds"
+    t.integer "sets_count", default: 1, null: false
+    t.decimal "target_rir", precision: 3, scale: 1
+    t.decimal "target_rpe", precision: 3, scale: 1
+    t.datetime "updated_at", null: false
+    t.integer "work_seconds"
+    t.integer "workout_block_id", null: false
+    t.index ["exercise_id"], name: "index_exercise_prescriptions_on_exercise_id"
+    t.index ["workout_block_id", "position"], name: "index_exercise_prescriptions_on_workout_block_id_and_position", unique: true
+    t.index ["workout_block_id"], name: "index_exercise_prescriptions_on_workout_block_id"
+    t.check_constraint "dose_class IS NULL OR dose_class IN ('none', 'strength', 'zone2', 'vigorous')", name: "exercise_prescriptions_dose_class"
+    t.check_constraint "entry_kind IN ('set', 'interval')", name: "exercise_prescriptions_entry_kind"
+    t.check_constraint "position > 0", name: "exercise_prescriptions_positive_position"
+    t.check_constraint "sets_count > 0", name: "exercise_prescriptions_positive_sets"
+  end
+
+  create_table "exercises", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "equipment"
+    t.text "guidance"
+    t.integer "household_id", null: false
+    t.string "modality", null: false
+    t.string "movement_pattern", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "name"], name: "index_exercises_on_household_id_and_name", unique: true
+    t.index ["household_id"], name: "index_exercises_on_household_id"
+    t.check_constraint "modality IN ('strength', 'cardio', 'mobility', 'balance', 'recovery', 'mixed', 'other')", name: "exercises_modality"
+    t.check_constraint "movement_pattern IN ('squat', 'hinge', 'lunge', 'horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'carry', 'core', 'locomotion_cardio', 'mobility', 'balance', 'other')", name: "exercises_movement_pattern"
+  end
+
   create_table "households", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "installation_key", default: 1, null: false
@@ -40,7 +81,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_230001) do
     t.integer "household_id", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.integer "weekly_strength_sessions_target"
+    t.integer "weekly_structured_minutes_target"
+    t.integer "weekly_vigorous_minutes_target"
+    t.integer "weekly_zone2_minutes_target"
     t.index ["household_id"], name: "index_people_on_household_id"
+    t.check_constraint "weekly_strength_sessions_target IS NULL OR weekly_strength_sessions_target > 0", name: "people_positive_strength_sessions_target"
+    t.check_constraint "weekly_structured_minutes_target IS NULL OR weekly_structured_minutes_target > 0", name: "people_positive_structured_minutes_target"
+    t.check_constraint "weekly_vigorous_minutes_target IS NULL OR weekly_vigorous_minutes_target > 0", name: "people_positive_vigorous_minutes_target"
+    t.check_constraint "weekly_zone2_minutes_target IS NULL OR weekly_zone2_minutes_target > 0", name: "people_positive_zone2_minutes_target"
   end
 
   create_table "planned_meals", force: :cascade do |t|
@@ -106,6 +155,97 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_230001) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "training_session_blocks", force: :cascade do |t|
+    t.integer "actual_duration_seconds"
+    t.datetime "created_at", null: false
+    t.text "notes"
+    t.integer "position", null: false
+    t.string "snapshot_block_kind", null: false
+    t.string "snapshot_dose_class", default: "none", null: false
+    t.integer "snapshot_planned_duration_minutes"
+    t.string "snapshot_title", null: false
+    t.integer "training_session_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["training_session_id", "position"], name: "idx_on_training_session_id_position_e41e181bae", unique: true
+    t.index ["training_session_id"], name: "index_training_session_blocks_on_training_session_id"
+    t.check_constraint "actual_duration_seconds IS NULL OR actual_duration_seconds > 0", name: "training_session_blocks_positive_actual_duration"
+    t.check_constraint "position > 0", name: "training_session_blocks_positive_position"
+  end
+
+  create_table "training_session_exercises", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "exercise_id"
+    t.text "notes"
+    t.integer "position", null: false
+    t.string "snapshot_dose_class", default: "none", null: false
+    t.string "snapshot_entry_kind", default: "set", null: false
+    t.text "snapshot_equipment"
+    t.text "snapshot_guidance"
+    t.text "snapshot_load_guidance"
+    t.string "snapshot_modality", null: false
+    t.string "snapshot_movement_pattern", null: false
+    t.string "snapshot_name", null: false
+    t.integer "snapshot_rep_max"
+    t.integer "snapshot_rep_min"
+    t.integer "snapshot_rest_seconds"
+    t.integer "snapshot_sets_count"
+    t.decimal "snapshot_target_rir", precision: 3, scale: 1
+    t.decimal "snapshot_target_rpe", precision: 3, scale: 1
+    t.integer "snapshot_work_seconds"
+    t.integer "training_session_block_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["exercise_id"], name: "index_training_session_exercises_on_exercise_id"
+    t.index ["training_session_block_id", "position"], name: "index_session_exercises_on_block_and_position", unique: true
+    t.index ["training_session_block_id"], name: "index_training_session_exercises_on_training_session_block_id"
+    t.check_constraint "position > 0", name: "training_session_exercises_positive_position"
+  end
+
+  create_table "training_sessions", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.text "notes"
+    t.date "performed_on", null: false
+    t.integer "person_id", null: false
+    t.string "snapshot_provenance_status"
+    t.string "snapshot_source_name"
+    t.string "snapshot_source_url"
+    t.string "snapshot_title", null: false
+    t.datetime "started_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "workout_template_id"
+    t.index ["household_id"], name: "index_training_sessions_on_household_id"
+    t.index ["person_id", "performed_on"], name: "index_training_sessions_on_person_id_and_performed_on"
+    t.index ["person_id"], name: "index_training_sessions_on_person_id"
+    t.index ["workout_template_id"], name: "index_training_sessions_on_workout_template_id"
+  end
+
+  create_table "training_sets", force: :cascade do |t|
+    t.boolean "completed", default: false, null: false
+    t.datetime "created_at", null: false
+    t.decimal "distance_amount", precision: 10, scale: 2
+    t.string "distance_unit"
+    t.string "dose_class", default: "none", null: false
+    t.integer "duration_seconds"
+    t.string "entry_kind", default: "set", null: false
+    t.decimal "load_amount", precision: 8, scale: 2
+    t.string "load_unit"
+    t.text "notes"
+    t.integer "position", null: false
+    t.integer "reps"
+    t.decimal "rir", precision: 3, scale: 1
+    t.decimal "rpe", precision: 3, scale: 1
+    t.integer "training_session_exercise_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["training_session_exercise_id", "position"], name: "index_training_sets_on_exercise_and_position", unique: true
+    t.index ["training_session_exercise_id"], name: "index_training_sets_on_training_session_exercise_id"
+    t.check_constraint "distance_unit IS NULL OR distance_unit IN ('m', 'km', 'mi', 'ft')", name: "training_sets_distance_unit"
+    t.check_constraint "dose_class IN ('none', 'strength', 'zone2', 'vigorous')", name: "training_sets_dose_class"
+    t.check_constraint "entry_kind IN ('set', 'interval')", name: "training_sets_entry_kind"
+    t.check_constraint "load_unit IS NULL OR load_unit IN ('lb', 'kg')", name: "training_sets_load_unit"
+    t.check_constraint "position > 0", name: "training_sets_positive_position"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email_address", null: false
@@ -116,6 +256,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_230001) do
     t.index ["person_id"], name: "index_users_on_person_id", unique: true
   end
 
+  create_table "workout_blocks", force: :cascade do |t|
+    t.string "block_kind", null: false
+    t.datetime "created_at", null: false
+    t.string "dose_class", default: "none", null: false
+    t.text "notes"
+    t.integer "planned_duration_minutes"
+    t.integer "position", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.integer "workout_template_id", null: false
+    t.index ["workout_template_id", "position"], name: "index_workout_blocks_on_workout_template_id_and_position", unique: true
+    t.index ["workout_template_id"], name: "index_workout_blocks_on_workout_template_id"
+    t.check_constraint "block_kind IN ('warm_up', 'strength', 'zone2', 'hiit_interval', 'mobility', 'cooldown_recovery', 'other')", name: "workout_blocks_block_kind"
+    t.check_constraint "dose_class IN ('none', 'strength', 'zone2', 'vigorous')", name: "workout_blocks_dose_class"
+    t.check_constraint "planned_duration_minutes IS NULL OR planned_duration_minutes > 0", name: "workout_blocks_positive_duration"
+    t.check_constraint "position > 0", name: "workout_blocks_positive_position"
+  end
+
+  create_table "workout_templates", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "household_id", null: false
+    t.string "provenance_status", null: false
+    t.string "source_name"
+    t.string "source_url"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "provenance_status"], name: "index_workout_templates_on_household_id_and_provenance_status"
+    t.index ["household_id"], name: "index_workout_templates_on_household_id"
+    t.check_constraint "provenance_status IN ('verified', 'adapted', 'observed', 'personal')", name: "workout_templates_provenance_status"
+  end
+
+  add_foreign_key "exercise_prescriptions", "exercises", on_delete: :restrict
+  add_foreign_key "exercise_prescriptions", "workout_blocks"
+  add_foreign_key "exercises", "households"
   add_foreign_key "meal_logs", "households"
   add_foreign_key "meal_logs", "people"
   add_foreign_key "meal_logs", "recipes"
@@ -127,5 +302,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_230001) do
   add_foreign_key "recipe_instructions", "recipes"
   add_foreign_key "recipes", "households"
   add_foreign_key "sessions", "users"
+  add_foreign_key "training_session_blocks", "training_sessions"
+  add_foreign_key "training_session_exercises", "exercises", on_delete: :nullify
+  add_foreign_key "training_session_exercises", "training_session_blocks"
+  add_foreign_key "training_sessions", "households"
+  add_foreign_key "training_sessions", "people"
+  add_foreign_key "training_sessions", "workout_templates", on_delete: :nullify
+  add_foreign_key "training_sets", "training_session_exercises"
   add_foreign_key "users", "people"
+  add_foreign_key "workout_blocks", "workout_templates"
+  add_foreign_key "workout_templates", "households"
 end

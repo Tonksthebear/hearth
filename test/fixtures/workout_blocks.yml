@@ -1,0 +1,15 @@
+strength:
+  workout_template: balanced
+  position: 1
+  title: Strength
+  block_kind: strength
+  dose_class: strength
+  planned_duration_minutes: 20
+
+zone2:
+  workout_template: balanced
+  position: 2
+  title: Zone 2
+  block_kind: zone2
+  dose_class: zone2
+  planned_duration_minutes: 30

@@ -1,0 +1,6 @@
+<% content_for :title, "Edit #{@exercise.name} · Hearth" %>
+<section aria-labelledby="edit-exercise-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household catalog</p>
+  <h1 id="edit-exercise-heading" class="mt-2 text-3xl font-semibold tracking-tight">Edit <%= @exercise.name %></h1>
+  <%= render "form", exercise: @exercise, modalities: @modalities, movement_patterns: @movement_patterns %>
+</section>
