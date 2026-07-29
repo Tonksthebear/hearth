@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_28_220002) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_28_230001) do
   create_table "households", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "installation_key", default: 1, null: false
@@ -20,12 +20,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_220002) do
     t.check_constraint "installation_key = 1", name: "households_single_installation"
   end
 
+  create_table "meal_logs", force: :cascade do |t|
+    t.text "ad_hoc_description"
+    t.datetime "created_at", null: false
+    t.date "eaten_on", null: false
+    t.integer "household_id", null: false
+    t.integer "person_id", null: false
+    t.integer "recipe_id"
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "eaten_on"], name: "index_meal_logs_on_household_id_and_eaten_on"
+    t.index ["household_id"], name: "index_meal_logs_on_household_id"
+    t.index ["person_id", "eaten_on"], name: "index_meal_logs_on_person_id_and_eaten_on"
+    t.index ["person_id"], name: "index_meal_logs_on_person_id"
+    t.index ["recipe_id"], name: "index_meal_logs_on_recipe_id"
+  end
+
   create_table "people", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "household_id", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
     t.index ["household_id"], name: "index_people_on_household_id"
+  end
+
+  create_table "planned_meals", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.integer "person_id"
+    t.date "planned_on", null: false
+    t.integer "recipe_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "planned_on"], name: "index_planned_meals_on_household_id_and_planned_on"
+    t.index ["household_id"], name: "index_planned_meals_on_household_id"
+    t.index ["person_id", "planned_on"], name: "index_planned_meals_on_person_id_and_planned_on"
+    t.index ["person_id"], name: "index_planned_meals_on_person_id"
+    t.index ["recipe_id"], name: "index_planned_meals_on_recipe_id"
   end
 
   create_table "recipe_ingredients", force: :cascade do |t|
@@ -87,7 +116,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_220002) do
     t.index ["person_id"], name: "index_users_on_person_id", unique: true
   end
 
+  add_foreign_key "meal_logs", "households"
+  add_foreign_key "meal_logs", "people"
+  add_foreign_key "meal_logs", "recipes"
   add_foreign_key "people", "households"
+  add_foreign_key "planned_meals", "households"
+  add_foreign_key "planned_meals", "people"
+  add_foreign_key "planned_meals", "recipes"
   add_foreign_key "recipe_ingredients", "recipes"
   add_foreign_key "recipe_instructions", "recipes"
   add_foreign_key "recipes", "households"

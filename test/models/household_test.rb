@@ -80,6 +80,31 @@ class HouseholdTest < ActiveSupport::TestCase
     assert_equal fallback, household.person_for(stale_id, fallback: fallback)
   end
 
+  test "destroys meal records before their referenced recipes" do
+    household = bootstrap
+    person = household.people.first
+    recipe = household.recipes.create!(
+      title: "Teardown meal",
+      source_name: "Test",
+      provenance_status: :observed
+    )
+    household.planned_meals.create!(recipe: recipe, planned_on: Date.new(2026, 7, 27))
+    household.meal_logs.create!(
+      person: person,
+      recipe: recipe,
+      eaten_on: Date.new(2026, 7, 27)
+    )
+
+    assert_difference({
+      "Household.count" => -1,
+      "PlannedMeal.count" => -1,
+      "MealLog.count" => -1,
+      "Recipe.count" => -1
+    }) do
+      household.destroy!
+    end
+  end
+
   private
     def bootstrap(
       household_attributes: { name: "Home" },
@@ -96,6 +121,8 @@ class HouseholdTest < ActiveSupport::TestCase
     def clear_installation
       Session.delete_all
       User.delete_all
+      MealLog.delete_all
+      PlannedMeal.delete_all
       Person.delete_all
       RecipeInstruction.delete_all
       RecipeIngredient.delete_all

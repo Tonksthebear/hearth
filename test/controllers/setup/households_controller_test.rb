@@ -80,6 +80,8 @@ class Setup::HouseholdsControllerTest < ActionDispatch::IntegrationTest
     def clear_installation
       Session.delete_all
       User.delete_all
+      MealLog.delete_all
+      PlannedMeal.delete_all
       Person.delete_all
       RecipeInstruction.delete_all
       RecipeIngredient.delete_all

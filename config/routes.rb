@@ -7,6 +7,10 @@ Rails.application.routes.draw do
   resources :passwords, param: :token, only: %i[ new create edit update ]
   resources :people, only: %i[ index new create edit update ]
   resources :recipes, only: %i[ index show new create edit update ]
+  resource :meal_week, only: :show
+  resources :planned_meals, only: %i[ create destroy ]
+  resources :meal_logs, only: %i[ create destroy ]
+  resource :shopping_list, only: :show
   resource :person_context, only: :update
 
   root "dashboard#show"

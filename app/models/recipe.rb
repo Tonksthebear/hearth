@@ -12,6 +12,8 @@ class Recipe < ApplicationRecord
   }.freeze
 
   belongs_to :household
+  has_many :planned_meals, dependent: :restrict_with_exception
+  has_many :meal_logs, dependent: :restrict_with_exception
   has_many :recipe_ingredients, -> { order(:position) }, dependent: :destroy
   has_many :recipe_instructions, -> { order(:position) }, dependent: :destroy
 

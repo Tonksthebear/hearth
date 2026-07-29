@@ -128,6 +128,18 @@ class RecipeTest < ActiveSupport::TestCase
     end
   end
 
+  test "cannot be destroyed while a plan or meal log references it" do
+    planned_recipe = recipes(:salad)
+    logged_recipe = recipes(:observed_soup)
+
+    assert_raises ActiveRecord::DeleteRestrictionError do
+      planned_recipe.destroy!
+    end
+    assert_raises ActiveRecord::DeleteRestrictionError do
+      logged_recipe.destroy!
+    end
+  end
+
   private
     def valid_import_attributes
       {
