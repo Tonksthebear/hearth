@@ -24,6 +24,14 @@ class HouseholdWeekTest < ActiveSupport::TestCase
     end
   end
 
+  test "uses today as the logging date inside the current week" do
+    travel_to Time.zone.local(2026, 7, 29, 12) do
+      week = HouseholdWeek.for(household: households(:home), person: people(:one), date: "2026-07-29")
+
+      assert_equal Date.new(2026, 7, 29), week.logging_date
+    end
+  end
+
   test "keeps household plans complete and person activity isolated inside the week" do
     travel_to Time.zone.local(2026, 7, 27, 12) do
       prepare_household_week_habits
