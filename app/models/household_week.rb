@@ -7,7 +7,7 @@ class HouseholdWeek
 
   PersonSummary = Data.define(:person, :meal_logs, :training_sessions, :habits)
 
-  attr_reader :household, :person, :start_date, :planned_meals, :people
+  attr_reader :household, :person, :start_date, :planned_meals, :people, :person_summaries
 
   class << self
     def current(household:, person:)
@@ -40,10 +40,6 @@ class HouseholdWeek
 
   def days
     @days ||= date_range.to_a.freeze
-  end
-
-  def person_summaries
-    @person_summaries
   end
 
   def previous_date

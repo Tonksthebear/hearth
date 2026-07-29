@@ -33,7 +33,11 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
       assert_select "a[href=?]", new_training_session_path(date: "2026-07-27"), text: "Log a workout"
       assert_select "a[href=?]", recovery_day_path, text: "Check in on habits"
       assert_select "p", text: /does not provide medical advice, diagnosis, or treatment/
-      assert_select "#alert", count: 0
+
+      get new_setup_household_path
+      assert_redirected_to root_path
+      follow_redirect!
+      assert_select "#alert", text: "Household setup is already complete.", count: 1
     end
   end
 
@@ -86,6 +90,20 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
       assert_select "article[data-current-person='true'] h3", people(:two).name
       assert_select "#household-plans li", count: 4
       assert_select "#household-plans", text: /#{Regexp.escape(recipes(:alex_only).title)}/
+    end
+  end
+
+  test "non-current and empty weeks render their dated action and empty plan state" do
+    travel_to Time.zone.local(2026, 7, 27, 12) do
+      prepare_household_week_habits
+      sign_in_as users(:one)
+
+      get root_path(date: "2026-08-12")
+
+      assert_response :success
+      assert_select "a[href=?]", new_training_session_path(date: "2026-08-10"), text: "Log a workout"
+      assert_select "#household-plans li", count: 0
+      assert_select "p", text: "Nothing planned for this week."
     end
   end
 end

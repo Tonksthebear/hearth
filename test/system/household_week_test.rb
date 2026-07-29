@@ -60,6 +60,7 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       assert_link "Log a workout"
       assert_link "Check in on habits"
       assert_text "No meals logged this week."
+      assert_selector "p", text: "No meals logged this week.", count: 1
       assert_text "Informational tracking only"
     end
   ensure

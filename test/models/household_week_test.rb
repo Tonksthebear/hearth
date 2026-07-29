@@ -16,6 +16,10 @@ class HouseholdWeekTest < ActiveSupport::TestCase
       assert_equal Date.new(2026, 7, 20), explicit.previous_date
       assert_equal Date.new(2026, 8, 3), explicit.next_date
       assert_equal WEEK_START, explicit.logging_date
+      assert_equal(
+        Date.new(2026, 8, 10),
+        HouseholdWeek.for(household: households(:home), person: people(:one), date: "2026-08-12").logging_date
+      )
       assert_equal "2026-07-27", explicit.to_param
     end
   end
@@ -85,7 +89,6 @@ class HouseholdWeekTest < ActiveSupport::TestCase
       assert_queries_count(6) do
         materialize(HouseholdWeek.for(household: household, person: person, date: WEEK_START))
       end
-      assert_operator 6, :<=, 12
 
       household.people.create!(name: "Taylor")
 

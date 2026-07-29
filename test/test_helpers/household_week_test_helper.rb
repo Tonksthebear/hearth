@@ -30,7 +30,3 @@ module HouseholdWeekTestHelper
 end
 
 ActiveSupport::TestCase.include HouseholdWeekTestHelper
-
-ActiveSupport.on_load(:action_dispatch_integration_test) do
-  include HouseholdWeekTestHelper
-end
