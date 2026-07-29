@@ -39,12 +39,13 @@ class WorkoutBlock < ApplicationRecord
     index, direction = coordinate.to_s.split(":")
     index = Integer(index)
     target = direction == "up" ? index - 1 : index + 1
-    records = active_prescriptions
+    exercise_prescriptions.load_target
+    records = exercise_prescriptions.target
     raise ArgumentError unless %w[up down].include?(direction)
     raise ArgumentError if index.negative? || target.negative? || index >= records.size || target >= records.size
+    raise ArgumentError if records[index].marked_for_destruction? || records[target].marked_for_destruction?
 
     records[index], records[target] = records[target], records[index]
-    exercise_prescriptions.target.replace(records + exercise_prescriptions.target.select(&:marked_for_destruction?))
     normalize_positions
   rescue ArgumentError
     raise ArgumentError, "Invalid exercise prescription row."
@@ -67,6 +68,8 @@ class WorkoutBlock < ApplicationRecord
     end
 
     def park_changed_prescription_positions
+      # Park changed rows beyond index_exercise_prescriptions_on_workout_block_id_and_position
+      # before autosave applies their final positions, avoiding transient unique collisions.
       active_prescriptions.select { |prescription| prescription.persisted? && prescription.will_save_change_to_position? }.each do |prescription|
         desired_position = prescription.position
         prescription.update_column(:position, prescription.id + 1_000_000)

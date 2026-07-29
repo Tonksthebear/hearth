@@ -32,6 +32,24 @@ class WorkoutTemplateTest < ActiveSupport::TestCase
     assert_predicate template.workout_blocks.target.first, :marked_for_destruction?
   end
 
+  test "moving surviving persisted rows preserves destroyed row coordinates" do
+    template = workout_templates(:balanced)
+    third = template.workout_blocks.create!(
+      position: 3,
+      title: "Cooldown",
+      block_kind: :cooldown_recovery,
+      dose_class: :none
+    )
+    removed = template.workout_blocks.first
+    template.remove_block(0)
+    template.move_block("1:down")
+
+    assert_equal removed.id, template.workout_blocks.target[0].id
+    assert_predicate template.workout_blocks.target[0], :marked_for_destruction?
+    assert_equal third.id, template.workout_blocks.target[1].id
+    assert_equal [ 1, 2 ], template.workout_blocks.target.reject(&:marked_for_destruction?).map(&:position)
+  end
+
   test "persists reordered blocks through the unique position index" do
     template = workout_templates(:balanced)
     template.move_block("1:up")

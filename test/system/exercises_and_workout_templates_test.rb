@@ -41,4 +41,25 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     assert_text "not clinical endorsement"
     assert_text "medical advice"
   end
+
+  test "continues composing the intended block after removing a persisted sibling" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path edit_workout_template_path(workout_templates(:balanced))
+
+    click_element_and_wait_for_count(
+      all(:button, "Remove block").first,
+      "#workout_template_form section.rounded-xl",
+      1
+    )
+
+    within "#workout_template_form section.rounded-xl" do
+      assert_field "Block title", with: "Zone 2"
+      click_button_and_wait_for_count(
+        "Add exercise prescription",
+        "select[name$='[exercise_id]']",
+        2
+      )
+      assert_field "Block title", with: "Zone 2"
+    end
+  end
 end

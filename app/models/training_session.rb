@@ -164,7 +164,10 @@ class TrainingSession < ApplicationRecord
     end
 
     def block_at(index)
-      active_blocks.fetch(Integer(index))
+      training_session_blocks.load_target
+      training_session_blocks.target.fetch(Integer(index)).tap do |block|
+        raise ArgumentError if block.marked_for_destruction?
+      end
     rescue ArgumentError, IndexError
       raise ArgumentError, "Invalid performed block row."
     end

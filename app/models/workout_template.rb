@@ -43,9 +43,8 @@ class WorkoutTemplate < ApplicationRecord
 
   def move_block(coordinate)
     index, direction = parse_move(coordinate)
-    records = active_blocks
-    move(records, index, direction)
-    workout_blocks.target.replace(records + workout_blocks.target.select(&:marked_for_destruction?))
+    workout_blocks.load_target
+    move(workout_blocks.target, index, direction)
     normalize_positions
   end
 
@@ -95,7 +94,10 @@ class WorkoutTemplate < ApplicationRecord
     end
 
     def block_at(index)
-      active_blocks.fetch(Integer(index))
+      workout_blocks.load_target
+      workout_blocks.target.fetch(Integer(index)).tap do |block|
+        raise ArgumentError if block.marked_for_destruction?
+      end
     rescue ArgumentError, IndexError
       raise ArgumentError, "Invalid workout block row."
     end
@@ -121,6 +123,7 @@ class WorkoutTemplate < ApplicationRecord
     def move(records, index, direction)
       target = direction == "up" ? index - 1 : index + 1
       raise ArgumentError if index.negative? || target.negative? || index >= records.size || target >= records.size
+      raise ArgumentError if records[index].marked_for_destruction? || records[target].marked_for_destruction?
 
       records[index], records[target] = records[target], records[index]
     rescue ArgumentError
@@ -137,6 +140,8 @@ class WorkoutTemplate < ApplicationRecord
     end
 
     def park_changed_block_positions
+      # Park changed rows beyond index_workout_blocks_on_workout_template_id_and_position
+      # before autosave applies their final positions, avoiding transient unique collisions.
       active_blocks.select { |block| block.persisted? && block.will_save_change_to_position? }.each do |block|
         desired_position = block.position
         block.update_column(:position, block.id + 1_000_000)

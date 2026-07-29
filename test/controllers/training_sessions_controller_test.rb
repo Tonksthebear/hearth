@@ -76,6 +76,45 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name*='training_sets_attributes'][name$='[id]']"
   end
 
+  test "structural coordinates still target the rendered block after a persisted removal" do
+    sign_in_as users(:one)
+    session = training_sessions(:draft)
+    second_block = session.training_session_blocks.create!(
+      position: 2,
+      snapshot_title: "Second block",
+      snapshot_block_kind: :other,
+      snapshot_dose_class: :none
+    )
+    second_exercise = second_block.training_session_exercises.create!(
+      position: 1,
+      snapshot_name: "Walk",
+      snapshot_modality: :cardio,
+      snapshot_movement_pattern: :locomotion_cardio,
+      snapshot_entry_kind: :interval,
+      snapshot_dose_class: :none
+    )
+    second_exercise.training_sets.create!(position: 1, entry_kind: :interval, dose_class: :none)
+    params = persisted_session_params(session.reload)
+
+    patch training_session_path(session),
+      params: { training_session: params, remove_session_block: "0" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    params[:training_session_blocks_attributes]["0"][:_destroy] = "1"
+
+    patch training_session_path(session),
+      params: { training_session: params, add_session_exercise: "1" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "section" do |sections|
+      second = sections.find { |section| section.css("input[value='Second block']").any? }
+      assert_not_nil second
+      assert_equal 2, second.css("input[name$='[snapshot_name]']").size
+    end
+  end
+
   test "another person's sessions are not visible or mutable" do
     sign_in_as users(:one)
 
@@ -166,5 +205,51 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
 
     def turbo_stream_headers
       { "Accept" => Mime[:turbo_stream].to_s }
+    end
+
+    def persisted_session_params(session)
+      {
+        snapshot_title: session.snapshot_title,
+        performed_on: session.performed_on,
+        training_session_blocks_attributes: session.training_session_blocks.each_with_index.to_h do |block, block_index|
+          [
+            block_index.to_s,
+            {
+              id: block.id,
+              snapshot_title: block.snapshot_title,
+              snapshot_block_kind: block.snapshot_block_kind,
+              snapshot_dose_class: block.snapshot_dose_class,
+              actual_duration_seconds: block.actual_duration_seconds,
+              training_session_exercises_attributes: block.training_session_exercises.each_with_index.to_h do |exercise, exercise_index|
+                [
+                  exercise_index.to_s,
+                  {
+                    id: exercise.id,
+                    exercise_id: exercise.exercise_id,
+                    snapshot_name: exercise.snapshot_name,
+                    snapshot_modality: exercise.snapshot_modality,
+                    snapshot_movement_pattern: exercise.snapshot_movement_pattern,
+                    snapshot_entry_kind: exercise.snapshot_entry_kind,
+                    snapshot_dose_class: exercise.snapshot_dose_class,
+                    training_sets_attributes: exercise.training_sets.each_with_index.to_h do |set, set_index|
+                      [
+                        set_index.to_s,
+                        {
+                          id: set.id,
+                          entry_kind: set.entry_kind,
+                          dose_class: set.dose_class,
+                          reps: set.reps,
+                          duration_seconds: set.duration_seconds,
+                          completed: set.completed
+                        }
+                      ]
+                    end
+                  }
+                ]
+              end
+            }
+          ]
+        end
+      }
     end
 end

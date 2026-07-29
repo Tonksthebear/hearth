@@ -32,7 +32,10 @@ class TrainingSessionBlock < ApplicationRecord
   end
 
   def exercise_at(index)
-    active_exercises.fetch(Integer(index))
+    training_session_exercises.load_target
+    training_session_exercises.target.fetch(Integer(index)).tap do |exercise|
+      raise ArgumentError if exercise.marked_for_destruction?
+    end
   rescue ArgumentError, IndexError
     raise ArgumentError, "Invalid performed exercise row."
   end

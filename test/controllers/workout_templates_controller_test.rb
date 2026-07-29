@@ -56,6 +56,30 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_select "#workout-template-errors", text: /Invalid exercise prescription row/
   end
 
+  test "structural coordinates still target the rendered block after a persisted removal" do
+    sign_in_as users(:one)
+    template = workout_templates(:balanced)
+    params = persisted_template_params(template)
+
+    patch workout_template_path(template),
+      params: { workout_template: params, remove_block: "0" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    params[:workout_blocks_attributes]["0"][:_destroy] = "1"
+
+    patch workout_template_path(template),
+      params: { workout_template: params, add_prescription: "1" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "section" do |sections|
+      zone2 = sections.find { |section| section.css("input[value='Zone 2']").any? }
+      assert_not_nil zone2
+      assert_equal 2, zone2.css("select[name$='[exercise_id]']").size
+    end
+  end
+
   test "client supplied positions are normalized from one" do
     sign_in_as users(:one)
     params = valid_template_params.deep_merge(
@@ -108,5 +132,43 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
 
     def turbo_stream_headers
       { "Accept" => Mime[:turbo_stream].to_s }
+    end
+
+    def persisted_template_params(template)
+      {
+        title: template.title,
+        description: template.description,
+        provenance_status: template.provenance_status,
+        source_name: template.source_name,
+        source_url: template.source_url,
+        workout_blocks_attributes: template.workout_blocks.each_with_index.to_h do |block, block_index|
+          [
+            block_index.to_s,
+            {
+              id: block.id,
+              title: block.title,
+              block_kind: block.block_kind,
+              dose_class: block.dose_class,
+              planned_duration_minutes: block.planned_duration_minutes,
+              exercise_prescriptions_attributes: block.exercise_prescriptions.each_with_index.to_h do |prescription, prescription_index|
+                [
+                  prescription_index.to_s,
+                  {
+                    id: prescription.id,
+                    exercise_id: prescription.exercise_id,
+                    entry_kind: prescription.entry_kind,
+                    sets_count: prescription.sets_count,
+                    rep_min: prescription.rep_min,
+                    rep_max: prescription.rep_max,
+                    work_seconds: prescription.work_seconds,
+                    rest_seconds: prescription.rest_seconds,
+                    dose_class: prescription.dose_class
+                  }
+                ]
+              end
+            }
+          ]
+        end
+      }
     end
 end

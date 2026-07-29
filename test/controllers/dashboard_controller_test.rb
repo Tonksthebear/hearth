@@ -42,25 +42,4 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
       assert_select "h2", text: people(:one).name, count: 0
     end
   end
-
-  private
-    def clear_installation
-      Session.delete_all
-      User.delete_all
-      MealLog.delete_all
-      PlannedMeal.delete_all
-      TrainingSet.delete_all
-      TrainingSessionExercise.delete_all
-      TrainingSessionBlock.delete_all
-      TrainingSession.delete_all
-      Person.delete_all
-      ExercisePrescription.delete_all
-      WorkoutBlock.delete_all
-      WorkoutTemplate.delete_all
-      Exercise.delete_all
-      RecipeInstruction.delete_all
-      RecipeIngredient.delete_all
-      Recipe.delete_all
-      Household.delete_all
-    end
 end

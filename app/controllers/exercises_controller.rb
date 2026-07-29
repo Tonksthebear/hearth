@@ -1,5 +1,5 @@
 class ExercisesController < ApplicationController
-  before_action :set_exercise, only: %i[ show edit update destroy ]
+  before_action :set_exercise, only: %i[ show edit update ]
   before_action :prepare_form, only: %i[ new create edit update ]
 
   def index
@@ -32,13 +32,6 @@ class ExercisesController < ApplicationController
     else
       render :edit, status: :unprocessable_entity
     end
-  end
-
-  def destroy
-    @exercise.destroy!
-    redirect_to exercises_path, notice: "#{@exercise.name} was deleted.", status: :see_other
-  rescue ActiveRecord::DeleteRestrictionError
-    redirect_to @exercise, alert: "This exercise is used by a workout template and cannot be deleted."
   end
 
   private
