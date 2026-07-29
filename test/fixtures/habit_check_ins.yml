@@ -1,0 +1,20 @@
+alex_sauna_today:
+  person_habit: alex_sauna
+  checked_on: <%= Date.current %>
+  notes: Felt comfortable
+
+alex_water_today:
+  person_habit: alex_water
+  checked_on: <%= Date.current %>
+
+alex_lights_out_yesterday:
+  person_habit: alex_lights_out
+  checked_on: <%= Date.current - 1.day %>
+
+alex_sauna_outside_window:
+  person_habit: alex_sauna
+  checked_on: <%= Date.current - 7.days %>
+
+sam_sauna_today:
+  person_habit: sam_sauna
+  checked_on: <%= Date.current %>

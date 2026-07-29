@@ -1,0 +1,38 @@
+<% content_for :title, "Recovery habits" %>
+
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Household catalog</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight">Recovery habits</h1>
+    <p class="mt-3 max-w-2xl text-stone-600">Define shared habits here, then activate and configure them independently for <%= @current_person.name %>.</p>
+  </div>
+  <%= link_to "New habit", new_habit_path, class: "rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+</div>
+
+<div class="mt-8 space-y-4">
+  <% @habits.each do |habit| %>
+    <% person_habit = @person_habits_by_habit_id[habit.id] %>
+    <article class="rounded-xl border border-stone-200 bg-white p-5">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-semibold"><%= habit.name %></h2>
+          <% if habit.description.present? %><p class="mt-2 text-stone-600"><%= habit.description %></p><% end %>
+          <p class="mt-2 text-sm text-stone-500">
+            <%= habit.habit_metrics.any? ? habit.habit_metrics.map(&:label).to_sentence : "Completion only" %>
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <%= link_to "Edit definition", edit_habit_path(habit), class: "text-sm font-semibold text-amber-800 underline" %>
+          <% if person_habit %>
+            <%= link_to "Configure for #{@current_person.name}", edit_person_habit_path(person_habit), class: "text-sm font-semibold text-amber-800 underline" %>
+          <% else %>
+            <%= button_to "Activate for #{@current_person.name}", person_habits_path, params: { habit_id: habit.id }, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold hover:bg-stone-100" %>
+          <% end %>
+        </div>
+      </div>
+    </article>
+  <% end %>
+  <% if @habits.empty? %>
+    <p class="rounded-xl border border-dashed border-stone-300 p-8 text-center text-stone-600">No recovery habits yet.</p>
+  <% end %>
+</div>

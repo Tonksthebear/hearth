@@ -1,0 +1,14 @@
+alex_sauna_duration_target:
+  person_habit: alex_sauna
+  habit_metric: sauna_duration
+  duration_value: 20
+
+alex_sauna_temperature_target:
+  person_habit: alex_sauna
+  habit_metric: sauna_temperature
+  number_value: 175
+
+sam_sauna_duration_target:
+  person_habit: sam_sauna
+  habit_metric: sauna_duration
+  duration_value: 15

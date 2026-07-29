@@ -1,0 +1,54 @@
+<% content_for :title, "Configure #{@person_habit.habit.name}" %>
+<h1 class="text-3xl font-semibold tracking-tight">Configure <%= @person_habit.habit.name %></h1>
+<p class="mt-3 text-stone-600">This schedule and these optional tracking targets apply only to <%= @current_person.name %>. They are preferences, not medical guidance.</p>
+
+<%= form_with model: @person_habit, class: "mt-8 space-y-8" do |form| %>
+  <% if @person_habit.errors.any? %>
+    <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+      <ul class="list-disc pl-5"><% @person_habit.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+    </div>
+  <% end %>
+
+  <fieldset class="rounded-xl border border-stone-200 bg-white p-5">
+    <legend class="px-2 text-lg font-semibold">Active days</legend>
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <% PersonHabit::WEEKDAYS.rotate.each do |weekday| %>
+        <label class="flex items-center gap-2 rounded-lg border border-stone-200 p-3">
+          <%= form.checkbox weekday %>
+          <span><%= weekday.humanize %></span>
+        </label>
+      <% end %>
+    </div>
+  </fieldset>
+
+  <% if @person_habit.habit.habit_metrics.any? %>
+    <fieldset class="rounded-xl border border-stone-200 bg-white p-5">
+      <legend class="px-2 text-lg font-semibold">Optional targets</legend>
+      <div class="mt-4 space-y-4">
+        <%= form.fields_for :person_habit_metrics do |target_form| %>
+          <% metric = target_form.object.habit_metric %>
+          <div class="rounded-lg border border-stone-200 p-4">
+            <%= target_form.hidden_field :id if target_form.object.persisted? %>
+            <%= target_form.hidden_field :habit_metric_id %>
+            <%= render "recovery_days/typed_field", form: target_form, metric: metric, label: "#{metric.label} target", required: false %>
+          </div>
+        <% end %>
+      </div>
+    </fieldset>
+  <% end %>
+
+  <%= form.hidden_field :active, value: "1" %>
+  <div class="flex flex-wrap gap-3">
+    <%= form.submit "Save configuration", class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+    <%= link_to "Cancel", recovery_day_path, class: "px-3 py-2 text-sm font-semibold text-stone-700 underline" %>
+  </div>
+<% end %>
+
+<% if @person_habit.active? %>
+  <div class="mt-8 border-t border-stone-200 pt-6">
+    <%= button_to "Deactivate habit", person_habit_path(@person_habit), method: :patch, params: { person_habit: { active: "0" } }, class: "rounded-lg border border-red-200 px-4 py-2 font-semibold text-red-800" %>
+    <p class="mt-2 text-sm text-stone-500">Recent recorded check-ins remain visible as history.</p>
+  </div>
+<% else %>
+  <%= button_to "Reactivate habit", person_habit_path(@person_habit), method: :patch, params: { person_habit: { active: "1" } }, class: "mt-8 rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white" %>
+<% end %>

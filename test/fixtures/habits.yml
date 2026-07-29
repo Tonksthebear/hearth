@@ -1,0 +1,19 @@
+sauna:
+  household: home
+  name: Sauna
+  description: Record a sauna session.
+
+water:
+  household: home
+  name: Water
+  description: A completion-only hydration check.
+
+lights_out:
+  household: home
+  name: Lights out
+  description: Record bedtime.
+
+movement:
+  household: home
+  name: Post-meal movement
+  description: Record movement after a meal.

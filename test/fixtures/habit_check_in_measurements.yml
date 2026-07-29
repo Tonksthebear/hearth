@@ -1,0 +1,34 @@
+alex_sauna_duration_today:
+  habit_check_in: alex_sauna_today
+  habit_metric: sauna_duration
+  duration_value: 18
+
+alex_sauna_temperature_today:
+  habit_check_in: alex_sauna_today
+  habit_metric: sauna_temperature
+  number_value: 170
+
+alex_lights_out_time_yesterday:
+  habit_check_in: alex_lights_out_yesterday
+  habit_metric: lights_out_time
+  time_of_day_value: "22:30:00"
+
+alex_sauna_duration_outside_window:
+  habit_check_in: alex_sauna_outside_window
+  habit_metric: sauna_duration
+  duration_value: 16
+
+alex_sauna_temperature_outside_window:
+  habit_check_in: alex_sauna_outside_window
+  habit_metric: sauna_temperature
+  number_value: 165
+
+sam_sauna_duration_today:
+  habit_check_in: sam_sauna_today
+  habit_metric: sauna_duration
+  duration_value: 12
+
+sam_sauna_temperature_today:
+  habit_check_in: sam_sauna_today
+  habit_metric: sauna_temperature
+  number_value: 160
