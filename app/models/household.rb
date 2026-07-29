@@ -4,6 +4,9 @@ class Household < ApplicationRecord
   has_many :planned_meals, dependent: :destroy
   has_many :meal_logs, dependent: :destroy
   has_many :recipes, dependent: :destroy
+  has_many :training_sessions, dependent: :destroy
+  has_many :workout_templates, dependent: :destroy
+  has_many :exercises, dependent: :destroy
 
   validates :name, presence: true
   validates :installation_key, inclusion: { in: [ 1 ] }, uniqueness: true

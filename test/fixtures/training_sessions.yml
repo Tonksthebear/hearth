@@ -1,0 +1,34 @@
+completed_sunday:
+  household: home
+  person: one
+  workout_template: balanced
+  snapshot_title: Sunday balanced day
+  snapshot_provenance_status: adapted
+  snapshot_source_name: Hearth test plan
+  snapshot_source_url: https://example.com/training
+  performed_on: 2026-08-02
+  started_at: 2026-08-02 09:00:00
+  completed_at: 2026-08-02 10:00:00
+
+following_monday:
+  household: home
+  person: one
+  snapshot_title: Following week
+  performed_on: 2026-08-03
+  started_at: 2026-08-03 09:00:00
+  completed_at: 2026-08-03 09:30:00
+
+other_person:
+  household: home
+  person: two
+  snapshot_title: Sam workout
+  performed_on: 2026-07-29
+  started_at: 2026-07-29 08:00:00
+  completed_at: 2026-07-29 08:20:00
+
+draft:
+  household: home
+  person: one
+  snapshot_title: Resume me
+  performed_on: 2026-07-30
+  started_at: 2026-07-30 07:00:00

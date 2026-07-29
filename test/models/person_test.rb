@@ -1,6 +1,19 @@
 require "test_helper"
 
 class PersonTest < ActiveSupport::TestCase
+  test "weekly dose targets are nullable positive integers" do
+    person = people(:one)
+
+    assert person.update(
+      weekly_structured_minutes_target: nil,
+      weekly_strength_sessions_target: 2,
+      weekly_zone2_minutes_target: 90,
+      weekly_vigorous_minutes_target: 20
+    )
+
+    person.weekly_structured_minutes_target = 0
+    assert_not person.valid?
+  end
   test "belongs to a household and may own one login" do
     person = people(:one)
 

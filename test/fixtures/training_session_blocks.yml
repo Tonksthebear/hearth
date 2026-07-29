@@ -1,0 +1,41 @@
+sunday_strength:
+  training_session: completed_sunday
+  position: 1
+  snapshot_title: Strength
+  snapshot_block_kind: strength
+  snapshot_dose_class: strength
+  snapshot_planned_duration_minutes: 20
+  actual_duration_seconds: 1200
+
+sunday_zone2:
+  training_session: completed_sunday
+  position: 2
+  snapshot_title: Zone 2
+  snapshot_block_kind: zone2
+  snapshot_dose_class: zone2
+  snapshot_planned_duration_minutes: 30
+  actual_duration_seconds: 1800
+
+next_block:
+  training_session: following_monday
+  position: 1
+  snapshot_title: Next week
+  snapshot_block_kind: other
+  snapshot_dose_class: none
+  actual_duration_seconds: 1800
+
+other_person_block:
+  training_session: other_person
+  position: 1
+  snapshot_title: Other person
+  snapshot_block_kind: hiit_interval
+  snapshot_dose_class: vigorous
+  actual_duration_seconds: 1200
+
+draft_block:
+  training_session: draft
+  position: 1
+  snapshot_title: Draft block
+  snapshot_block_kind: strength
+  snapshot_dose_class: strength
+  actual_duration_seconds: 900

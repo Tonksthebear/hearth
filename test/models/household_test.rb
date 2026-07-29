@@ -123,7 +123,15 @@ class HouseholdTest < ActiveSupport::TestCase
       User.delete_all
       MealLog.delete_all
       PlannedMeal.delete_all
+      TrainingSet.delete_all
+      TrainingSessionExercise.delete_all
+      TrainingSessionBlock.delete_all
+      TrainingSession.delete_all
       Person.delete_all
+      ExercisePrescription.delete_all
+      WorkoutBlock.delete_all
+      WorkoutTemplate.delete_all
+      Exercise.delete_all
       RecipeInstruction.delete_all
       RecipeIngredient.delete_all
       Recipe.delete_all

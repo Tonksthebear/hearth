@@ -1,0 +1,50 @@
+sunday_squat_one:
+  training_session_exercise: sunday_squat
+  position: 1
+  entry_kind: set
+  dose_class: strength
+  reps: 8
+  load_amount: 35
+  load_unit: lb
+  completed: true
+
+sunday_squat_two:
+  training_session_exercise: sunday_squat
+  position: 2
+  entry_kind: set
+  dose_class: strength
+  reps: 8
+  load_amount: 35
+  load_unit: lb
+  completed: true
+
+sunday_bike_interval:
+  training_session_exercise: sunday_bike
+  position: 1
+  entry_kind: interval
+  dose_class: zone2
+  duration_seconds: 1770
+  completed: true
+
+next_set:
+  training_session_exercise: next_exercise
+  position: 1
+  entry_kind: interval
+  dose_class: none
+  duration_seconds: 1800
+  completed: true
+
+other_person_set:
+  training_session_exercise: other_person_exercise
+  position: 1
+  entry_kind: interval
+  dose_class: vigorous
+  duration_seconds: 1200
+  completed: true
+
+draft_set:
+  training_session_exercise: draft_exercise
+  position: 1
+  entry_kind: set
+  dose_class: strength
+  completed: false

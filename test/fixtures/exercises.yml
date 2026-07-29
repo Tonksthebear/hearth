@@ -1,0 +1,15 @@
+squat:
+  household: home
+  name: Goblet squat
+  modality: strength
+  movement_pattern: squat
+  equipment: Dumbbell
+  guidance: Keep the torso tall.
+
+bike:
+  household: home
+  name: Stationary bike
+  modality: cardio
+  movement_pattern: locomotion_cardio
+  equipment: Bike
+  guidance: Maintain conversational pace for Zone 2.

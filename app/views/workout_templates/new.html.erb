@@ -1,0 +1,6 @@
+<% content_for :title, "Add workout template · Hearth" %>
+<section aria-labelledby="new-template-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household catalog</p>
+  <h1 id="new-template-heading" class="mt-2 text-3xl font-semibold tracking-tight">Add workout template</h1>
+  <%= render "form", workout_template: @workout_template, provenance_statuses: @provenance_statuses, block_kinds: @block_kinds, dose_classes: @dose_classes, entry_kinds: @entry_kinds, exercises: @exercises %>
+</section>

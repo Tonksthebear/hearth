@@ -1,0 +1,53 @@
+<div id="training_session_form">
+  <%= form_with model: training_session, class: "mt-8 space-y-8" do |form| %>
+    <% if training_session.errors.any? %>
+      <div id="training-session-errors" class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+        <p class="font-semibold">Please correct the following:</p>
+        <ul class="mt-2 list-disc pl-5"><% training_session.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+      </div>
+    <% end %>
+
+    <fieldset class="grid gap-5 rounded-xl border border-stone-200 bg-white p-5 sm:grid-cols-2">
+      <legend class="px-2 text-lg font-semibold">Workout details</legend>
+      <div>
+        <%= form.label :snapshot_title, "Workout title", class: "block text-sm font-medium" %>
+        <%= form.text_field :snapshot_title, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      </div>
+      <div>
+        <%= form.label :performed_on, "Workout date", class: "block text-sm font-medium" %>
+        <%= form.date_field :performed_on, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      </div>
+      <div class="sm:col-span-2">
+        <%= form.label :notes, class: "block text-sm font-medium" %>
+        <%= form.text_area :notes, rows: 3, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      </div>
+    </fieldset>
+
+    <fieldset class="rounded-xl border border-stone-200 bg-white p-5">
+      <div class="flex items-center justify-between gap-4">
+        <legend class="text-lg font-semibold">Performed blocks</legend>
+        <%= form.button "Add block", name: "add_session_block", value: "1", formnovalidate: true, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold" %>
+      </div>
+      <div class="mt-5 space-y-5">
+        <%= form.fields_for :training_session_blocks do |block_form| %>
+          <%= render "block_fields",
+            form: block_form,
+            exercises: exercises,
+            modalities: modalities,
+            movement_patterns: movement_patterns,
+            block_kinds: block_kinds,
+            dose_classes: dose_classes,
+            entry_kinds: entry_kinds %>
+        <% end %>
+      </div>
+    </fieldset>
+
+    <div class="flex flex-wrap items-center gap-4">
+      <%= form.submit "Save draft", class: "cursor-pointer rounded-lg border border-stone-300 px-4 py-2 font-semibold hover:bg-stone-100" %>
+      <% if training_session.persisted? %>
+        <%= form.submit "Complete workout", name: "complete", class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+      <% end %>
+      <%= link_to "Cancel", training_week_path(date: training_session.performed_on), class: "text-sm font-medium text-stone-700 underline" %>
+    </div>
+  <% end %>
+</div>
