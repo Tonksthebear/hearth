@@ -1,6 +1,8 @@
 class Household < ApplicationRecord
   has_many :people, dependent: :destroy
   has_many :users, through: :people
+  has_many :planned_meals, dependent: :destroy
+  has_many :meal_logs, dependent: :destroy
   has_many :recipes, dependent: :destroy
 
   validates :name, presence: true

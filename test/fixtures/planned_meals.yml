@@ -1,0 +1,22 @@
+shared_target_week:
+  household: home
+  recipe: salad
+  planned_on: 2026-07-27
+
+alex_target_week:
+  household: home
+  person: one
+  recipe: observed_soup
+  planned_on: 2026-07-28
+
+sam_target_week:
+  household: home
+  person: two
+  recipe: salad
+  planned_on: 2026-07-29
+
+adjacent_week:
+  household: home
+  person: one
+  recipe: observed_soup
+  planned_on: 2026-08-03

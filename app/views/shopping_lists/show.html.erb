@@ -1,0 +1,33 @@
+<% content_for :title, "Shopping · Hearth" %>
+
+<section aria-labelledby="shopping-list-heading">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Household-wide plan</p>
+      <h1 id="shopping-list-heading" class="mt-2 text-3xl font-semibold tracking-tight">Shopping list</h1>
+      <p class="mt-2 text-stone-600">
+        Ingredients planned for <%= @shopping_list.start_date.to_fs(:long) %>–<%= @shopping_list.end_date.to_fs(:long) %>.
+        Eaten meals do not change this list.
+      </p>
+    </div>
+    <%= link_to "Back to meals", meal_week_path(date: @meal_week), class: "rounded-lg border border-stone-300 px-4 py-2 font-semibold hover:bg-stone-100" %>
+  </div>
+
+  <% if @shopping_list.entries.any? %>
+    <ul id="shopping-list" class="mt-8 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white">
+      <% @shopping_list.entries.each do |entry| %>
+        <li class="flex items-baseline gap-3 px-5 py-4">
+          <% if entry.amount.present? || entry.unit.present? %>
+            <span class="min-w-24 font-semibold text-amber-800"><%= [ entry.amount, entry.unit ].compact.join(" ") %></span>
+          <% end %>
+          <span><%= entry.name %></span>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <div class="mt-8 rounded-xl border border-dashed border-stone-300 bg-white p-10 text-center">
+      <h2 class="text-lg font-semibold">Nothing to shop for yet</h2>
+      <p class="mt-2 text-stone-600">Add recipes to this week's plan to build the household list.</p>
+    </div>
+  <% end %>
+</section>
