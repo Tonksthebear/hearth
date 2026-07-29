@@ -3,7 +3,7 @@ class TrainingSessionsController < ApplicationController
   before_action :prepare_form, only: %i[ new create edit update ]
 
   def new
-    @training_session = TrainingSession.build_ad_hoc(person: Current.person)
+    @training_session = TrainingSession.build_ad_hoc(person: Current.person, performed_on: selected_date)
   end
 
   def create
@@ -71,6 +71,12 @@ class TrainingSessionsController < ApplicationController
   private
     def set_training_session
       @training_session = Current.person.training_sessions.find(params[:id])
+    end
+
+    def selected_date
+      Date.iso8601(params[:date].to_s)
+    rescue ArgumentError, Date::Error
+      Date.current
     end
 
     def prepare_form

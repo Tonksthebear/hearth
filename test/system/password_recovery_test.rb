@@ -27,6 +27,6 @@ class PasswordRecoveryTest < ApplicationSystemTestCase
     fill_in "Password", with: "new password"
     click_button "Sign in"
 
-    assert_selector "section[aria-labelledby='household-heading'] h1", text: households(:home).name
+    assert_selector "[data-household-name]", text: /#{Regexp.escape(households(:home).name)}/i
   end
 end

@@ -14,8 +14,8 @@ class HouseholdSetupAndAuthenticationTest < ApplicationSystemTestCase
     fill_in "Confirm password", with: "secret password"
     click_button "Create household"
 
-    assert_selector "section[aria-labelledby='household-heading'] h1", text: "Bear House"
-    assert_selector "section[aria-labelledby='current-person-heading'] h2", text: "Tonks"
+    assert_selector "[data-household-name]", text: /Bear House/i
+    assert_selector "article[data-current-person='true'] h3", text: "Tonks"
 
     click_button "Sign out"
     assert_selector "h1", text: "Sign in"
@@ -24,10 +24,10 @@ class HouseholdSetupAndAuthenticationTest < ApplicationSystemTestCase
     fill_in "Password", with: "secret password"
     click_button "Sign in"
 
-    assert_selector "section[aria-labelledby='household-heading'] h1", text: "Bear House"
+    assert_selector "[data-household-name]", text: /Bear House/i
 
     visit new_setup_household_path
-    assert_selector "section[aria-labelledby='household-heading'] h1", text: "Bear House"
+    assert_selector "[data-household-name]", text: /Bear House/i
     assert_no_selector "h1", text: "Create your household"
   end
 end
