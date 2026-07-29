@@ -22,3 +22,11 @@ observed_soup:
   yield: 6 bowls
   source_name: Household observation
   provenance_status: observed
+
+alex_only:
+  household: home
+  title: Alex Only Plate
+  description: A meal used to prove person-plan visibility
+  yield: 1 plate
+  source_name: Visibility fixture
+  provenance_status: observed

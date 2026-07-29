@@ -18,15 +18,6 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       click_button_and_wait_for_path "Switch to #{person.name}", root_path
     end
 
-    def sign_in_and_open_meals(user)
-      sign_in_via_browser user
-      click_link_and_wait_for_path "Meals", meal_week_path
-      assert_selector "h1", text: "Meals"
-      assert_text "July 27, 2026"
-      assert_text "PLANNED"
-      assert_text "EATEN"
-    end
-
     def visit_and_wait_for_path(path)
       visit path
       page.has_current_path?(path, wait: 5)

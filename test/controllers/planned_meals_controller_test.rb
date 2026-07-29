@@ -58,7 +58,8 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
-    assert_select "#planned-meal-errors", text: /Recipe is not available/
+    assert_select "#planned-meal-errors", text: /Recipe must exist/
+    assert_select "#planned-meal-errors li", count: 1
   end
 
   test "destroys only a household plan and preserves the week" do

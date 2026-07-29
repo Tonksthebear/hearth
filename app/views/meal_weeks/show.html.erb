@@ -48,9 +48,8 @@
         </div>
         <div>
           <%= form.label :person_id, "Plan for", class: "block text-sm font-medium" %>
-          <%= form.select :person_id,
-            options_for_select([ [ "Whole household", "" ] ] + @meal_week.people.map { |person| [ person.name, person.id ] }, @meal_week.planned_meal.person_id),
-            {},
+          <%= form.collection_select :person_id, @meal_week.people, :id, :name,
+            { include_blank: "Whole household" },
             class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
         </div>
         <%= form.submit "Add to plan", class: "cursor-pointer justify-self-start rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>

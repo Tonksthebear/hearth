@@ -8,10 +8,15 @@ class MealWeeksControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", text: "Meals"
-    assert_select "section", text: /#{Regexp.escape(recipes(:salad).title)}/
-    assert_select "section", text: /#{Regexp.escape(recipes(:observed_soup).title)}/
-    assert_select "section", text: /Dinner with friends/
-    assert_select "li", text: people(:two).name, count: 0
+    assert_select "section[aria-labelledby='day-2026-07-27'] > div > div:first-child li",
+      text: /#{Regexp.escape(recipes(:salad).title)}/
+    assert_select "section[aria-labelledby='day-2026-07-28'] > div > div:first-child li",
+      text: /#{Regexp.escape(recipes(:alex_only).title)}/
+    assert_select "section[aria-labelledby='day-2026-07-28'] > div > div:nth-child(2) li",
+      text: /Dinner with friends/
+    assert_select "section[aria-labelledby='day-2026-07-29'] li p",
+      text: people(:two).name,
+      count: 0
     assert_select "form[action='#{planned_meals_path}']"
     assert_select "form[action='#{meal_logs_path}']"
   end

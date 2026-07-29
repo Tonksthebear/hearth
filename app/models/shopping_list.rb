@@ -13,7 +13,7 @@ class ShoppingList
   end
 
   def entries
-    ingredients
+    @entries ||= ingredients
       .group_by { |ingredient| aggregation_key(ingredient) }
       .flat_map { |_, grouped| aggregate(grouped) }
       .sort_by { |entry| [ entry.name.downcase, entry.unit.to_s, entry.amount.to_s ] }
@@ -23,6 +23,7 @@ class ShoppingList
     def ingredients
       household.planned_meals
         .during(start_date..end_date)
+        .order(:planned_on, :id)
         .includes(recipe: :recipe_ingredients)
         .flat_map { |planned_meal| planned_meal.recipe.recipe_ingredients }
     end

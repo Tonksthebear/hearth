@@ -11,7 +11,7 @@ class PlannedMeal < ApplicationRecord
   validate :recipe_belongs_to_household
   validate :references_are_available
 
-  attr_accessor :invalid_person_reference, :invalid_recipe_reference
+  attr_accessor :invalid_person_reference
 
   class << self
     def build_for(household:, planned_on:, recipe_id:, person_id: nil)
@@ -20,7 +20,6 @@ class PlannedMeal < ApplicationRecord
         planned_on: planned_on,
         recipe: household.recipes.find_by(id: recipe_id),
         person: person_id.present? ? household.people.find_by(id: person_id) : nil,
-        invalid_recipe_reference: recipe_id.present? && !household.recipes.exists?(id: recipe_id),
         invalid_person_reference: person_id.present? && !household.people.exists?(id: person_id)
       )
     end
@@ -37,6 +36,5 @@ class PlannedMeal < ApplicationRecord
 
     def references_are_available
       errors.add(:person, "is not available") if invalid_person_reference
-      errors.add(:recipe, "is not available") if invalid_recipe_reference
     end
 end

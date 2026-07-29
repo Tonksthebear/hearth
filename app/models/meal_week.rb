@@ -58,11 +58,11 @@ class MealWeek
   end
 
   def recipes
-    household.recipes.order(:title)
+    @recipes ||= household.recipes.order(:title)
   end
 
   def people
-    household.people.order(:name)
+    @people ||= household.people.order(:name)
   end
 
   def previous_date
