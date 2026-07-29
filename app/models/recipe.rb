@@ -3,8 +3,8 @@ class Recipe < ApplicationRecord
     title description yield source_name source_url provenance_status
     recipe_ingredients_attributes recipe_instructions_attributes
   ].freeze
-  INGREDIENT_IMPORT_KEYS = %w[amount unit name notes position].freeze
-  INSTRUCTION_IMPORT_KEYS = %w[body position].freeze
+  INGREDIENT_IMPORT_KEYS = %w[amount unit name notes].freeze
+  INSTRUCTION_IMPORT_KEYS = %w[body].freeze
   PROVENANCE_DESCRIPTIONS = {
     "verified" => "Checked against the cited source.",
     "adapted" => "Intentionally changed from the cited source.",
@@ -28,8 +28,6 @@ class Recipe < ApplicationRecord
   validates :source_url,
     format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) },
     allow_blank: true
-  after_save :normalize_persisted_positions
-
   scope :matching, ->(query) {
     if query.present?
       pattern = "%#{sanitize_sql_like(query.downcase, "!")}%"
@@ -54,9 +52,7 @@ class Recipe < ApplicationRecord
     def import!(household:, attributes:)
       normalized_attributes = normalize_import_attributes(attributes)
 
-      transaction do
-        household.recipes.create!(normalized_attributes)
-      end
+      household.recipes.create!(normalized_attributes)
     end
 
     private
@@ -104,18 +100,26 @@ class Recipe < ApplicationRecord
   end
 
   def remove_ingredient(index)
-    normalize_positions unless remove_nested_record(recipe_ingredients, index)
+    remove_nested_record(recipe_ingredients, index)
+    normalize_positions
     self
   end
 
   def remove_instruction(index)
-    normalize_positions unless remove_nested_record(recipe_instructions, index)
+    remove_nested_record(recipe_instructions, index)
+    normalize_positions
     self
   end
 
   def normalize_positions
     active_ingredients.each.with_index(1) { |ingredient, position| ingredient.position = position }
     active_instructions.each.with_index(1) { |instruction, position| instruction.position = position }
+    self
+  end
+
+  def ensure_form_rows
+    add_ingredient if active_ingredients.empty?
+    add_instruction if active_instructions.empty?
     self
   end
 
@@ -137,26 +141,10 @@ class Recipe < ApplicationRecord
 
       if record.persisted?
         record.mark_for_destruction
-        true
       else
         association.delete(record)
-        false
       end
     rescue ArgumentError, IndexError
       raise ArgumentError, "Invalid nested recipe row."
-    end
-
-    def normalize_persisted_positions
-      normalize_persisted_association(recipe_ingredients)
-      normalize_persisted_association(recipe_instructions)
-    end
-
-    def normalize_persisted_association(association)
-      association.reload.each.with_index(1) do |record, position|
-        next if record.position == position
-
-        record.position = position
-        record.update_column(:position, position)
-      end
     end
 end

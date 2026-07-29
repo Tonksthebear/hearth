@@ -19,7 +19,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
     assert_selector "section[aria-labelledby='people-heading'] li", text: "Taylor"
     person = Person.find_by!(name: "Taylor")
     assert_no_selector "html[aria-busy='true']"
-    click_link_and_wait_for_path "Edit", edit_person_path(person), href: edit_person_path(person)
+    click_element_and_wait_for_path find("a[aria-label='Edit Taylor']"), edit_person_path(person)
     assert_no_selector "html[aria-busy='true']"
     fill_in_and_wait_for_value "Name", "Taylor Updated"
     assert_field "Name", with: "Taylor Updated"
@@ -51,21 +51,27 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
     def click_link_and_wait_for_path(label, path, **options)
       link = find_link(label, **options)
       link.click
-      execute_script("arguments[0].click()", link) unless page.has_current_path?(path, wait: 5)
+      page.has_current_path?(path, wait: 5)
+      assert_current_path path
+    end
+
+    def click_element_and_wait_for_path(element, path)
+      element.click
+      page.has_current_path?(path, wait: 5)
       assert_current_path path
     end
 
     def click_button_and_wait_for_path(label, path)
       button = find_button(label)
       button.click
-      execute_script("arguments[0].click()", button) unless page.has_current_path?(path, wait: 5)
+      page.has_current_path?(path, wait: 5)
       assert_current_path path
     end
 
     def click_button_and_wait_for_text(label, text)
       button = find_button(label)
       button.click
-      execute_script("arguments[0].click()", button) unless page.has_selector?(
+      page.has_selector?(
         "section[aria-labelledby='current-person-heading'] h2",
         text: text,
         wait: 5
@@ -74,13 +80,9 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
 
     def fill_in_and_wait_for_value(label, value)
       field = find_field(label)
+      field.click
       field.set(value)
-      unless page.has_field?(label, with: value, wait: 5)
-        execute_script(<<~JAVASCRIPT, field, value)
-          arguments[0].value = arguments[1];
-          arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-          arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
-        JAVASCRIPT
-      end
+      page.has_field?(label, with: value, wait: 5)
+      assert_field label, with: value
     end
 end

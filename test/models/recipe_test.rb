@@ -27,7 +27,7 @@ class RecipeTest < ActiveSupport::TestCase
     end
   end
 
-  test "child positions are positive and unique within a recipe" do
+  test "child positions are positive and protected by unique database indexes" do
     ingredient = recipes(:porridge).recipe_ingredients.build(name: "Salt", position: 0)
     instruction = recipes(:porridge).recipe_instructions.build(body: "Serve.", position: 0)
 
@@ -36,12 +36,12 @@ class RecipeTest < ActiveSupport::TestCase
     assert_includes ingredient.errors[:position], "must be greater than 0"
     assert_includes instruction.errors[:position], "must be greater than 0"
 
-    ingredient.position = 1
-    instruction.position = 1
-    assert_not ingredient.valid?
-    assert_not instruction.valid?
-    assert_includes ingredient.errors[:position], "has already been taken"
-    assert_includes instruction.errors[:position], "has already been taken"
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      RecipeIngredient.insert!({ recipe_id: recipes(:porridge).id, name: "Salt", position: 1 })
+    end
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      RecipeInstruction.insert!({ recipe_id: recipes(:porridge).id, body: "Serve.", position: 1 })
+    end
   end
 
   test "rejects entirely blank nested rows" do
@@ -100,7 +100,8 @@ class RecipeTest < ActiveSupport::TestCase
       nil,
       valid_import_attributes.merge(unexpected: true),
       valid_import_attributes.merge(recipe_ingredients_attributes: "not an array"),
-      valid_import_attributes.merge(recipe_instructions_attributes: [ "not a hash" ])
+      valid_import_attributes.merge(recipe_instructions_attributes: [ "not a hash" ]),
+      valid_import_attributes.deep_merge(recipe_ingredients_attributes: [ { name: "First", position: 8 } ])
     ]
 
     malformed_payloads.each do |payload|
@@ -116,7 +117,7 @@ class RecipeTest < ActiveSupport::TestCase
   test "raises record invalid for semantic import failures without partial writes" do
     attributes = valid_import_attributes.deep_merge(
       title: "",
-      recipe_ingredients_attributes: [ { name: "", position: 1 } ]
+      recipe_ingredients_attributes: [ { name: "" } ]
     )
 
     assert_no_difference [ "Recipe.count", "RecipeIngredient.count", "RecipeInstruction.count" ] do
@@ -137,12 +138,12 @@ class RecipeTest < ActiveSupport::TestCase
         source_url: "https://example.com/imported",
         provenance_status: "adapted",
         recipe_ingredients_attributes: [
-          { name: "First", amount: "1", position: 8 },
-          { name: "Second", amount: "2", position: 3 }
+          { name: "First", amount: "1" },
+          { name: "Second", amount: "2" }
         ],
         recipe_instructions_attributes: [
-          { body: "Mix.", position: 9 },
-          { body: "Serve.", position: 4 }
+          { body: "Mix." },
+          { body: "Serve." }
         ]
       }
     end

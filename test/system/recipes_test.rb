@@ -56,26 +56,30 @@ class RecipesTest < ApplicationSystemTestCase
       "input[name*='recipe_ingredients_attributes'][name$='[name]']",
       1
     assert_selector "input[name*='recipe_ingredients_attributes'][name$='[_destroy]'][value='1']", visible: :hidden
+    click_button_and_wait_for_count "Add ingredient", "input[name*='recipe_ingredients_attributes'][name$='[name]']", 2
+    set_and_wait all("input[name*='recipe_ingredients_attributes'][name$='[name]']")[1], "Parsley"
     click_button_and_wait_for_path "Update Recipe", recipe_path(recipe)
 
     visit recipe_path(recipe)
     assert_no_text "Chickpeas"
     assert_text "Lemon juice"
+    assert_text "Parsley"
     assert_not RecipeIngredient.exists?(removed_ingredient.id)
+    assert_equal [ 1, 2 ], recipe.reload.recipe_ingredients.pluck(:position)
   end
 
   private
     def click_link_and_wait_for_path(label, path)
       link = find_link(label)
       link.click
-      execute_script("arguments[0].click()", link) unless page.has_current_path?(path, wait: 5)
+      page.has_current_path?(path, wait: 5)
       assert_current_path path
     end
 
     def click_button_and_wait_for_path(label, path)
       button = find_button(label)
       button.click
-      execute_script("arguments[0].click()", button) unless page.has_current_path?(path, wait: 5)
+      page.has_current_path?(path, wait: 5)
       assert_current_path path
     end
 
@@ -85,21 +89,21 @@ class RecipesTest < ApplicationSystemTestCase
 
     def click_element_and_wait_for_count(element, selector, count)
       element.click
-      execute_script("arguments[0].click()", element) unless page.has_selector?(selector, count: count, wait: 5)
+      page.has_selector?(selector, count: count, wait: 5)
       assert_selector selector, count: count
     end
 
     def click_button_and_wait_for_text(label, text)
       button = find_button(label)
       button.click
-      execute_script("arguments[0].click()", button) unless page.has_text?(text, wait: 5)
+      page.has_text?(text, wait: 5)
       assert_text text
     end
 
     def click_button_and_wait_for_absence(label, selector, text)
       button = find_button(label)
       button.click
-      execute_script("arguments[0].click()", button) if page.has_selector?(selector, text: text, wait: 5)
+      page.has_no_selector?(selector, text: text, wait: 5)
       assert_no_selector selector, text: text
     end
 
@@ -108,14 +112,9 @@ class RecipesTest < ApplicationSystemTestCase
     end
 
     def set_and_wait(field, value)
+      field.click
       field.set(value)
-      return if field.value == value
-
-      execute_script(<<~JAVASCRIPT, field, value)
-        arguments[0].value = arguments[1];
-        arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-        arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
-      JAVASCRIPT
+      page.has_field?(field[:id], with: value, wait: 5)
       assert_equal value, field.value
     end
 end

@@ -147,9 +147,108 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to recipe_path(recipe)
     assert_not RecipeIngredient.exists?(ingredient.id)
+    assert_equal [ 1 ], recipe.reload.recipe_ingredients.pluck(:position)
   end
 
-  test "unknown recipe is not found through the household association" do
+  test "remove then add structural actions save contiguous positions" do
+    sign_in_as users(:one)
+    recipe = recipes(:porridge)
+    removed_ingredient = recipe.recipe_ingredients.first
+    survivor = recipe.recipe_ingredients.second
+
+    patch recipe_path(recipe),
+      params: { recipe: persisted_recipe_params(recipe), remove_ingredient: "0" },
+      headers: turbo_stream_headers
+    assert_response :success
+
+    edited_params = persisted_recipe_params(recipe).deep_merge(
+      recipe_ingredients_attributes: {
+        "0" => removed_ingredient.attributes.slice("id", "amount", "unit", "name", "notes").merge("_destroy" => "1"),
+        "1" => survivor.attributes.slice("id", "amount", "unit", "name", "notes")
+      }
+    )
+    patch recipe_path(recipe),
+      params: { recipe: edited_params, add_ingredient: "1" },
+      headers: turbo_stream_headers
+    assert_response :success
+
+    final_params = edited_params.deep_merge(
+      recipe_ingredients_attributes: {
+        "2" => { amount: "1", unit: "pinch", name: "Salt", notes: "" }
+      }
+    )
+    patch recipe_path(recipe), params: { recipe: final_params }
+
+    assert_response :see_other
+    assert_equal [ 1, 2 ], recipe.reload.recipe_ingredients.pluck(:position)
+    assert_equal [ survivor.id ], recipe.recipe_ingredients.where(name: "Blueberries").pluck(:id)
+  end
+
+  test "remove ingredient then add instruction saves both collections contiguously" do
+    sign_in_as users(:one)
+    recipe = recipes(:porridge)
+    removed_ingredient = recipe.recipe_ingredients.first
+    survivor = recipe.recipe_ingredients.second
+
+    edited_params = persisted_recipe_params(recipe).deep_merge(
+      recipe_ingredients_attributes: {
+        "0" => removed_ingredient.attributes.slice("id", "amount", "unit", "name", "notes").merge("_destroy" => "1"),
+        "1" => survivor.attributes.slice("id", "amount", "unit", "name", "notes")
+      }
+    )
+    patch recipe_path(recipe),
+      params: { recipe: edited_params, remove_ingredient: "0" },
+      headers: turbo_stream_headers
+    assert_response :success
+
+    patch recipe_path(recipe),
+      params: { recipe: edited_params, add_instruction: "1" },
+      headers: turbo_stream_headers
+    assert_response :success
+
+    final_params = edited_params.deep_merge(
+      recipe_instructions_attributes: persisted_recipe_params(recipe)[:recipe_instructions_attributes].merge(
+        "2" => { body: "Enjoy." }
+      )
+    )
+    patch recipe_path(recipe), params: { recipe: final_params }
+
+    assert_response :see_other
+    assert_equal [ 1 ], recipe.reload.recipe_ingredients.pluck(:position)
+    assert_equal [ 1, 2, 3 ], recipe.recipe_instructions.pluck(:position)
+  end
+
+  test "structural removal renders contiguous ordinals and accessible labels" do
+    sign_in_as users(:one)
+    recipe = recipes(:porridge)
+
+    patch recipe_path(recipe),
+      params: { recipe: persisted_recipe_params(recipe), remove_instruction: "0" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "span", text: "1."
+    assert_select "button[aria-label='Remove step 1']", count: 1
+    assert_select "button[aria-label='Remove step 2']", count: 0
+  end
+
+  test "client-supplied duplicate positions are ignored" do
+    sign_in_as users(:one)
+    params = valid_recipe_params.deep_merge(
+      recipe_ingredients_attributes: {
+        "0" => { name: "First", position: "7" },
+        "1" => { name: "Second", position: "7" }
+      }
+    )
+
+    post recipes_path, params: { recipe: params }
+
+    assert_response :see_other
+    recipe = Recipe.find_by!(title: "Savory Bowl")
+    assert_equal [ 1, 2 ], recipe.recipe_ingredients.pluck(:position)
+  end
+
+  test "unknown recipe id returns not found" do
     sign_in_as users(:one)
 
     get recipe_path(0)

@@ -1,11 +1,10 @@
 class RecipesController < ApplicationController
   before_action :set_recipe, only: %i[ show edit update ]
-  before_action :prepare_form, only: %i[ new create edit update ]
+  before_action :prepare_form, only: %i[ index new create edit update ]
 
   def index
     @query = params[:q].to_s
     @status = params[:status].to_s
-    @provenance_statuses = Recipe.provenance_statuses.keys
     @recipes = Current.household.recipes
       .matching(@query)
       .with_provenance_status(@status)
@@ -23,8 +22,10 @@ class RecipesController < ApplicationController
 
   def create
     @recipe = Current.household.recipes.build(recipe_params)
+    @recipe.normalize_positions
 
     if structural_action?
+      @recipe.ensure_form_rows
       render_form_update
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was created.", status: :see_other
@@ -38,8 +39,10 @@ class RecipesController < ApplicationController
 
   def update
     @recipe.assign_attributes(recipe_params)
+    @recipe.normalize_positions
 
     if structural_action?
+      @recipe.ensure_form_rows
       render_form_update
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was updated.", status: :see_other
@@ -65,8 +68,8 @@ class RecipesController < ApplicationController
         :source_name,
         :source_url,
         :provenance_status,
-        recipe_ingredients_attributes: %i[ id amount unit name notes position _destroy ],
-        recipe_instructions_attributes: %i[ id body position _destroy ]
+        recipe_ingredients_attributes: %i[ id amount unit name notes _destroy ],
+        recipe_instructions_attributes: %i[ id body _destroy ]
       )
     end
 
@@ -86,7 +89,7 @@ class RecipesController < ApplicationController
       render turbo_stream: turbo_stream.replace(
         "recipe_form",
         partial: "recipes/form",
-        locals: { recipe: @recipe }
+        locals: { recipe: @recipe, provenance_statuses: @provenance_statuses }
       )
     end
 end

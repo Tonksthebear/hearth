@@ -3,5 +3,5 @@
 <section aria-labelledby="edit-recipe-heading">
   <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household catalog</p>
   <h1 id="edit-recipe-heading" class="mt-2 text-3xl font-semibold tracking-tight">Edit <%= @recipe.title %></h1>
-  <%= render "form", recipe: @recipe %>
+  <%= render "form", recipe: @recipe, provenance_statuses: @provenance_statuses %>
 </section>
