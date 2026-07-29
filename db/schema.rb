@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_28_010739) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_28_220002) do
   create_table "households", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "installation_key", default: 1, null: false
@@ -26,6 +26,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_010739) do
     t.string "name", null: false
     t.datetime "updated_at", null: false
     t.index ["household_id"], name: "index_people_on_household_id"
+  end
+
+  create_table "recipe_ingredients", force: :cascade do |t|
+    t.text "amount"
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.text "notes"
+    t.integer "position", null: false
+    t.integer "recipe_id", null: false
+    t.string "unit"
+    t.datetime "updated_at", null: false
+    t.index ["recipe_id", "position"], name: "index_recipe_ingredients_on_recipe_id_and_position", unique: true
+    t.index ["recipe_id"], name: "index_recipe_ingredients_on_recipe_id"
+    t.check_constraint "position > 0", name: "recipe_ingredients_positive_position"
+  end
+
+  create_table "recipe_instructions", force: :cascade do |t|
+    t.text "body", null: false
+    t.datetime "created_at", null: false
+    t.integer "position", null: false
+    t.integer "recipe_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["recipe_id", "position"], name: "index_recipe_instructions_on_recipe_id_and_position", unique: true
+    t.index ["recipe_id"], name: "index_recipe_instructions_on_recipe_id"
+    t.check_constraint "position > 0", name: "recipe_instructions_positive_position"
+  end
+
+  create_table "recipes", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "household_id", null: false
+    t.string "provenance_status", null: false
+    t.string "source_name", null: false
+    t.string "source_url"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "yield"
+    t.index ["household_id", "provenance_status"], name: "index_recipes_on_household_id_and_provenance_status"
+    t.index ["household_id"], name: "index_recipes_on_household_id"
+    t.check_constraint "provenance_status IN ('verified', 'adapted', 'observed')", name: "recipes_provenance_status"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -48,6 +88,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_28_010739) do
   end
 
   add_foreign_key "people", "households"
+  add_foreign_key "recipe_ingredients", "recipes"
+  add_foreign_key "recipe_instructions", "recipes"
+  add_foreign_key "recipes", "households"
   add_foreign_key "sessions", "users"
   add_foreign_key "users", "people"
 end

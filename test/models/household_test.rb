@@ -97,6 +97,9 @@ class HouseholdTest < ActiveSupport::TestCase
       Session.delete_all
       User.delete_all
       Person.delete_all
+      RecipeInstruction.delete_all
+      RecipeIngredient.delete_all
+      Recipe.delete_all
       Household.delete_all
     end
 

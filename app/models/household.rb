@@ -1,6 +1,7 @@
 class Household < ApplicationRecord
   has_many :people, dependent: :destroy
   has_many :users, through: :people
+  has_many :recipes, dependent: :destroy
 
   validates :name, presence: true
   validates :installation_key, inclusion: { in: [ 1 ] }, uniqueness: true

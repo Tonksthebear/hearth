@@ -1,0 +1,27 @@
+porridge_oats:
+  recipe: porridge
+  amount: 1
+  unit: cup
+  name: Rolled oats
+  position: 1
+
+porridge_berries:
+  recipe: porridge
+  amount: 1/2
+  unit: cup
+  name: Blueberries
+  notes: Fresh or frozen
+  position: 2
+
+salad_lettuce:
+  recipe: salad
+  amount: 1
+  unit: head
+  name: Lettuce
+  position: 1
+
+soup_carrots:
+  recipe: observed_soup
+  amount: 2
+  name: Carrots
+  position: 1

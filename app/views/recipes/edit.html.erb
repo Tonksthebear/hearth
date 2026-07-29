@@ -1,0 +1,7 @@
+<% content_for :title, "Edit #{@recipe.title} · Hearth" %>
+
+<section aria-labelledby="edit-recipe-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household catalog</p>
+  <h1 id="edit-recipe-heading" class="mt-2 text-3xl font-semibold tracking-tight">Edit <%= @recipe.title %></h1>
+  <%= render "form", recipe: @recipe %>
+</section>

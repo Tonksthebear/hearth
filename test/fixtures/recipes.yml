@@ -1,0 +1,24 @@
+porridge:
+  household: home
+  title: Morning Porridge
+  description: Oats with berries and seeds
+  yield: 2 bowls
+  source_name: Hearth Test Kitchen
+  source_url: https://example.com/porridge
+  provenance_status: verified
+
+salad:
+  household: home
+  title: Garden Salad
+  description: Crisp vegetables with lemon dressing
+  yield: 4 servings
+  source_name: Family Notebook
+  provenance_status: adapted
+
+observed_soup:
+  household: home
+  title: Weeknight Soup
+  description: A flexible vegetable soup
+  yield: 6 bowls
+  source_name: Household observation
+  provenance_status: observed
