@@ -28,7 +28,7 @@ class RecoveryDay
 
   def initialize(household:, person:, date:, check_in: nil)
     @household = household
-    @person = person
+    @person = household.people.find(person.id)
     @date = date
     @dates = (date - 6.days..date).to_a.reverse.freeze
     @submitted_check_in = check_in

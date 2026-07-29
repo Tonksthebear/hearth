@@ -23,6 +23,8 @@ module TypedHabitValue
   end
 
   def display_value
+    return if value.nil?
+
     value_type = habit_metric.value_type
     return value.strftime("%-I:%M %p") if value_type == "time_of_day"
     return value ? "Yes" : "No" if value_type == "boolean"

@@ -27,13 +27,13 @@ class Habit < ApplicationRecord
     index, direction = coordinate.to_s.split(":")
     index = Integer(index)
     target = direction == "up" ? index - 1 : index + 1
-    habit_metrics.load_target
-    records = habit_metrics.target
+    records = active_metrics
     raise ArgumentError unless %w[up down].include?(direction)
     raise ArgumentError if index.negative? || target.negative? || index >= records.size || target >= records.size
-    raise ArgumentError if records[index].marked_for_destruction? || records[target].marked_for_destruction?
 
     records[index], records[target] = records[target], records[index]
+    iterator = records.each
+    habit_metrics.target.map! { |metric| metric.marked_for_destruction? ? metric : iterator.next }
     assign_positions_in_target_order
   rescue ArgumentError
     raise ArgumentError, "Invalid habit metric row."

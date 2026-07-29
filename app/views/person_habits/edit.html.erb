@@ -37,7 +37,6 @@
     </fieldset>
   <% end %>
 
-  <%= form.hidden_field :active, value: "1" %>
   <div class="flex flex-wrap gap-3">
     <%= form.submit "Save configuration", class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
     <%= link_to "Cancel", recovery_day_path, class: "px-3 py-2 text-sm font-semibold text-stone-700 underline" %>

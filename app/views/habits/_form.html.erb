@@ -29,8 +29,14 @@
       </div>
       <div class="mt-5 space-y-4">
         <% metric_count = habit.habit_metrics.count { |metric| !metric.marked_for_destruction? } %>
+        <% active_metric_index = -1 %>
         <%= form.fields_for :habit_metrics do |metric_form| %>
-          <%= render "metric_fields", form: metric_form, metric_count: metric_count, value_types: value_types %>
+          <% active_metric_index += 1 unless metric_form.object.marked_for_destruction? %>
+          <%= render "metric_fields",
+            form: metric_form,
+            active_metric_index: active_metric_index,
+            metric_count: metric_count,
+            value_types: value_types %>
         <% end %>
       </div>
     </fieldset>

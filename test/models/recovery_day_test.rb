@@ -1,6 +1,8 @@
 require "test_helper"
 
 class RecoveryDayTest < ActiveSupport::TestCase
+  include ActiveSupport::Testing::TimeHelpers
+
   test "bounds seven dates and excludes other-person and older records" do
     day = RecoveryDay.current(household: households(:home), person: people(:one))
 
@@ -13,14 +15,21 @@ class RecoveryDayTest < ActiveSupport::TestCase
   end
 
   test "classifies active recorded scheduled and unscheduled states" do
-    day = RecoveryDay.current(household: households(:home), person: people(:one))
-    sauna = day.entries.find { |entry| entry.person_habit == person_habits(:alex_sauna) }
+    travel_to Time.zone.local(2026, 7, 29, 12) do
+      habit = households(:home).habits.create!(name: "Pinned recovery")
+      configuration = people(:one).person_habits.create!(
+        habit: habit,
+        saturday: false,
+        sunday: false
+      )
+      configuration.habit_check_ins.create!(checked_on: Date.current)
+      day = RecoveryDay.current(household: households(:home), person: people(:one))
+      entry = day.entries.find { |candidate| candidate.person_habit == configuration }
 
-    assert_equal :checked, sauna.status_on(Date.current)
-    weekend = day.dates.find(&:saturday?)
-    assert_equal :not_scheduled, sauna.status_on(weekend)
-    weekday = day.dates.find { |date| !date.saturday? && !date.sunday? && date != Date.current }
-    assert_equal :not_checked, sauna.status_on(weekday)
+      assert_equal :checked, entry.status_on(Date.current)
+      assert_equal :not_scheduled, entry.status_on(Date.new(2026, 7, 25))
+      assert_equal :not_checked, entry.status_on(Date.new(2026, 7, 28))
+    end
   end
 
   test "schedule edits relabel only unrecorded dates" do
@@ -46,5 +55,11 @@ class RecoveryDayTest < ActiveSupport::TestCase
     assert_equal :checked, lights_out.status_on(Date.current - 1.day)
     assert_equal :no_record, lights_out.status_on(Date.current)
     assert_not_includes day.actionable_entries, lights_out
+  end
+
+  test "requires the person to belong to the supplied household scope" do
+    assert_raises ActiveRecord::RecordNotFound do
+      RecoveryDay.current(household: Household.new, person: people(:one))
+    end
   end
 end

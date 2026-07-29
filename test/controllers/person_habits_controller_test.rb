@@ -67,4 +67,33 @@ class PersonHabitsControllerTest < ActionDispatch::IntegrationTest
       habit_metric: habit_metrics(:movement_duration)
     )
   end
+
+  test "saving an inactive configuration preserves inactive state" do
+    sign_in_as users(:one)
+    configuration = person_habits(:alex_lights_out)
+
+    get edit_person_habit_path(configuration)
+
+    assert_response :success
+    configuration_form = css_select("form[action='#{person_habit_path(configuration)}']")
+      .find { |form| form.at_css("input[type='submit'][value='Save configuration']") }
+    assert_not_nil configuration_form
+    assert_nil configuration_form.at_css("input[name='person_habit[active]']")
+
+    patch person_habit_path(configuration), params: {
+      person_habit: {
+        monday: "1",
+        tuesday: "0",
+        wednesday: "1",
+        thursday: "1",
+        friday: "1",
+        saturday: "1",
+        sunday: "1"
+      }
+    }
+
+    assert_redirected_to recovery_day_path
+    assert_not configuration.reload.active?
+    assert_not configuration.tuesday?
+  end
 end

@@ -28,7 +28,6 @@ class HabitsController < ApplicationController
   end
 
   def edit
-    @habit.ensure_form_rows
   end
 
   def update
@@ -41,7 +40,6 @@ class HabitsController < ApplicationController
     elsif @habit.save
       redirect_to habits_path, notice: "#{@habit.name} was updated.", status: :see_other
     else
-      @habit.ensure_form_rows
       render :edit, status: :unprocessable_entity
     end
   end

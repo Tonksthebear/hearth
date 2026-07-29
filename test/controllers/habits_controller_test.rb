@@ -102,8 +102,68 @@ class HabitsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ habit_metrics(:sauna_temperature).id, habit_metrics(:sauna_duration).id ], habit.reload.habit_metrics.pluck(:id)
   end
 
+  test "move controls remain valid after removing a middle persisted metric" do
+    sign_in_as users(:one)
+    habit = households(:home).habits.create!(name: "Three metrics")
+    first = habit.habit_metrics.create!(key: "first", label: "First", value_type: "number", unit: "count", position: 1)
+    second = habit.habit_metrics.create!(key: "second", label: "Second", value_type: "number", unit: "count", position: 2)
+    third = habit.habit_metrics.create!(key: "third", label: "Third", value_type: "number", unit: "count", position: 3)
+    params = persisted_habit_params(habit)
+
+    patch habit_path(habit),
+      params: { habit: params, remove_metric: "1" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "button[name='move_metric'][value='0:down']"
+    assert_select "button[name='move_metric'][value='1:up']"
+    params[:habit_metrics_attributes]["1"][:_destroy] = "1"
+
+    patch habit_path(habit),
+      params: { habit: params, move_metric: "0:down" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    visible_ids = css_select("section input[name$='[id]']").map { |input| input["value"].to_i }
+    assert_equal [ third.id, first.id ], visible_ids
+    assert_not_includes visible_ids, second.id
+  end
+
+  test "edits and renames a completion-only habit without injecting a required metric" do
+    sign_in_as users(:one)
+    habit = habits(:water)
+
+    get edit_habit_path(habit)
+
+    assert_response :success
+    assert_select "input[name$='[key]'][required]", count: 0
+
+    patch habit_path(habit), params: { habit: { name: "Hydration", description: habit.description } }
+
+    assert_redirected_to habits_path
+    assert_equal "Hydration", habit.reload.name
+    assert_empty habit.habit_metrics
+  end
+
   private
     def turbo_stream_headers
       { "Accept" => Mime[:turbo_stream].to_s }
+    end
+
+    def persisted_habit_params(habit)
+      {
+        name: habit.name,
+        description: habit.description,
+        habit_metrics_attributes: habit.habit_metrics.each_with_index.to_h do |metric, index|
+          [ index.to_s, {
+            id: metric.id,
+            key: metric.key,
+            label: metric.label,
+            value_type: metric.value_type,
+            unit: metric.unit,
+            position: metric.position
+          } ]
+        end
+      }
     end
 end

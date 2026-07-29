@@ -15,6 +15,10 @@ class HabitCheckIn < ApplicationRecord
     self
   end
 
+  def recorded_measurements
+    habit_check_in_measurements.select(&:persisted?)
+  end
+
   private
     def measurement_set_matches_habit
       expected_ids = person_habit&.habit&.habit_metric_ids || []
