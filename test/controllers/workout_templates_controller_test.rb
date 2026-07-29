@@ -77,7 +77,26 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
       zone2 = sections.find { |section| section.css("input[value='Zone 2']").any? }
       assert_not_nil zone2
       assert_equal 2, zone2.css("select[name$='[exercise_id]']").size
+      assert_equal 0, zone2.css("button[name='move_block']").size
+      assert_equal [ "1:0:down", "1:1:up" ],
+        zone2.css("button[name='move_prescription']").map { |button| button["value"] }.sort
     end
+  end
+
+  test "valid block moves remain wired while visible boundaries omit invalid actions" do
+    sign_in_as users(:one)
+    template = workout_templates(:balanced)
+
+    patch workout_template_path(template),
+      params: { workout_template: persisted_template_params(template), move_block: "1:up" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    sections = css_select("section").select { |section| section.css("input[name$='[title]']").any? }
+    assert_equal [ "Zone 2", "Strength" ],
+      sections.map { |section| section.at_css("input[name$='[title]']")["value"] }
+    assert_equal [ [ "Move down" ], [ "Move up" ] ],
+      sections.map { |section| section.css("button[name='move_block']").map(&:text).map(&:strip) }
   end
 
   test "client supplied positions are normalized from one" do

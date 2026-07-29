@@ -54,12 +54,48 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
 
     within "#workout_template_form section.rounded-xl" do
       assert_field "Block title", with: "Zone 2"
+      assert_no_button "Move up"
+      assert_no_button "Move down"
       click_button_and_wait_for_count(
         "Add exercise prescription",
         "select[name$='[exercise_id]']",
         2
       )
       assert_field "Block title", with: "Zone 2"
+      assert_selector "button[name='move_prescription']", count: 2
+    end
+  end
+
+  test "offers only valid block moves and performs the selected move" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path edit_workout_template_path(workout_templates(:balanced))
+
+    blocks = all("#workout_template_form section.rounded-xl")
+    within blocks.first do
+      assert_field "Block title", with: "Strength"
+      assert_no_button "Move up"
+      assert_button "Move down"
+    end
+    within blocks[1] do
+      assert_field "Block title", with: "Zone 2"
+      assert_button "Move up"
+      assert_no_button "Move down"
+    end
+
+    blocks.first.find_button("Move down").click
+    assert_selector "#workout_template_form section.rounded-xl:nth-of-type(1) input[value='Zone 2']", wait: 5
+    assert_no_selector "html[aria-busy='true']"
+
+    blocks = all("#workout_template_form section.rounded-xl")
+    within blocks.first do
+      assert_field "Block title", with: "Zone 2"
+      assert_no_button "Move up"
+      assert_button "Move down"
+    end
+    within blocks[1] do
+      assert_field "Block title", with: "Strength"
+      assert_button "Move up"
+      assert_no_button "Move down"
     end
   end
 end

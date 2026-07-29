@@ -37,9 +37,11 @@
         <%= form.button "Add block", name: "add_block", value: "1", formnovalidate: true, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold hover:bg-stone-100" %>
       </div>
       <div class="mt-5 space-y-5">
+        <% block_count = workout_template.workout_blocks.count { |block| !block.marked_for_destruction? } %>
         <%= form.fields_for :workout_blocks do |block_form| %>
           <%= render "block_fields",
             form: block_form,
+            block_count: block_count,
             block_kinds: block_kinds,
             dose_classes: dose_classes,
             entry_kinds: entry_kinds,

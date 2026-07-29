@@ -11,8 +11,12 @@
     <div class="flex flex-wrap justify-between gap-2">
       <p class="text-sm font-semibold">Prescription <%= form.object.position %></p>
       <div class="flex gap-2">
-        <%= form.button "Up", name: "move_prescription", value: "#{coordinate}:up", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
-        <%= form.button "Down", name: "move_prescription", value: "#{coordinate}:down", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+        <% if form.object.position > 1 %>
+          <%= form.button "Up", name: "move_prescription", value: "#{coordinate}:up", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+        <% end %>
+        <% if form.object.position < prescription_count %>
+          <%= form.button "Down", name: "move_prescription", value: "#{coordinate}:down", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+        <% end %>
         <%= form.button "Remove", name: "remove_prescription", value: coordinate, formnovalidate: true, class: "rounded border border-red-200 px-2 py-1 text-xs text-red-800" %>
       </div>
     </div>

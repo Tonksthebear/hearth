@@ -10,8 +10,12 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="font-semibold">Block <%= form.object.position %></h3>
       <div class="flex flex-wrap gap-2">
-        <%= form.button "Move up", name: "move_block", value: "#{form.index}:up", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
-        <%= form.button "Move down", name: "move_block", value: "#{form.index}:down", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+        <% if form.object.position > 1 %>
+          <%= form.button "Move up", name: "move_block", value: "#{form.index}:up", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+        <% end %>
+        <% if form.object.position < block_count %>
+          <%= form.button "Move down", name: "move_block", value: "#{form.index}:down", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+        <% end %>
         <%= form.button "Remove block", name: "remove_block", value: form.index, formnovalidate: true, class: "rounded border border-red-200 px-2 py-1 text-xs text-red-800" %>
       </div>
     </div>
@@ -27,8 +31,9 @@
       <%= form.button "Add exercise prescription", name: "add_prescription", value: form.index, formnovalidate: true, class: "rounded border border-stone-300 px-3 py-2 text-xs font-semibold" %>
     </div>
     <div class="mt-3 space-y-3">
+      <% prescription_count = form.object.exercise_prescriptions.count { |prescription| !prescription.marked_for_destruction? } %>
       <%= form.fields_for :exercise_prescriptions do |prescription_form| %>
-        <%= render "prescription_fields", form: prescription_form, block_index: form.index, dose_classes: dose_classes, entry_kinds: entry_kinds, exercises: exercises %>
+        <%= render "prescription_fields", form: prescription_form, block_index: form.index, prescription_count: prescription_count, dose_classes: dose_classes, entry_kinds: entry_kinds, exercises: exercises %>
       <% end %>
     </div>
   </section>

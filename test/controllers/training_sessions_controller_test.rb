@@ -115,6 +115,41 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "deletes a draft and redirects to its training week" do
+    sign_in_as users(:one)
+    session = training_sessions(:draft)
+
+    assert_difference "TrainingSession.count", -1 do
+      delete training_session_path(session)
+    end
+
+    assert_redirected_to training_week_path(date: session.performed_on)
+  end
+
+  test "refuses to delete a completed session" do
+    sign_in_as users(:one)
+    session = training_sessions(:completed_sunday)
+
+    assert_no_difference "TrainingSession.count" do
+      delete training_session_path(session)
+    end
+
+    assert_redirected_to training_session_path(session)
+    assert TrainingSession.exists?(session.id)
+  end
+
+  test "does not expose another person's session to deletion" do
+    sign_in_as users(:one)
+    session = training_sessions(:other_person)
+
+    assert_no_difference "TrainingSession.count" do
+      delete training_session_path(session)
+    end
+
+    assert_response :not_found
+    assert TrainingSession.exists?(session.id)
+  end
+
   test "another person's sessions are not visible or mutable" do
     sign_in_as users(:one)
 
