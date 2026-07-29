@@ -17,7 +17,6 @@ class HabitsController < ApplicationController
     @habit.normalize_positions
 
     if structural_action?
-      @habit.ensure_form_rows
       render_form_update
     elsif @habit.save
       redirect_to habits_path, notice: "#{@habit.name} was created.", status: :see_other
@@ -35,7 +34,6 @@ class HabitsController < ApplicationController
     @habit.normalize_positions
 
     if structural_action?
-      @habit.ensure_form_rows
       render_form_update
     elsif @habit.save
       redirect_to habits_path, notice: "#{@habit.name} was updated.", status: :see_other

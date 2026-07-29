@@ -145,6 +145,34 @@ class HabitsControllerTest < ActionDispatch::IntegrationTest
     assert_empty habit.habit_metrics
   end
 
+  test "removes the last metric and saves the habit as completion-only" do
+    sign_in_as users(:one)
+    habit = households(:home).habits.create!(name: "Single metric")
+    metric = habit.habit_metrics.create!(
+      key: "duration",
+      label: "Duration",
+      value_type: "duration",
+      unit: "minutes",
+      position: 1
+    )
+    params = persisted_habit_params(habit)
+
+    patch habit_path(habit),
+      params: { habit: params, remove_metric: "0" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "input[name$='[key]'][required]", count: 0
+    assert_select "input[name$='[_destroy]'][value='1']", count: 1
+    params[:habit_metrics_attributes]["0"][:_destroy] = "1"
+
+    patch habit_path(habit), params: { habit: params }
+
+    assert_redirected_to habits_path
+    assert_not HabitMetric.exists?(metric.id)
+    assert_empty habit.reload.habit_metrics
+  end
+
   private
     def turbo_stream_headers
       { "Accept" => Mime[:turbo_stream].to_s }
