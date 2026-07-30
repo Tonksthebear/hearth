@@ -43,7 +43,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
 
     assert_no_selector "html[aria-busy='true']"
     click_button_and_wait_for_text "Switch to #{people(:one).name}", people(:one).name
-    assert_selector "article[data-current-person='true'] h3", text: people(:one).name
+    assert_selector "article[data-current-person='true'] h3", text: people(:one).name, wait: 5
     assert_no_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
   end
 end

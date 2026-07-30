@@ -17,19 +17,21 @@ Hearth permits exactly one household. Demo data therefore consumes the installat
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
+For setup-first, `bin/setup` prepares the database and starts `bin/dev`. Open [http://localhost:3000](http://localhost:3000) and complete household setup.
+
 ```bash
 bin/setup
 ```
 
-`bin/setup` prepares the database and starts `bin/dev`. Open [http://localhost:3000](http://localhost:3000) and complete household setup.
-
-For the demo path, capture a password without putting it in shell history:
+For the demo path, prepare without starting the server, then run the seed task explicitly. This works whether the development database is new or already prepared:
 
 ```bash
+bin/setup --skip-server
 read -s -p "Demo password: " HEARTH_DEMO_PASSWORD
 printf "\n"
-HEARTH_DEMO_DATA=1 HEARTH_DEMO_PASSWORD="$HEARTH_DEMO_PASSWORD" bin/setup
+HEARTH_DEMO_DATA=1 HEARTH_DEMO_PASSWORD="$HEARTH_DEMO_PASSWORD" bin/rails db:seed
 unset HEARTH_DEMO_PASSWORD
+bin/dev
 ```
 
 Sign in as `demo@hearth.local`.
@@ -120,18 +122,27 @@ Keep the whole directory together when backing up or restoring.
 Stop Hearth before copying SQLite so the web process and job supervisor cannot write during the backup:
 
 ```bash
+mkdir -p "$HOME/.local/share/hearth/backups"
+chmod 700 "$HOME/.local/share/hearth/backups"
 docker stop hearth
 docker run --rm \
   --user 0:0 \
   --entrypoint tar \
   -v hearth_storage:/rails/storage \
-  -v "$PWD":/backup \
+  -v "$HOME/.local/share/hearth/backups":/backup \
   hearth:alpha \
   -czf /backup/hearth-storage.tgz -C /rails/storage .
+docker run --rm \
+  --user 0:0 \
+  --entrypoint chown \
+  -v "$HOME/.local/share/hearth/backups":/backup \
+  hearth:alpha \
+  "$(id -u):$(id -g)" /backup/hearth-storage.tgz
+chmod 600 "$HOME/.local/share/hearth/backups/hearth-storage.tgz"
 docker start hearth
 ```
 
-Store `hearth-storage.tgz` somewhere protected and backed up. It contains private household health data.
+Store `$HOME/.local/share/hearth/backups/hearth-storage.tgz` somewhere protected and backed up. It contains private household health data and is intentionally outside the source checkout.
 
 Test or perform a restore into a new volume without destroying the original:
 
@@ -141,7 +152,7 @@ docker run --rm \
   --user 0:0 \
   --entrypoint tar \
   -v hearth_storage_restore:/rails/storage \
-  -v "$PWD":/backup \
+  -v "$HOME/.local/share/hearth/backups":/backup \
   hearth:alpha \
   -xzf /backup/hearth-storage.tgz -C /rails/storage
 docker run -d \
@@ -176,7 +187,7 @@ Create the secret file as shown above, set its path for Kamal's resolver, and co
 
 ```bash
 export HEARTH_SECRET_KEY_BASE_FILE="$HOME/.config/hearth/secret_key_base"
-bin/kamal secrets print | grep --quiet '^SECRET_KEY_BASE='
+bin/kamal secrets print | grep -Eq '^SECRET_KEY_BASE=.+'
 bin/kamal config
 bin/kamal setup
 ```
