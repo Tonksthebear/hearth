@@ -1,9 +1,216 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+# Demo data is opt-in so a normal production boot remains on the first-run setup path.
+if ENV["HEARTH_DEMO_DATA"] == "1"
+  demo_email = "demo@hearth.local"
+  demo_password = ENV["HEARTH_DEMO_PASSWORD"]
+
+  raise "Set HEARTH_DEMO_PASSWORD before loading demo data." if demo_password.blank?
+
+  household = Household.first
+
+  if household && !household.users.exists?(email_address: demo_email)
+    warn "Hearth demo data skipped: this installation already belongs to a non-demo household."
+  else
+    Household.transaction do
+      unless household
+        household = Household.bootstrap(
+          household_attributes: { name: "Hearth Demo" },
+          person_attributes: {
+            name: "Alex",
+            weekly_structured_minutes_target: 150,
+            weekly_strength_sessions_target: 2,
+            weekly_zone2_minutes_target: 90,
+            weekly_vigorous_minutes_target: 20
+          },
+          user_attributes: {
+            email_address: demo_email,
+            password: demo_password,
+            password_confirmation: demo_password
+          }
+        )
+        raise ActiveRecord::RecordInvalid, household unless household.persisted?
+      end
+
+      alex = household.people.find_or_initialize_by(name: "Alex")
+      alex.update!(
+        weekly_structured_minutes_target: 150,
+        weekly_strength_sessions_target: 2,
+        weekly_zone2_minutes_target: 90,
+        weekly_vigorous_minutes_target: 20
+      )
+      sam = household.people.find_or_create_by!(name: "Sam")
+
+      oats = household.recipes.find_or_initialize_by(title: "Apple cinnamon oats")
+      oats.assign_attributes(
+        description: "A simple make-ahead breakfast with fruit and seeds.",
+        yield: "2 servings",
+        source_name: "Hearth demo kitchen",
+        provenance_status: "observed"
+      )
+      oats.recipe_ingredients_attributes = [
+        { position: 1, amount: "1", unit: "cup", name: "rolled oats" },
+        { position: 2, amount: "2", unit: "cups", name: "water" },
+        { position: 3, amount: "1", unit: nil, name: "apple", notes: "diced" },
+        { position: 4, amount: "1", unit: "tbsp", name: "chia seeds" }
+      ] if oats.new_record?
+      oats.recipe_instructions_attributes = [
+        { position: 1, body: "Simmer the oats and water until tender." },
+        { position: 2, body: "Fold in the apple, cinnamon, and chia seeds." }
+      ] if oats.new_record?
+      oats.save!
+
+      bowl = household.recipes.find_or_initialize_by(title: "Roasted vegetable grain bowl")
+      bowl.assign_attributes(
+        description: "A flexible grain bowl for a shared weeknight meal.",
+        yield: "4 servings",
+        source_name: "Hearth demo kitchen",
+        provenance_status: "observed"
+      )
+      bowl.recipe_ingredients_attributes = [
+        { position: 1, amount: "2", unit: "cups", name: "cooked brown rice" },
+        { position: 2, amount: "4", unit: "cups", name: "mixed vegetables" },
+        { position: 3, amount: "1", unit: "can", name: "chickpeas", notes: "drained" },
+        { position: 4, amount: "2", unit: "tbsp", name: "olive oil" }
+      ] if bowl.new_record?
+      bowl.recipe_instructions_attributes = [
+        { position: 1, body: "Roast the vegetables and chickpeas until browned." },
+        { position: 2, body: "Serve over rice and finish with olive oil." }
+      ] if bowl.new_record?
+      bowl.save!
+
+      week_start = Date.current.beginning_of_week
+      household.planned_meals.find_or_initialize_by(person: nil, recipe: bowl).tap do |meal|
+        meal.planned_on = week_start + 2.days
+        meal.save!
+      end
+      household.planned_meals.find_or_initialize_by(person: alex, recipe: oats).tap do |meal|
+        meal.planned_on = week_start + 1.day
+        meal.save!
+      end
+      household.meal_logs.find_or_initialize_by(person: alex, recipe: oats).tap do |log|
+        log.eaten_on = week_start
+        log.save!
+      end
+      household.meal_logs.find_or_initialize_by(person: sam, recipe: nil, ad_hoc_description: "Vegetable soup and toast").tap do |log|
+        log.eaten_on = week_start
+        log.save!
+      end
+
+      squat = household.exercises.find_or_create_by!(name: "Goblet squat") do |exercise|
+        exercise.modality = "strength"
+        exercise.movement_pattern = "squat"
+        exercise.equipment = "Dumbbell or kettlebell"
+        exercise.guidance = "Use a comfortable range of motion."
+      end
+      walk = household.exercises.find_or_create_by!(name: "Brisk walk") do |exercise|
+        exercise.modality = "cardio"
+        exercise.movement_pattern = "locomotion_cardio"
+        exercise.equipment = "None"
+        exercise.guidance = "Keep a conversational pace."
+      end
+
+      workout = household.workout_templates.find_or_initialize_by(title: "Balanced strength and walk")
+      workout.assign_attributes(
+        description: "A short strength block followed by conversational aerobic work.",
+        provenance_status: "personal"
+      )
+      if workout.new_record?
+        strength = workout.workout_blocks.build(
+          position: 1,
+          title: "Strength",
+          block_kind: "strength",
+          dose_class: "strength",
+          planned_duration_minutes: 20
+        )
+        strength.exercise_prescriptions.build(
+          exercise: squat,
+          position: 1,
+          entry_kind: "set",
+          dose_class: "strength",
+          sets_count: 2,
+          rep_min: 8,
+          rep_max: 10,
+          target_rpe: 7
+        )
+        zone2 = workout.workout_blocks.build(
+          position: 2,
+          title: "Zone 2",
+          block_kind: "zone2",
+          dose_class: "zone2",
+          planned_duration_minutes: 30
+        )
+        zone2.exercise_prescriptions.build(
+          exercise: walk,
+          position: 1,
+          entry_kind: "interval",
+          dose_class: "zone2",
+          sets_count: 1,
+          work_seconds: 1_800,
+          rest_seconds: 0
+        )
+      end
+      workout.save!
+
+      session = household.training_sessions.find_by(person: alex, workout_template: workout)
+      session ||= TrainingSession.start_from(template: workout, person: alex, performed_on: week_start)
+      session.update!(
+        performed_on: week_start,
+        started_at: Time.zone.local(week_start.year, week_start.month, week_start.day, 7)
+      )
+      session.training_session_blocks.each do |block|
+        block.training_session_exercises.each do |session_exercise|
+          session_exercise.training_sets.each do |set|
+            if set.interval?
+              set.update!(completed: true, duration_seconds: 1_800)
+            else
+              set.update!(completed: true, reps: 8, load_amount: 20, load_unit: "kg", rpe: 7)
+            end
+          end
+        end
+      end
+      session.complete! unless session.completed?
+
+      hydration = household.habits.find_or_initialize_by(name: "Water")
+      hydration.description = "Record whether the day's hydration target was met."
+      hydration.habit_metrics_attributes = [
+        { position: 1, key: "completed", label: "Completed", value_type: "boolean" }
+      ] if hydration.new_record?
+      hydration.save!
+
+      movement = household.habits.find_or_initialize_by(name: "Post-meal movement")
+      movement.description = "Record intentional movement after a meal."
+      movement.habit_metrics_attributes = [
+        { position: 1, key: "duration", label: "Duration", value_type: "duration", unit: "minutes" }
+      ] if movement.new_record?
+      movement.save!
+
+      alex_water = alex.person_habits.find_or_create_by!(habit: hydration)
+      alex_water.ensure_target_rows
+      alex_water.person_habit_metrics.find { |target| target.habit_metric.key == "completed" }.boolean_value = true
+      alex_water.save!
+
+      alex_movement = alex.person_habits.find_or_create_by!(habit: movement)
+      alex_movement.ensure_target_rows
+      alex_movement.person_habit_metrics.find { |target| target.habit_metric.key == "duration" }.duration_value = 10
+      alex_movement.save!
+
+      sam_movement = sam.person_habits.find_or_create_by!(habit: movement)
+      sam_movement.ensure_target_rows
+      sam_movement.person_habit_metrics.find { |target| target.habit_metric.key == "duration" }.duration_value = 10
+      sam_movement.save!
+
+      [
+        [ alex_water, { "completed" => { boolean_value: true } } ],
+        [ alex_movement, { "duration" => { duration_value: 12 } } ]
+      ].each do |person_habit, values|
+        check_in = person_habit.habit_check_ins.find_or_initialize_by(checked_on: week_start)
+        check_in.ensure_measurement_rows
+        check_in.habit_check_in_measurements.each do |measurement|
+          measurement.assign_attributes(values.fetch(measurement.habit_metric.key))
+        end
+        check_in.save!
+      end
+    end
+
+    puts "Hearth demo data ready: sign in as #{demo_email}."
+  end
+end

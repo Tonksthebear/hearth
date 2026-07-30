@@ -46,43 +46,4 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
     assert_selector "article[data-current-person='true'] h3", text: people(:one).name
     assert_no_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
   end
-
-  private
-    def click_link_and_wait_for_path(label, path, **options)
-      link = find_link(label, **options)
-      link.click
-      page.has_current_path?(path, wait: 5)
-      assert_current_path path
-    end
-
-    def click_element_and_wait_for_path(element, path)
-      element.click
-      page.has_current_path?(path, wait: 5)
-      assert_current_path path
-    end
-
-    def click_button_and_wait_for_path(label, path)
-      button = find_button(label)
-      button.click
-      page.has_current_path?(path, wait: 5)
-      assert_current_path path
-    end
-
-    def click_button_and_wait_for_text(label, text)
-      button = find_button(label)
-      button.click
-      page.has_selector?(
-        "article[data-current-person='true'] h3",
-        text: text,
-        wait: 5
-      )
-    end
-
-    def fill_in_and_wait_for_value(label, value)
-      field = find_field(label)
-      field.click
-      field.set(value)
-      page.has_field?(label, with: value, wait: 5)
-      assert_field label, with: value
-    end
 end
