@@ -16,8 +16,8 @@
   </div>
 
   <nav aria-label="Household week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
-    <%= link_to "Previous week", root_path(date: @household_week.previous_date), class: "font-medium text-primary-800 underline hover:no-underline" %>
-    <%= link_to "Next week", root_path(date: @household_week.next_date), class: "font-medium text-primary-800 underline hover:no-underline" %>
+    <%= link_to "Previous week", root_path(date: @household_week.previous_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
+    <%= link_to "Next week", root_path(date: @household_week.next_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
   </nav>
 
   <section aria-labelledby="household-plans-heading" class="mt-10">
@@ -26,7 +26,7 @@
         <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared operations</p>
         <h2 id="household-plans-heading" class="mt-1 text-2xl font-semibold">Household plans</h2>
       </div>
-      <%= link_to "Open shopping list", shopping_list_path(date: @household_week.to_param), class: "font-semibold text-primary-800 underline hover:no-underline" %>
+      <%= link_to "Open shopping list", shopping_list_path(date: @household_week.to_param), class: "font-semibold text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
     </div>
 
     <div class="group/plans mt-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
@@ -58,9 +58,9 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 class="text-xl font-semibold"><%= summary.person.name %></h3>
-              <p class="mt-1 hidden text-sm font-semibold text-primary-800 group-data-[current-person=true]/person:block">Current person</p>
+              <p class="mt-1 hidden text-sm font-semibold text-primary-800 dark:text-primary-300 group-data-[current-person=true]/person:block">Current person</p>
             </div>
-            <%= link_to "Log meal for #{summary.person.name}", meal_week_path(date: @household_week.to_param), class: "text-sm font-semibold text-primary-800 underline hover:no-underline" if summary.person == @household_week.person %>
+            <%= link_to "Log meal for #{summary.person.name}", meal_week_path(date: @household_week.to_param), class: "text-sm font-semibold text-primary-800 dark:text-primary-300 underline hover:no-underline" if summary.person == @household_week.person %>
           </div>
 
           <div class="mt-5 grid gap-5 lg:grid-cols-3">

@@ -33,7 +33,10 @@
             </div>
             <div class="flex items-center gap-2">
               <%= render "layouts/person_menu" %>
-              <%= button_to "Sign out", session_path, method: :delete, class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %>
+              <%= button_to "Sign out", session_path,
+                    method: :delete,
+                    form: { data: { turbo_confirm: "Sign out of Hearth?" } },
+                    class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %>
             </div>
           </div>
         <% end %>

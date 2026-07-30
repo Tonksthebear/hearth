@@ -12,7 +12,7 @@
       <p class="text-sm font-semibold">Exercise <%= form.object.position %></p>
       <%= form.button "Remove exercise", name: "remove_session_exercise", value: coordinate, formnovalidate: true, class: { btn: [ :base, { xs: :base }, { danger: :outline } ] } %>
     </div>
-    <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-primary-800 underline" %>.</p>
+    <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-primary-800 dark:text-primary-300 underline" %>.</p>
     <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div class="sm:col-span-2"><%= form.label :exercise_id, "Catalog exercise (optional)", class: :label %><%= form.elements_autocomplete :exercise_id, exercise_options, {}, { placeholder: "Structured inline exercise" } %></div>
       <div class="sm:col-span-2"><%= form.label :snapshot_name, "Exercise name", class: :label %><%= form.text_field :snapshot_name, class: :text_field %></div>

@@ -218,33 +218,31 @@ function resetPopoversBeforeTurboCache() {
   })
 }
 
-// Elements normally opens an el-select popover from its button. Keep the
-// native popover path reliable when a browser upgrades the custom element
-// after Turbo has connected the page.
-document.addEventListener("click", (event) => {
-  const option = event.target.closest?.("el-option")
-  if (option) {
-    const select = option.closest("el-select")
-    if (select && select.value !== option.getAttribute("value")) {
-      select.value = option.getAttribute("value")
-    }
-    const selectedContent = select?.querySelector("el-selectedcontent")
-    if (selectedContent) selectedContent.textContent = option.textContent.trim()
-    option.closest("el-options")?.hidePopover?.()
-    return
-  }
+const initializedElementsSelects = new WeakSet()
 
-  const button = event.target.closest?.("el-select > button")
-  if (!button) return
+function initializeElementsSelects(root = document) {
+  const selects = []
+  if (root instanceof Element && root.matches("el-select")) selects.push(root)
+  root.querySelectorAll?.("el-select").forEach((select) => selects.push(select))
 
-  const options = button.parentElement?.querySelector(":scope > el-options[popover]")
-  if (!options) return
+  selects.forEach((select) => {
+    if (initializedElementsSelects.has(select)) return
 
-  const wasOpen = options.matches(":popover-open")
-  queueMicrotask(() => {
-    if (!wasOpen && !options.matches(":popover-open")) options.showPopover?.()
+    select.addEventListener("click", (event) => {
+      const option = event.target.closest?.("el-option")
+      if (!option || !select.contains(option)) return
+
+      const value = option.getAttribute("value")
+      if (select.value !== value) select.value = value
+
+      const selectedContent = select.querySelector("el-selectedcontent")
+      if (selectedContent) selectedContent.textContent = option.textContent.trim()
+
+      option.closest("el-options")?.hidePopover?.()
+    })
+    initializedElementsSelects.add(select)
   })
-}, true)
+}
 
 function clearTransitionState(element) {
   element.removeAttribute("data-closed")
@@ -273,6 +271,7 @@ document.addEventListener("turbo:before-stream-render", (event) => {
   const render = event.detail.render
   event.detail.render = async (streamElement) => {
     await render(streamElement)
+    initializeElementsSelects()
     initializeSlimSelects()
   }
 })
@@ -285,10 +284,14 @@ async function markElementsReady() {
     customElements.whenDefined("el-dropdown"),
     customElements.whenDefined("el-select")
   ])
+  initializeElementsSelects()
   initializeSlimSelects()
   document.documentElement.setAttribute("data-elements-ready", "true")
 }
 
 document.addEventListener("turbo:load", () => markElementsReady())
-document.addEventListener("turbo:frame-load", (event) => initializeSlimSelects(event.target))
+document.addEventListener("turbo:frame-load", (event) => {
+  initializeElementsSelects(event.target)
+  initializeSlimSelects(event.target)
+})
 document.addEventListener("DOMContentLoaded", () => markElementsReady())

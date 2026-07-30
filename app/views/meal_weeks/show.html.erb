@@ -14,8 +14,8 @@
   </div>
 
   <nav aria-label="Meal week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
-    <%= link_to "Previous week", meal_week_path(date: @meal_week.previous_date), class: "font-medium text-primary-800 underline hover:no-underline" %>
-    <%= link_to "Next week", meal_week_path(date: @meal_week.next_date), class: "font-medium text-primary-800 underline hover:no-underline" %>
+    <%= link_to "Previous week", meal_week_path(date: @meal_week.previous_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
+    <%= link_to "Next week", meal_week_path(date: @meal_week.next_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
   </nav>
 
   <div class="mt-8 grid gap-6 lg:grid-cols-2">
@@ -24,14 +24,7 @@
       <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Choose whether this plan is shared or assigned to one person.</p>
 
       <% if @meal_week.planned_meal.errors.any? %>
-        <div id="planned-meal-errors" class="mt-4 rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-sm text-danger-800 dark:text-danger-300">
-          <p class="font-semibold">The planned meal could not be saved:</p>
-          <ul class="mt-2 list-disc pl-5">
-            <% @meal_week.planned_meal.errors.full_messages.each do |message| %>
-              <li><%= message %></li>
-            <% end %>
-          </ul>
-        </div>
+        <%= render "layouts/alert", id: "planned-meal-errors", title: "The planned meal could not be saved:", messages: @meal_week.planned_meal.errors.full_messages, class: "mt-4" %>
       <% end %>
 
       <%= form_with model: @meal_week.planned_meal, class: "mt-5 grid gap-4" do |form| %>
@@ -61,14 +54,7 @@
       <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Record a catalog recipe or an ad hoc meal for <%= @meal_week.person.name %>.</p>
 
       <% if @meal_week.meal_log.errors.any? %>
-        <div id="meal-log-errors" class="mt-4 rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-sm text-danger-800 dark:text-danger-300">
-          <p class="font-semibold">The meal could not be logged:</p>
-          <ul class="mt-2 list-disc pl-5">
-            <% @meal_week.meal_log.errors.full_messages.each do |message| %>
-              <li><%= message %></li>
-            <% end %>
-          </ul>
-        </div>
+        <%= render "layouts/alert", id: "meal-log-errors", title: "The meal could not be logged:", messages: @meal_week.meal_log.errors.full_messages, class: "mt-4" %>
       <% end %>
 
       <%= form_with model: @meal_week.meal_log, class: "mt-5 grid gap-4" do |form| %>
@@ -111,7 +97,8 @@
                       </div>
                       <%= button_to "Remove", planned_meal_path(planned_meal), method: :delete,
                         params: { date: @meal_week.to_param },
-                        class: "text-sm font-medium text-gray-700 underline hover:no-underline" %>
+                        form: { data: { turbo_confirm: "Remove this meal from the plan?" } },
+                        class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
                     </div>
                   </li>
                 <% end %>
@@ -134,7 +121,8 @@
                       </div>
                       <%= button_to "Remove", meal_log_path(meal_log), method: :delete,
                         params: { date: @meal_week.to_param },
-                        class: "text-sm font-medium text-gray-700 underline hover:no-underline" %>
+                        form: { data: { turbo_confirm: "Remove this meal log?" } },
+                        class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
                     </div>
                   </li>
                 <% end %>

@@ -80,7 +80,7 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
       assert_no_button "Move down"
     end
 
-    page.execute_script("arguments[0].click()", blocks.first.find_button("Move down"))
+    blocks.first.find_button("Move down").click
     assert_selector "#workout_template_form section.rounded-xl:nth-of-type(1) input[value='Zone 2']", wait: 5
     assert_no_selector "html[aria-busy='true']"
 

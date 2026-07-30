@@ -22,9 +22,9 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
-          <%= link_to "Edit definition", edit_habit_path(habit), class: "text-sm font-semibold text-primary-800 underline" %>
+          <%= link_to "Edit definition", edit_habit_path(habit), class: "text-sm font-semibold text-primary-800 dark:text-primary-300 underline" %>
           <% if person_habit %>
-            <%= link_to "Configure for #{@current_person.name}", edit_person_habit_path(person_habit), class: "text-sm font-semibold text-primary-800 underline" %>
+            <%= link_to "Configure for #{@current_person.name}", edit_person_habit_path(person_habit), class: "text-sm font-semibold text-primary-800 dark:text-primary-300 underline" %>
           <% else %>
             <%= button_to "Activate for #{@current_person.name}", person_habits_path, params: { habit_id: habit.id }, class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
           <% end %>

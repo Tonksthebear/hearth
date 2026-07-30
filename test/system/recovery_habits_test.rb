@@ -24,9 +24,12 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     click_button_and_wait_for_count "Add metric", "input[name$='[key]']", 2
     fill_metric(1, key: "temperature", label: "Temperature", type: "Number", unit: "°F")
 
-    page.execute_script("arguments[0].click()", first("button[name='move_metric'][value='0:down']"))
+    first("button[name='move_metric'][value='0:down']").click
     assert_field "habit_habit_metrics_attributes_0_key", with: "temperature", wait: 5
     assert_equal %w[temperature duration], all("input[name$='[key]']").map(&:value)
+
+    click_button_and_wait_for_count "Add metric", "input[name$='[key]']", 3
+    fill_metric(2, key: "confirmed", label: "Confirmed", type: "Boolean", unit: "")
 
     click_button_and_wait_for_path "Create Habit", habits_path
     within find("article", text: "Evening reset") do
@@ -39,21 +42,25 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
 
     fill_in_and_wait_for_value "Temperature target", "168"
     fill_in_and_wait_for_value "Duration target", "20"
+    select_and_wait "No", from: "Confirmed target"
     click_button_and_wait_for_path "Save configuration", recovery_day_path
 
     within "#today-person-habit-#{configuration.id}" do
       assert_text "Your target: 168.0 °F"
       fill_in_and_wait_for_value "Temperature", "165"
       fill_in_and_wait_for_value "Duration", "18"
+      select_and_wait "No", from: "Confirmed"
       click_button "Record today's check-in"
     end
     assert_current_path recovery_day_path
     assert_text "165.0 °F"
     assert_text "18 minutes"
+    assert_text "No"
 
     within "#today-person-habit-#{configuration.id}" do
       fill_in_and_wait_for_value "Temperature", "170"
       fill_in_and_wait_for_value "Duration", "22"
+      assert_equal "No", find("el-select[name$='[boolean_value]'] el-selectedcontent").text
       click_button "Correct today's check-in"
     end
     assert_current_path recovery_day_path
@@ -61,7 +68,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     assert_text "22 minutes"
 
     within "#today-person-habit-#{person_habits(:alex_water).id}" do
-      click_button "Clear"
+      accept_confirm("Clear today's check-in?") { click_button "Clear" }
     end
     assert_current_path recovery_day_path
     within "#today-person-habit-#{person_habits(:alex_water).id}" do

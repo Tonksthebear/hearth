@@ -17,7 +17,7 @@ class HouseholdSetupAndAuthenticationTest < ApplicationSystemTestCase
     assert_selector "[data-household-name]", text: /Bear House/i
     assert_selector "article[data-current-person='true'] h3", text: "Tonks"
 
-    click_button "Sign out"
+    accept_confirm("Sign out of Hearth?") { click_button "Sign out" }
     assert_selector "h1", text: "Sign in"
 
     fill_in "Email address", with: "tonks@example.com"

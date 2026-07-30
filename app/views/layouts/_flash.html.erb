@@ -1,11 +1,7 @@
 <% if notice = flash[:notice] %>
-  <div id="notice" class="mb-6 rounded-md bg-success-50 p-4 text-sm font-medium text-success-800 dark:bg-success-500/10 dark:text-success-300" role="status">
-    <%= notice %>
-  </div>
+  <%= render "layouts/alert", id: "notice", role: "status", color: :success, messages: [ notice ], list: false, class: "mb-6" %>
 <% end %>
 
 <% if alert = flash[:alert] %>
-  <div id="alert" class="mb-6 rounded-md bg-danger-50 p-4 text-sm font-medium text-danger-800 dark:bg-danger-500/10 dark:text-danger-300" role="alert">
-    <%= alert %>
-  </div>
+  <%= render "layouts/alert", id: "alert", messages: [ alert ], list: false, class: "mb-6" %>
 <% end %>

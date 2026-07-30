@@ -20,14 +20,17 @@
             <h3 class="text-xl font-semibold"><%= entry.habit.name %></h3>
             <% if entry.habit.description.present? %><p class="mt-1 text-gray-600 dark:text-gray-400"><%= entry.habit.description %></p><% end %>
           </div>
-          <%= link_to "Configure", edit_person_habit_path(entry.person_habit), class: "text-sm font-semibold text-primary-800 underline" %>
+          <%= link_to "Configure", edit_person_habit_path(entry.person_habit), class: "text-sm font-semibold text-primary-800 dark:text-primary-300 underline" %>
         </div>
 
         <% if entry.habit.habit_metrics.empty? %>
           <div class="mt-5 flex flex-wrap gap-3">
             <% if check_in.persisted? %>
               <span class="rounded-full bg-success-100 px-3 py-1 text-sm font-semibold text-success-800">Checked</span>
-              <%= button_to "Clear", habit_check_in_path(check_in), method: :delete, class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
+              <%= button_to "Clear", habit_check_in_path(check_in),
+                    method: :delete,
+                    form: { data: { turbo_confirm: "Clear today's check-in?" } },
+                    class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
             <% else %>
               <%= button_to "Check off", habit_check_ins_path, params: { habit_check_in: { person_habit_id: entry.person_habit.id } }, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
             <% end %>
@@ -36,9 +39,7 @@
           <%= form_with model: check_in, class: "mt-5 space-y-4" do |form| %>
             <%= form.hidden_field :person_habit_id, value: entry.person_habit.id %>
             <% if check_in.errors.any? %>
-              <div id="check-in-errors" class="rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-danger-800 dark:text-danger-300">
-                <ul class="list-disc pl-5"><% check_in.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
-              </div>
+              <%= render "layouts/alert", id: "check-in-errors", title: "The check-in could not be saved:", messages: check_in.errors.full_messages %>
             <% end %>
             <%= form.fields_for :habit_check_in_measurements do |measurement_form| %>
               <% measurement = measurement_form.object %>
@@ -61,7 +62,11 @@
             </div>
           <% end %>
           <% if check_in.persisted? %>
-            <%= button_to "Clear", habit_check_in_path(check_in), method: :delete, class: { btn: [ :base, { md: :base }, { neutral: :outline } ] }, form_class: "mt-3" %>
+            <%= button_to "Clear", habit_check_in_path(check_in),
+                  method: :delete,
+                  form: { data: { turbo_confirm: "Clear today's check-in?" } },
+                  class: { btn: [ :base, { md: :base }, { neutral: :outline } ] },
+                  form_class: "mt-3" %>
           <% end %>
         <% end %>
       </article>

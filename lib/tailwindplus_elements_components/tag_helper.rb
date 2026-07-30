@@ -171,7 +171,7 @@ module TailwindplusElementsComponents
 
     # Finds the display text for a selected value within flat or grouped option collections.
     def resolve_display_text(choices, value)
-      return nil if value.blank?
+      return nil if value.nil? || value == ""
 
       all_options = case choices
       when ElementsGroupedOptionCollection

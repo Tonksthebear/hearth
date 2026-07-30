@@ -10,8 +10,8 @@
   </div>
 
   <nav aria-label="Training week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
-    <%= link_to "Previous week", training_week_path(date: @training_week.previous_date), class: "font-medium text-primary-800 underline" %>
-    <%= link_to "Next week", training_week_path(date: @training_week.next_date), class: "font-medium text-primary-800 underline" %>
+    <%= link_to "Previous week", training_week_path(date: @training_week.previous_date), class: "font-medium text-primary-800 dark:text-primary-300 underline" %>
+    <%= link_to "Next week", training_week_path(date: @training_week.next_date), class: "font-medium text-primary-800 dark:text-primary-300 underline" %>
   </nav>
 
   <section aria-labelledby="progress-heading" class="mt-8">
@@ -34,7 +34,12 @@
   <section aria-labelledby="targets-heading" class="mt-8 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
     <h2 id="targets-heading" class="text-xl font-semibold">Personal weekly targets</h2>
     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Optional tracking goals only—not medical advice or published defaults.</p>
-    <% if @training_week.person.errors.any? %><p class="mt-3 text-sm text-danger-800 dark:text-danger-300"><%= @training_week.person.errors.full_messages.to_sentence %></p><% end %>
+    <% if @training_week.person.errors.any? %>
+      <%= render "layouts/alert",
+            class: "mt-3",
+            title: "The week could not be updated:",
+            messages: @training_week.person.errors.full_messages %>
+    <% end %>
     <%= form_with model: @training_week.person, url: weekly_dose_target_path, method: :patch, class: "mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" do |form| %>
       <%= hidden_field_tag :date, @training_week.to_param %>
       <div><%= form.label :weekly_structured_minutes_target, "Structured minutes", class: :label %><%= form.number_field :weekly_structured_minutes_target, min: 1, class: :text_field %></div>
@@ -64,7 +69,7 @@
       <% @workout_templates.each do |workout_template| %>
         <article class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
           <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"><%= workout_template.provenance_status.humanize %></p>
-          <h3 class="mt-1 font-semibold"><%= link_to workout_template.title, workout_template, class: "text-primary-900 underline" %></h3>
+          <h3 class="mt-1 font-semibold"><%= link_to workout_template.title, workout_template, class: "text-primary-900 dark:text-primary-300 underline" %></h3>
           <%= button_to "Start workout", training_sessions_path, params: { template_id: workout_template.id }, class: { btn: [ :base, { md: :base }, { neutral: :outline } ] }, form_class: "mt-3" %>
         </article>
       <% end %>
@@ -76,7 +81,7 @@
     <div class="mt-4 grid gap-3">
       <% @training_week.completed_sessions.each do |session| %>
         <article class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
-          <h3 class="font-semibold"><%= link_to session.snapshot_title, session, class: "text-primary-900 underline" %></h3>
+          <h3 class="font-semibold"><%= link_to session.snapshot_title, session, class: "text-primary-900 dark:text-primary-300 underline" %></h3>
           <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= session.performed_on.to_fs(:long) %> · <%= session.training_session_blocks.size %> structured blocks</p>
         </article>
       <% end %>

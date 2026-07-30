@@ -9,12 +9,19 @@ module TailwindplusElementsComponents
     #   form.elements_select(:person) { |s| s.button { ... } + s.menu { ... } }
     #
     def elements_select(method, choices = nil, options = {}, html_options = {}, &block)
-      selected_value = @object&.public_send(method)
+      selected_value =
+        if options.key?(:value)
+          options.delete(:value)
+        elsif html_options.key?(:value)
+          html_options.delete(:value)
+        else
+          @object&.public_send(method)
+        end
 
       field_options = {
         name: field_name(method),
         id: field_id(method),
-        value: selected_value || ""
+        value: selected_value.nil? ? "" : selected_value
       }
 
       field_options[:prompt] = options[:prompt] if options[:prompt]
@@ -33,11 +40,13 @@ module TailwindplusElementsComponents
           @template.elements_options_for_select(normalized, selected_value)
         end
 
+        selected_text = @template.resolve_display_text(choice_data, selected_value)
+
         @template.render Elements::SelectComponent.new(variant: variant, **field_options) do |select|
           @template.safe_join([
             select.button { |b|
               @template.safe_join([
-                b.selected_content,
+                b.selected_content(selected_text),
                 chevron_icon(variant)
               ])
             },

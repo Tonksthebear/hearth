@@ -10,8 +10,9 @@ class MealWeeksController < ApplicationController
 
   private
     def prepare_options
-      @recipe_options = @meal_week.recipes.map { |recipe| [ recipe.title, recipe.id ] }
-      @optional_recipe_options = [ [ "No catalog recipe", "" ] ] + @recipe_options
+      recipe_choices = @meal_week.recipes.map { |recipe| [ recipe.title, recipe.id ] }
+      @recipe_options = [ [ "Choose a recipe", "" ] ] + recipe_choices
+      @optional_recipe_options = [ [ "No catalog recipe", "" ] ] + recipe_choices
       @person_options = [ [ "Whole household", "" ] ] +
         @meal_week.people.map { |person| [ person.name, person.id ] }
     end

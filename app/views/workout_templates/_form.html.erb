@@ -1,10 +1,7 @@
 <div id="workout_template_form">
   <%= form_with model: workout_template, class: "mt-8 space-y-8" do |form| %>
     <% if workout_template.errors.any? %>
-      <div id="workout-template-errors" class="rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-danger-800 dark:text-danger-300">
-        <p class="font-semibold">Please correct the following:</p>
-        <ul class="mt-2 list-disc pl-5"><% workout_template.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
-      </div>
+      <%= render "layouts/alert", id: "workout-template-errors", title: "Please correct the following:", messages: workout_template.errors.full_messages %>
     <% end %>
 
     <fieldset class="grid gap-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2">
@@ -52,7 +49,7 @@
 
     <div class="flex items-center gap-4">
       <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
-      <%= link_to "Cancel", workout_template.persisted? ? workout_template_path(workout_template) : workout_templates_path, class: "text-sm font-medium text-gray-700 underline" %>
+      <%= link_to "Cancel", workout_template.persisted? ? workout_template_path(workout_template) : workout_templates_path, class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline" %>
     </div>
   <% end %>
 </div>

@@ -12,7 +12,7 @@
     <% @people.each do |person| %>
       <li class="flex items-center justify-between gap-4 px-5 py-4">
         <span class="font-medium"><%= person.name %></span>
-        <%= link_to "Edit", edit_person_path(person), class: "text-sm font-medium text-primary-800 underline hover:no-underline", "aria-label": "Edit #{person.name}" %>
+        <%= link_to "Edit", edit_person_path(person), class: "text-sm font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline", "aria-label": "Edit #{person.name}" %>
       </li>
     <% end %>
   </ul>

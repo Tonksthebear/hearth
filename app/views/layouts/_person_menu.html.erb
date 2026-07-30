@@ -32,6 +32,7 @@
     <%= menu.section do %>
       <%= button_to session_path,
             method: :delete,
+            form: { data: { turbo_confirm: "Sign out of Hearth?" } },
             class: "flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary-600 dark:text-gray-300 dark:hover:bg-white/5" do %>
         <%= icon "arrow-right-start-on-rectangle", variant: :mini, class: "mr-3 size-5 text-gray-400" %>
         Sign out

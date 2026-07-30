@@ -25,7 +25,7 @@
     <div class="flex items-end gap-3">
       <%= form.submit "Filter", class: { btn: [ :base, { lg: :base }, { neutral: :solid } ] } %>
       <% if @query.present? || @status.present? %>
-        <%= link_to "Clear", recipes_path, class: "pb-2 text-sm font-medium text-gray-700 underline hover:no-underline" %>
+        <%= link_to "Clear", recipes_path, class: "pb-2 text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
       <% end %>
     </div>
   <% end %>
@@ -41,7 +41,7 @@
         <li class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 class="text-xl font-semibold"><%= link_to recipe.title, recipe, class: "text-primary-800 underline hover:no-underline" %></h2>
+              <h2 class="text-xl font-semibold"><%= link_to recipe.title, recipe, class: "text-primary-800 dark:text-primary-300 underline hover:no-underline" %></h2>
               <% if recipe.description.present? %>
                 <p class="mt-2 text-gray-600 dark:text-gray-400"><%= recipe.description %></p>
               <% end %>

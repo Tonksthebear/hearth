@@ -31,7 +31,20 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
     assert document.at_css("form[method='get']")
     assert document.at_css("input[name='q'][value='soup']")
     assert document.at_css("el-select[name='status'][value='adapted']")
+    assert_equal "Adapted", document.at_css("el-select[name='status'] el-selectedcontent").text
     assert document.at_css("el-option[value='adapted']")
+  end
+
+  test "Elements selects preserve and display a false boolean value" do
+    document = render_inline(<<~ERB)
+      <%= form_with url: "/preferences" do |form| %>
+        <%= form.elements_select :enabled, [["Yes", true], ["No", false]], {}, value: false %>
+      <% end %>
+    ERB
+
+    assert document.at_css("el-select[name='enabled'][value='false']")
+    assert_equal "No", document.at_css("el-selectedcontent").text
+    assert document.at_css("el-option[value='false'][selected]")
   end
 
   test "autocomplete preserves the native select contract" do
@@ -62,6 +75,21 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
 
     assert_nil document.at_css("script")
     assert_includes document.text, "<script>alert('no')</script>"
+  end
+
+  test "shared alerts use the configured Elements treatment and escape messages" do
+    document = render_inline(<<~ERB)
+      <%= render "layouts/alert",
+            id: "example-errors",
+            title: "Could not save:",
+            messages: ["<script>alert('no')</script>"] %>
+    ERB
+
+    alert = document.at_css("#example-errors[role='alert']")
+    assert alert
+    assert_includes alert["class"], "rounded-md"
+    assert_includes alert.text, "<script>alert('no')</script>"
+    assert_nil alert.at_css("script")
   end
 
   private

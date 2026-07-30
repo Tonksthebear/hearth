@@ -3,6 +3,20 @@ require "application_system_test_case"
 class TrainingSessionsTest < ApplicationSystemTestCase
   WEEK_START = Date.new(2026, 7, 27)
 
+  test "requires confirmation before deleting a workout draft" do
+    training_session = training_sessions(:draft)
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path training_session_path(training_session)
+
+    dismiss_confirm("Delete this workout draft?") { click_button "Delete draft" }
+    assert TrainingSession.exists?(training_session.id)
+    assert_current_path training_session_path(training_session)
+
+    accept_confirm("Delete this workout draft?") { click_button "Delete draft" }
+    assert_current_path training_week_path(date: training_session.performed_on), wait: 5
+    assert_not TrainingSession.exists?(training_session.id)
+  end
+
   test "starts a template snapshot records actual rows completes and updates progress" do
     travel_to WEEK_START do
       sign_in_via_browser users(:one)
@@ -72,7 +86,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       assert_selector "article", text: /Neighborhood walk.*excluded from progress until completed/m
       session = TrainingSession.find_by!(snapshot_title: "Neighborhood walk")
       within find("article", text: /Neighborhood walk/) do
-        page.execute_script("arguments[0].click()", find_link("Resume workout"))
+        click_link "Resume workout"
       end
       assert_current_path edit_training_session_path(session)
       click_button_and_wait_for_text "Complete workout", "Workout completed."

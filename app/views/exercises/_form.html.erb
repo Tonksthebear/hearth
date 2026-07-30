@@ -1,8 +1,6 @@
 <%= form_with model: exercise, class: "mt-8 grid gap-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2" do |form| %>
   <% if exercise.errors.any? %>
-    <div class="sm:col-span-2 rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-danger-800 dark:text-danger-300">
-      <ul class="list-disc pl-5"><% exercise.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
-    </div>
+    <%= render "layouts/alert", title: "The exercise could not be saved:", messages: exercise.errors.full_messages, class: "sm:col-span-2" %>
   <% end %>
   <div class="sm:col-span-2">
     <%= form.label :name, class: :label %>
@@ -26,6 +24,6 @@
   </div>
   <div class="sm:col-span-2 flex items-center gap-4">
     <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
-    <%= link_to "Cancel", exercise.persisted? ? exercise_path(exercise) : exercises_path, class: "text-sm font-medium text-gray-700 underline" %>
+    <%= link_to "Cancel", exercise.persisted? ? exercise_path(exercise) : exercises_path, class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline" %>
   </div>
 <% end %>

@@ -1,10 +1,7 @@
 <div id="training_session_form">
   <%= form_with model: training_session, class: "mt-8 space-y-8" do |form| %>
     <% if training_session.errors.any? %>
-      <div id="training-session-errors" class="rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-danger-800 dark:text-danger-300">
-        <p class="font-semibold">Please correct the following:</p>
-        <ul class="mt-2 list-disc pl-5"><% training_session.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
-      </div>
+      <%= render "layouts/alert", id: "training-session-errors", title: "Please correct the following:", messages: training_session.errors.full_messages %>
     <% end %>
 
     <fieldset class="grid gap-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2">
@@ -47,7 +44,7 @@
       <% if training_session.persisted? %>
         <%= form.submit "Complete workout", name: "complete", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
       <% end %>
-      <%= link_to "Cancel", training_week_path(date: training_session.performed_on), class: "text-sm font-medium text-gray-700 underline" %>
+      <%= link_to "Cancel", training_week_path(date: training_session.performed_on), class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline" %>
     </div>
   <% end %>
 </div>

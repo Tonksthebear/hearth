@@ -28,7 +28,7 @@
         name: "remove_ingredient",
         value: form.index,
         formnovalidate: true,
-        class: "rounded-lg border border-danger-200 px-3 py-2 text-sm font-semibold text-danger-800 dark:text-danger-300 hover:bg-danger-50 dark:bg-danger-500/10",
+        class: { btn: [ :base, { md: :base }, { danger: :outline } ] },
         aria: { label: "Remove ingredient #{form.object.position}" } %>
     </div>
   </div>

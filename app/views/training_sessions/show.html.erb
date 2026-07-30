@@ -7,7 +7,10 @@
   <% unless @training_session.completed? %>
     <div class="mt-5 flex gap-3">
       <%= link_to "Resume workout", edit_training_session_path(@training_session), class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
-      <%= button_to "Delete draft", training_session_path(@training_session), method: :delete, class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
+      <%= button_to "Delete draft", training_session_path(@training_session),
+            method: :delete,
+            form: { data: { turbo_confirm: "Delete this workout draft?" } },
+            class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
     </div>
   <% end %>
 
@@ -43,5 +46,5 @@
       Snapshot provenance: <%= @training_session.snapshot_provenance_status.humanize %><% if @training_session.snapshot_source_name.present? %> · <%= @training_session.snapshot_source_name %><% end %>. Attribution is not clinical endorsement or medical advice.
     </aside>
   <% end %>
-  <p class="mt-8"><%= link_to "Back to training week", training_week_path(date: @training_session.performed_on), class: "font-medium text-primary-800 underline" %></p>
+  <p class="mt-8"><%= link_to "Back to training week", training_week_path(date: @training_session.performed_on), class: "font-medium text-primary-800 dark:text-primary-300 underline" %></p>
 </article>
