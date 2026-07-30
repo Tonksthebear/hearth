@@ -2,46 +2,49 @@ require "application_system_test_case"
 
 class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
   test "interactive text and tinted panels retain dark mode contrast" do
-    page.driver.browser.execute_cdp(
-      "Emulation.setEmulatedMedia",
-      features: [ { name: "prefers-color-scheme", value: "light" } ]
-    )
-    sign_in_via_browser users(:one)
+    travel_to Time.zone.local(2026, 7, 27, 12) do
+      prepare_household_week_habits
+      page.driver.browser.execute_cdp(
+        "Emulation.setEmulatedMedia",
+        features: [ { name: "prefers-color-scheme", value: "light" } ]
+      )
+      sign_in_via_browser users(:one)
 
-    week_link = find_link("Previous week", visible: :visible)
-    week_link_classes = week_link[:class]
-    light_week_color = computed_color(week_link)
+      week_link = find_link("Previous week", visible: :visible)
+      week_link_classes = week_link[:class]
+      light_week_color = computed_color(week_link)
 
-    page.driver.browser.execute_cdp(
-      "Emulation.setEmulatedMedia",
-      features: [ { name: "prefers-color-scheme", value: "dark" } ]
-    )
-    dark_week_color = computed_color(week_link)
-    assert_contrast week_link
-    assert_contrast find("#household-plans li p.font-semibold", match: :first)
-    assert_contrast find("span", text: "History only", match: :first)
+      page.driver.browser.execute_cdp(
+        "Emulation.setEmulatedMedia",
+        features: [ { name: "prefers-color-scheme", value: "dark" } ]
+      )
+      dark_week_color = computed_color(week_link)
+      assert_contrast week_link
+      assert_contrast find("#household-plans li p.font-semibold", match: :first)
+      assert_contrast find("span", text: "History only", match: :first)
 
-    visit_and_wait_for_path new_recipe_path
-    assert_contrast find("label", text: "Amount", match: :prefer_exact)
-    assert_contrast find("label", text: "Step", match: :prefer_exact)
-    cancel_link = find_link("Cancel", visible: :visible)
-    cancel_link_classes = cancel_link[:class]
-    dark_cancel_color = computed_color(cancel_link)
+      visit_and_wait_for_path new_recipe_path
+      assert_contrast find("label", text: "Amount", match: :prefer_exact)
+      assert_contrast find("label", text: "Step", match: :prefer_exact)
+      cancel_link = find_link("Cancel", visible: :visible)
+      cancel_link_classes = cancel_link[:class]
+      dark_cancel_color = computed_color(cancel_link)
 
-    visit_and_wait_for_path edit_workout_template_path(workout_templates(:balanced))
-    assert_contrast find("section h3", text: /Block \d+/, match: :first)
+      visit_and_wait_for_path edit_workout_template_path(workout_templates(:balanced))
+      assert_contrast find("section h3", text: /Block \d+/, match: :first)
 
-    page.driver.browser.execute_cdp(
-      "Emulation.setEmulatedMedia",
-      features: [ { name: "prefers-color-scheme", value: "light" } ]
-    )
-    visit_and_wait_for_path new_recipe_path
-    light_cancel_color = computed_color(find_link("Cancel", visible: :visible))
+      page.driver.browser.execute_cdp(
+        "Emulation.setEmulatedMedia",
+        features: [ { name: "prefers-color-scheme", value: "light" } ]
+      )
+      visit_and_wait_for_path new_recipe_path
+      light_cancel_color = computed_color(find_link("Cancel", visible: :visible))
 
-    assert_not_equal light_week_color, dark_week_color
-    assert_not_equal light_cancel_color, dark_cancel_color
-    assert_includes week_link_classes, "dark:text-primary-300"
-    assert_includes cancel_link_classes, "dark:text-gray-300"
+      assert_not_equal light_week_color, dark_week_color
+      assert_not_equal light_cancel_color, dark_cancel_color
+      assert_includes week_link_classes, "dark:text-primary-300"
+      assert_includes cancel_link_classes, "dark:text-gray-300"
+    end
   ensure
     page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
   end
