@@ -22,7 +22,7 @@
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= number_with_precision(block.actual_duration_seconds.to_f / 60, precision: 1, strip_insignificant_zeros: true) %> actual minutes</p>
         <div class="mt-4 space-y-3">
           <% block.training_session_exercises.each do |exercise| %>
-            <div class="rounded-lg bg-gray-50 p-4">
+            <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/5">
               <h3 class="font-semibold"><%= exercise.snapshot_name %></h3>
               <p class="text-sm text-gray-600 dark:text-gray-400"><%= exercise.snapshot_modality.humanize %> · <%= exercise.snapshot_movement_pattern.humanize %></p>
               <ol class="mt-3 space-y-2">
@@ -42,7 +42,7 @@
   </div>
 
   <% if @training_session.snapshot_provenance_status.present? %>
-    <aside class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950">
+    <aside class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
       Snapshot provenance: <%= @training_session.snapshot_provenance_status.humanize %><% if @training_session.snapshot_source_name.present? %> · <%= @training_session.snapshot_source_name %><% end %>. Attribution is not clinical endorsement or medical advice.
     </aside>
   <% end %>

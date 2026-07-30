@@ -26,7 +26,7 @@
         <% if entry.habit.habit_metrics.empty? %>
           <div class="mt-5 flex flex-wrap gap-3">
             <% if check_in.persisted? %>
-              <span class="rounded-full bg-success-100 px-3 py-1 text-sm font-semibold text-success-800">Checked</span>
+              <span class="rounded-full bg-success-100 px-3 py-1 text-sm font-semibold text-success-800 dark:bg-success-500/20 dark:text-success-200">Checked</span>
               <%= button_to "Clear", habit_check_in_path(check_in),
                     method: :delete,
                     form: { data: { turbo_confirm: "Clear today's check-in?" } },

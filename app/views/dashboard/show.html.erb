@@ -32,7 +32,7 @@
     <div class="group/plans mt-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
       <ul id="household-plans" class="grid gap-3 has-[li]:sm:grid-cols-2">
         <% @household_week.planned_meals.each do |planned_meal| %>
-          <li class="rounded-lg bg-primary-50 p-4">
+          <li class="rounded-lg bg-primary-50 p-4 dark:bg-primary-500/10">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"><%= planned_meal.planned_on.strftime("%a %-m/%-d") %></p>
             <p class="mt-1 font-semibold"><%= planned_meal.recipe.title %></p>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
@@ -64,7 +64,7 @@
           </div>
 
           <div class="mt-5 grid gap-5 lg:grid-cols-3">
-            <section aria-labelledby="person-<%= summary.person.id %>-meals" class="group/meals rounded-lg bg-gray-50 p-4">
+            <section aria-labelledby="person-<%= summary.person.id %>-meals" class="group/meals rounded-lg bg-gray-50 p-4 dark:bg-white/5">
               <h4 id="person-<%= summary.person.id %>-meals" class="font-semibold">Meals eaten</h4>
               <ul class="mt-3 grid gap-2">
                 <% summary.meal_logs.each do |meal_log| %>
@@ -77,7 +77,7 @@
               <p class="mt-3 hidden text-sm text-gray-500 dark:text-gray-400 group-not-has-[li]/meals:block">No meals logged this week.</p>
             </section>
 
-            <section aria-labelledby="person-<%= summary.person.id %>-training" class="group/training rounded-lg bg-gray-50 p-4">
+            <section aria-labelledby="person-<%= summary.person.id %>-training" class="group/training rounded-lg bg-gray-50 p-4 dark:bg-white/5">
               <h4 id="person-<%= summary.person.id %>-training" class="font-semibold">Training</h4>
               <ul class="mt-3 grid gap-2">
                 <% summary.training_sessions.each do |training_session| %>
@@ -90,20 +90,20 @@
               <p class="mt-3 hidden text-sm text-gray-500 dark:text-gray-400 group-not-has-[li]/training:block">No training logged this week.</p>
             </section>
 
-            <section aria-labelledby="person-<%= summary.person.id %>-habits" class="group/habits rounded-lg bg-gray-50 p-4">
+            <section aria-labelledby="person-<%= summary.person.id %>-habits" class="group/habits rounded-lg bg-gray-50 p-4 dark:bg-white/5">
               <h4 id="person-<%= summary.person.id %>-habits" class="font-semibold">Habits and recovery</h4>
               <ul class="mt-3 grid gap-3">
                 <% summary.habits.each do |habit_summary| %>
                   <li>
                     <div class="flex items-center justify-between gap-3">
                       <span class="text-sm font-medium"><%= habit_summary.habit.name %></span>
-                      <% if habit_summary.history_only? %><span class="rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">History only</span><% end %>
+                      <% if habit_summary.history_only? %><span class="rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-600 dark:bg-white/10 dark:text-gray-300">History only</span><% end %>
                     </div>
                     <dl class="mt-2 grid grid-cols-7 gap-1">
                       <% habit_summary.days.each do |day| %>
                         <div class="text-center" title="<%= day.status.to_s.humanize %>">
                           <dt class="text-[0.65rem] font-semibold text-gray-500 dark:text-gray-400"><%= day.date.strftime("%a").first %></dt>
-                          <dd data-status="<%= day.status %>" class="mt-1 h-2 rounded-full bg-gray-300 data-[status=checked]:bg-success-500 data-[status=not_checked]:bg-primary-400 data-[status=not_scheduled]:bg-gray-200 data-[status=no_record]:bg-gray-400">
+                          <dd data-status="<%= day.status %>" class="mt-1 h-2 rounded-full bg-gray-300 data-[status=checked]:bg-success-500 data-[status=not_checked]:bg-primary-400 data-[status=not_scheduled]:bg-gray-200 data-[status=no_record]:bg-gray-400 dark:bg-gray-600 dark:data-[status=not_scheduled]:bg-white/10 dark:data-[status=no_record]:bg-gray-600">
                             <span class="sr-only"><%= day.status.to_s.humanize %></span>
                           </dd>
                         </div>
@@ -120,7 +120,7 @@
     </div>
   </section>
 
-  <aside class="mt-10 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950">
+  <aside class="mt-10 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
     <p class="font-semibold">Informational tracking only</p>
     <p class="mt-1">Hearth helps your household record routines and notice patterns. It does not provide medical advice, diagnosis, or treatment.</p>
   </aside>

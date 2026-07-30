@@ -4,7 +4,7 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-[0.7fr_0.8fr_2fr_2fr_auto]">
+  <div class="grid gap-3 rounded-lg bg-gray-50 p-4 dark:bg-white/5 sm:grid-cols-[0.7fr_0.8fr_2fr_2fr_auto]">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div>
