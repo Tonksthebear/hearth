@@ -25,11 +25,16 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       assert_no_selector "html[aria-busy='true']"
     end
 
-    def click_link_and_wait_for_path(label, path)
-      link = find_link(label)
+    def click_link_and_wait_for_path(label, path, **options)
+      link = find_link(label, **options)
       link.click
-      page.has_current_path?(path, wait: 5)
-      assert_current_path path
+      assert_current_path path, wait: 5
+      assert_no_selector "html[aria-busy='true']"
+    end
+
+    def click_element_and_wait_for_path(element, path)
+      element.click
+      assert_current_path path, wait: 5
       assert_no_selector "html[aria-busy='true']"
     end
 
@@ -77,9 +82,8 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     end
 
     def set_and_wait(field, value)
-      field.click
-      field.send_keys(value)
-      page.has_field?(field[:id], with: value, wait: 5)
+      field.set(value)
+      assert_field field[:id], with: value, wait: 5
       assert_equal value, field.value
       assert_no_selector "html[aria-busy='true']"
     end
