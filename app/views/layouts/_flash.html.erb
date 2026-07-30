@@ -1,0 +1,7 @@
+<% if notice = flash[:notice] %>
+  <%= render "layouts/alert", id: "notice", role: "status", color: :success, messages: [ notice ], list: false, class: "mb-6" %>
+<% end %>
+
+<% if alert = flash[:alert] %>
+  <%= render "layouts/alert", id: "alert", messages: [ alert ], list: false, class: "mb-6" %>
+<% end %>

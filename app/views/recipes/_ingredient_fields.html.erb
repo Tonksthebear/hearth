@@ -4,31 +4,31 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="grid gap-3 rounded-lg bg-stone-50 p-4 sm:grid-cols-[0.7fr_0.8fr_2fr_2fr_auto]">
+  <div class="grid gap-3 rounded-lg bg-gray-50 p-4 dark:bg-white/5 sm:grid-cols-[0.7fr_0.8fr_2fr_2fr_auto]">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div>
-      <%= form.label :amount, class: "block text-xs font-medium text-stone-600" %>
-      <%= form.text_field :amount, class: "mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      <%= form.label :amount, class: :label %>
+      <%= form.text_field :amount, class: :text_field %>
     </div>
     <div>
-      <%= form.label :unit, class: "block text-xs font-medium text-stone-600" %>
-      <%= form.text_field :unit, class: "mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      <%= form.label :unit, class: :label %>
+      <%= form.text_field :unit, class: :text_field %>
     </div>
     <div>
-      <%= form.label :name, class: "block text-xs font-medium text-stone-600" %>
-      <%= form.text_field :name, required: true, class: "mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      <%= form.label :name, class: :label %>
+      <%= form.text_field :name, required: true, class: :text_field %>
     </div>
     <div>
-      <%= form.label :notes, class: "block text-xs font-medium text-stone-600" %>
-      <%= form.text_field :notes, class: "mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      <%= form.label :notes, class: :label %>
+      <%= form.text_field :notes, class: :text_field %>
     </div>
     <div class="flex items-end">
       <%= form.button "Remove",
         name: "remove_ingredient",
         value: form.index,
         formnovalidate: true,
-        class: "rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-50",
+        class: { btn: [ :base, { md: :base }, { danger: :outline } ] },
         aria: { label: "Remove ingredient #{form.object.position}" } %>
     </div>
   </div>

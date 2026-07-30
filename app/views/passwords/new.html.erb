@@ -1,18 +1,30 @@
-<div class="mx-auto md:w-2/3 w-full">
-  <% if alert = flash[:alert] %>
-    <p class="py-2 px-3 bg-red-50 mb-5 text-red-500 font-medium rounded-lg inline-block" id="alert"><%= alert %></p>
-  <% end %>
+<% content_for :title, "Reset password · Hearth" %>
 
-  <h1 class="font-bold text-4xl">Forgot your password?</h1>
+<div class="flex min-h-full flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+  <div class="sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm dark:bg-primary-500">
+      <%= icon "key", class: "size-7" %>
+    </div>
+    <h1 class="mt-6 text-center text-2xl/9 font-bold tracking-tight text-gray-900 dark:text-white">Forgot your password?</h1>
+    <p class="mt-2 text-center text-sm/6 text-gray-600 dark:text-gray-400">We’ll send password reset instructions to your email.</p>
+  </div>
 
-  <%= form_with url: passwords_path, class: "contents" do |form| %>
-    <div class="my-5">
-      <%= form.label :email_address, "Email address", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+  <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-[480px]">
+    <div class="bg-white px-6 py-12 shadow-sm sm:rounded-lg sm:px-12 dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+      <%= form_with url: passwords_path, class: "space-y-6" do |form| %>
+        <div>
+          <%= form.label :email_address, "Email address", class: :label %>
+          <div class="mt-2">
+            <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", class: :text_field %>
+          </div>
+        </div>
+
+        <%= form.submit "Email reset instructions", class: { btn: [ :base, { xl: :base }, { primary: :solid }, "w-full" ] } %>
+      <% end %>
     </div>
 
-    <div class="inline">
-      <%= form.submit "Email reset instructions", class: "w-full sm:w-auto text-center rounded-lg px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white inline-block font-medium cursor-pointer" %>
-    </div>
-  <% end %>
+    <p class="mt-6 text-center text-sm/6">
+      <%= link_to "Back to sign in", new_session_path, class: "font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300" %>
+    </p>
+  </div>
 </div>

@@ -1,0 +1,11 @@
+<%= tag.el_dialog open: open, class: "group/dialog" do %>
+  <%= tag.dialog id: id, class: yass(:main), aria: { labelledby: "dialog-title" } do %>
+    <%= tag.el_dialog_backdrop class: yass(:backdrop) %>
+
+    <%= tag.div class: yass({ container: [style, size] }), tabindex: 0 do %>
+      <%= tag.el_dialog_panel class: yass({ panel: [style, size, scrollable ? :scrollable : :not_scrollable] }) do %>
+        <%= content %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

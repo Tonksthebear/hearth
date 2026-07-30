@@ -60,6 +60,7 @@ class WorkoutTemplatesController < ApplicationController
       @dose_classes = WorkoutBlock::DOSE_CLASSES
       @entry_kinds = ExercisePrescription::ENTRY_KINDS
       @exercises = Current.household.exercises.order(:name)
+      @exercise_options = [ [ "Choose exercise", "" ] ] + @exercises.map { |exercise| [ exercise.name, exercise.id ] }
     end
 
     def workout_template_params
@@ -119,7 +120,7 @@ class WorkoutTemplatesController < ApplicationController
         block_kinds: @block_kinds,
         dose_classes: @dose_classes,
         entry_kinds: @entry_kinds,
-        exercises: @exercises
+        exercise_options: @exercise_options
       }
     end
 end

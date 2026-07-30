@@ -1,0 +1,28 @@
+<% color = local_assigns.fetch(:color, :danger) %>
+<% role = local_assigns.fetch(:role, "alert") %>
+<% list = local_assigns.fetch(:list, true) %>
+<%= tag.div id: local_assigns[:id],
+      role: role,
+      class: class_names(yass(alert: { container: { color => [ :base, :rounded ] } }), local_assigns[:class]) do %>
+  <div class="<%= yass(alert: :inner) %>">
+    <div class="<%= yass(alert: :icon_wrapper) %>">
+      <%= icon(color == :success ? "check" : "x-mark", variant: :mini, class: yass(alert: { icon: [ :base, color ] })) %>
+    </div>
+    <div class="<%= yass(alert: :content) %>">
+      <% if local_assigns[:title].present? %>
+        <h3 class="<%= yass(alert: { title: [ :base, color ] }) %>"><%= title %></h3>
+      <% end %>
+      <div class="<%= yass(alert: { description: [ :base, color ] }) %>">
+        <% if list %>
+          <ul role="list" class="<%= yass(alert: :list) %>">
+            <% messages.each do |message| %>
+              <li><%= message %></li>
+            <% end %>
+          </ul>
+        <% else %>
+          <p><%= messages.to_sentence %></p>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

@@ -3,144 +3,132 @@
 <section aria-labelledby="meal-week-heading">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-amber-700"><%= @meal_week.person.name %>'s weekly review</p>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @meal_week.person.name %>'s weekly review</p>
       <h1 id="meal-week-heading" class="mt-2 text-3xl font-semibold tracking-tight">Meals</h1>
-      <p class="mt-2 text-stone-600">
+      <p class="mt-2 text-gray-600 dark:text-gray-400">
         <%= @meal_week.start_date.to_fs(:long) %>–<%= @meal_week.end_date.to_fs(:long) %>.
         Household plans and <%= @meal_week.person.name %>'s own meals are kept separate.
       </p>
     </div>
-    <%= link_to "Shopping list", shopping_list_path(date: @meal_week), class: "rounded-lg bg-stone-900 px-4 py-2 font-semibold text-white hover:bg-stone-700" %>
+    <%= link_to "Shopping list", shopping_list_path(date: @meal_week), class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
   </div>
 
-  <nav aria-label="Meal week" class="mt-6 flex items-center justify-between rounded-xl border border-stone-200 bg-white p-4">
-    <%= link_to "Previous week", meal_week_path(date: @meal_week.previous_date), class: "font-medium text-amber-800 underline hover:no-underline" %>
-    <%= link_to "Next week", meal_week_path(date: @meal_week.next_date), class: "font-medium text-amber-800 underline hover:no-underline" %>
+  <nav aria-label="Meal week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
+    <%= link_to "Previous week", meal_week_path(date: @meal_week.previous_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
+    <%= link_to "Next week", meal_week_path(date: @meal_week.next_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
   </nav>
 
   <div class="mt-8 grid gap-6 lg:grid-cols-2">
-    <section aria-labelledby="plan-meal-heading" class="rounded-xl border border-stone-200 bg-white p-5">
+    <section aria-labelledby="plan-meal-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
       <h2 id="plan-meal-heading" class="text-xl font-semibold">Plan a meal</h2>
-      <p class="mt-1 text-sm text-stone-600">Choose whether this plan is shared or assigned to one person.</p>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Choose whether this plan is shared or assigned to one person.</p>
 
       <% if @meal_week.planned_meal.errors.any? %>
-        <div id="planned-meal-errors" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <p class="font-semibold">The planned meal could not be saved:</p>
-          <ul class="mt-2 list-disc pl-5">
-            <% @meal_week.planned_meal.errors.full_messages.each do |message| %>
-              <li><%= message %></li>
-            <% end %>
-          </ul>
-        </div>
+        <%= render "layouts/alert", id: "planned-meal-errors", title: "The planned meal could not be saved:", messages: @meal_week.planned_meal.errors.full_messages, class: "mt-4" %>
       <% end %>
 
       <%= form_with model: @meal_week.planned_meal, class: "mt-5 grid gap-4" do |form| %>
         <%= hidden_field_tag :date, @meal_week.to_param %>
         <div>
-          <%= form.label :planned_on, "Date", class: "block text-sm font-medium" %>
-          <%= form.date_field :planned_on, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+          <%= form.label :planned_on, "Date", class: :label %>
+          <%= form.date_field :planned_on, class: :text_field %>
         </div>
         <div>
-          <%= form.label :recipe_id, "Planned recipe", class: "block text-sm font-medium" %>
-          <%= form.collection_select :recipe_id, @meal_week.recipes, :id, :title,
-            { prompt: "Choose a recipe" },
-            class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+          <%= form.label :recipe_id, "Planned recipe", class: :label %>
+          <%= form.elements_autocomplete :recipe_id, @recipe_options,
+            { value: @meal_week.planned_meal.recipe_id },
+            { placeholder: "Choose a recipe", required: true } %>
         </div>
         <div>
-          <%= form.label :person_id, "Plan for", class: "block text-sm font-medium" %>
-          <%= form.collection_select :person_id, @meal_week.people, :id, :name,
-            { include_blank: "Whole household" },
-            class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+          <%= form.label :person_id, "Plan for", class: :label %>
+          <%= form.elements_autocomplete :person_id, @person_options,
+            { value: @meal_week.planned_meal.person_id },
+            { placeholder: "Whole household" } %>
         </div>
-        <%= form.submit "Add to plan", class: "cursor-pointer justify-self-start rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+        <%= form.submit "Add to plan", class: { btn: [ :base, { lg: :base }, { primary: :solid }, "justify-self-start" ] } %>
       <% end %>
     </section>
 
-    <section aria-labelledby="log-meal-heading" class="rounded-xl border border-stone-200 bg-white p-5">
+    <section aria-labelledby="log-meal-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
       <h2 id="log-meal-heading" class="text-xl font-semibold">Log what was eaten</h2>
-      <p class="mt-1 text-sm text-stone-600">Record a catalog recipe or an ad hoc meal for <%= @meal_week.person.name %>.</p>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Record a catalog recipe or an ad hoc meal for <%= @meal_week.person.name %>.</p>
 
       <% if @meal_week.meal_log.errors.any? %>
-        <div id="meal-log-errors" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <p class="font-semibold">The meal could not be logged:</p>
-          <ul class="mt-2 list-disc pl-5">
-            <% @meal_week.meal_log.errors.full_messages.each do |message| %>
-              <li><%= message %></li>
-            <% end %>
-          </ul>
-        </div>
+        <%= render "layouts/alert", id: "meal-log-errors", title: "The meal could not be logged:", messages: @meal_week.meal_log.errors.full_messages, class: "mt-4" %>
       <% end %>
 
       <%= form_with model: @meal_week.meal_log, class: "mt-5 grid gap-4" do |form| %>
         <%= hidden_field_tag :date, @meal_week.to_param %>
         <div>
-          <%= form.label :eaten_on, "Date eaten", class: "block text-sm font-medium" %>
-          <%= form.date_field :eaten_on, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+          <%= form.label :eaten_on, "Date eaten", class: :label %>
+          <%= form.date_field :eaten_on, class: :text_field %>
         </div>
         <div>
-          <%= form.label :recipe_id, "Recipe eaten", class: "block text-sm font-medium" %>
-          <%= form.collection_select :recipe_id, @meal_week.recipes, :id, :title,
-            { include_blank: "No catalog recipe" },
-            class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+          <%= form.label :recipe_id, "Recipe eaten", class: :label %>
+          <%= form.elements_autocomplete :recipe_id, @optional_recipe_options,
+            { value: @meal_week.meal_log.recipe_id },
+            { placeholder: "No catalog recipe" } %>
         </div>
         <div>
-          <%= form.label :ad_hoc_description, "Ad hoc meal", class: "block text-sm font-medium" %>
-          <%= form.text_field :ad_hoc_description, placeholder: "For example: leftovers at a friend's house", class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
-          <p class="mt-1 text-xs text-stone-500">Use this only when no recipe is selected.</p>
+          <%= form.label :ad_hoc_description, "Ad hoc meal", class: :label %>
+          <%= form.text_field :ad_hoc_description, placeholder: "For example: leftovers at a friend's house", class: :text_field %>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Use this only when no recipe is selected.</p>
         </div>
-        <%= form.submit "Log meal", class: "cursor-pointer justify-self-start rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+        <%= form.submit "Log meal", class: { btn: [ :base, { lg: :base }, { primary: :solid }, "justify-self-start" ] } %>
       <% end %>
     </section>
   </div>
 
   <div class="mt-8 grid gap-4">
     <% @meal_week.days.each do |day| %>
-      <section aria-labelledby="day-<%= day.iso8601 %>" class="rounded-xl border border-stone-200 bg-white p-5">
+      <section aria-labelledby="day-<%= day.iso8601 %>" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
         <h2 id="day-<%= day.iso8601 %>" class="text-lg font-semibold"><%= day.to_fs(:long) %></h2>
         <div class="mt-4 grid gap-5 sm:grid-cols-2">
           <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-stone-500">Planned</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Planned</h3>
             <% if @meal_week.planned_meals_for(day).any? %>
               <ul class="mt-2 grid gap-2">
                 <% @meal_week.planned_meals_for(day).each do |planned_meal| %>
-                  <li class="rounded-lg bg-amber-50 p-3">
+                  <li class="rounded-lg bg-primary-50 p-3 dark:bg-primary-500/10">
                     <div class="flex items-start justify-between gap-3">
                       <div>
                         <p class="font-medium"><%= planned_meal.recipe.title %></p>
-                        <p class="text-sm text-stone-600"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
                       </div>
                       <%= button_to "Remove", planned_meal_path(planned_meal), method: :delete,
                         params: { date: @meal_week.to_param },
-                        class: "text-sm font-medium text-stone-700 underline hover:no-underline" %>
+                        form: { data: { turbo_confirm: "Remove this meal from the plan?" } },
+                        class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
                     </div>
                   </li>
                 <% end %>
               </ul>
             <% else %>
-              <p class="mt-2 text-sm text-stone-500">Nothing planned.</p>
+              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nothing planned.</p>
             <% end %>
           </div>
 
           <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-stone-500">Eaten</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Eaten</h3>
             <% if @meal_week.meal_logs_for(day).any? %>
               <ul class="mt-2 grid gap-2">
                 <% @meal_week.meal_logs_for(day).each do |meal_log| %>
-                  <li class="rounded-lg bg-stone-100 p-3">
+                  <li class="rounded-lg bg-gray-100 dark:bg-white/5 p-3">
                     <div class="flex items-start justify-between gap-3">
                       <div>
                         <p class="font-medium"><%= meal_log.description %></p>
-                        <p class="text-sm text-stone-600"><%= meal_log.recipe ? "Catalog recipe" : "Ad hoc meal" %></p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400"><%= meal_log.recipe ? "Catalog recipe" : "Ad hoc meal" %></p>
                       </div>
                       <%= button_to "Remove", meal_log_path(meal_log), method: :delete,
                         params: { date: @meal_week.to_param },
-                        class: "text-sm font-medium text-stone-700 underline hover:no-underline" %>
+                        form: { data: { turbo_confirm: "Remove this meal log?" } },
+                        class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
                     </div>
                   </li>
                 <% end %>
               </ul>
             <% else %>
-              <p class="mt-2 text-sm text-stone-500">Nothing logged.</p>
+              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nothing logged.</p>
             <% end %>
           </div>
         </div>

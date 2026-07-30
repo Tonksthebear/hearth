@@ -30,6 +30,20 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ 1 ], template.workout_blocks.first.exercise_prescriptions.pluck(:position)
   end
 
+  test "an untouched required exercise renders the validation alert and blank choice" do
+    sign_in_as users(:one)
+    params = valid_template_params
+    params[:workout_blocks_attributes]["0"][:exercise_prescriptions_attributes]["0"][:exercise_id] = ""
+
+    assert_no_difference [ "WorkoutTemplate.count", "ExercisePrescription.count" ] do
+      post workout_templates_path, params: { workout_template: params }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "#workout-template-errors", text: /exercise must exist/i
+    assert_select "select[name$='[exercise_id]'] option[value='']", text: "Choose exercise"
+  end
+
   test "Turbo structural actions preserve the full three-level form without persistence" do
     sign_in_as users(:one)
 

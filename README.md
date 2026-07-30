@@ -17,6 +17,60 @@ Hearth permits exactly one household. Demo data therefore consumes the installat
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
+## UI assets
+
+Hearth’s browser UI uses locally synced Tailwind Plus Elements components,
+the locally vendored `@tailwindplus/elements` importmap package, and a
+generated warm-amber theme. Runtime use does not require the private source
+component repository, a CDN, Node, or a JavaScript build.
+
+The current component export came from the authorized
+`tailwindplus_elements_components` source at commit
+`4e5f273e1c9ed29d95de691988adeb9698e2852d`. Maintainers with access to that
+licensed source can refresh the export with its `bin/sync export` command,
+then regenerate
+`app/assets/tailwind/tailwindplus_elements_components/theme.css` with:
+
+```bash
+bin/generate-theme --primary '#B45309' --secondary-offset 60 \
+  --pull-strength 0.15 --push-strength 0.25 \
+  -o /path/to/hearth/app/assets/tailwind/tailwindplus_elements_components/theme.css
+```
+
+Do not commit the source repository, its preview/reference tree, or an
+absolute developer path. Heroicons and SlimSelect retain their upstream
+license files alongside the vendored assets.
+
+### Refreshing the Elements export
+
+The component export is intentionally complete, including components Hearth
+does not currently render, so a refresh remains a direct comparison with the
+licensed source. Heroicons follow a different policy: they are not part of
+`bin/sync export`, and only the icon names referenced by Hearth are retained
+in the four shipped variants. When adding an icon, copy that name's `micro`,
+`mini`, `solid`, and `outline` SVGs and keep
+`app/assets/svg/icons/heroicons/LICENSE`.
+
+A fresh export must be merged with these reviewed Hearth integration changes
+before it is committed:
+
+- `DropdownComponent`, `PopoverComponent`, and `SelectComponent` use
+  `popover="auto"`; Select also wires its button to the options popover with
+  native `command`/`commandfor` attributes.
+- `vendor/javascript/tailwindplus_elements_components.js` waits for the
+  required custom elements, marks `data-elements-ready`, resets readiness
+  before Turbo visits, and destroys/reinitializes SlimSelect around Turbo
+  caching, frames, and stream replacement. A per-`el-select`, bubbling event
+  adapter synchronizes native option clicks; there is no document-global
+  capture-phase click shim.
+- The local form builder preserves boolean `false` values and renders the
+  selected option text on the server; the tag helper resolves display text
+  for `false` as well.
+
+After a refresh, review those files rather than accepting the export
+wholesale, regenerate the theme with the command above, run
+`bin/rails tailwindcss:build`, and run `bin/ci`.
+
 For setup-first, `bin/setup` prepares the database and starts `bin/dev`. Open [http://localhost:3000](http://localhost:3000) and complete household setup.
 
 ```bash

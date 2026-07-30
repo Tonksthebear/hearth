@@ -5,28 +5,28 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="rounded-lg border border-stone-200 bg-white p-4">
+  <div class="rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm font-semibold">Exercise <%= form.object.position %></p>
-      <%= form.button "Remove exercise", name: "remove_session_exercise", value: coordinate, formnovalidate: true, class: "rounded border border-red-200 px-2 py-1 text-xs text-red-800" %>
+      <%= form.button "Remove exercise", name: "remove_session_exercise", value: coordinate, formnovalidate: true, class: { btn: [ :base, { xs: :base }, { danger: :outline } ] } %>
     </div>
-    <p class="mt-2 text-xs text-stone-600">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-amber-800 underline" %>.</p>
+    <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-primary-800 dark:text-primary-300 underline" %>.</p>
     <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="sm:col-span-2"><%= form.label :exercise_id, "Catalog exercise (optional)", class: "block text-xs font-medium" %><%= form.collection_select :exercise_id, exercises, :id, :name, { include_blank: "Structured inline exercise" }, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div class="sm:col-span-2"><%= form.label :snapshot_name, "Exercise name", class: "block text-xs font-medium" %><%= form.text_field :snapshot_name, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :snapshot_modality, "Modality", class: "block text-xs font-medium" %><%= form.select :snapshot_modality, modalities.map { |value| [ value.humanize, value ] }, { prompt: "Choose modality" }, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :snapshot_movement_pattern, "Movement pattern", class: "block text-xs font-medium" %><%= form.select :snapshot_movement_pattern, movement_patterns.map { |value| [ value.humanize, value ] }, { prompt: "Choose movement pattern" }, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :snapshot_entry_kind, "Entry kind", class: "block text-xs font-medium" %><%= form.select :snapshot_entry_kind, entry_kinds.map { |value| [ value.humanize, value ] }, {}, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :snapshot_dose_class, "Default dose", class: "block text-xs font-medium" %><%= form.select :snapshot_dose_class, dose_classes.map { |value| [ value.humanize, value ] }, {}, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :snapshot_equipment, "Equipment", class: "block text-xs font-medium" %><%= form.text_field :snapshot_equipment, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :snapshot_guidance, "Guidance", class: "block text-xs font-medium" %><%= form.text_field :snapshot_guidance, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div class="sm:col-span-2"><%= form.label :notes, class: "block text-xs font-medium" %><%= form.text_field :notes, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
+      <div class="sm:col-span-2"><%= form.label :exercise_id, "Catalog exercise (optional)", class: :label %><%= form.elements_autocomplete :exercise_id, exercise_options, {}, { placeholder: "Structured inline exercise" } %></div>
+      <div class="sm:col-span-2"><%= form.label :snapshot_name, "Exercise name", class: :label %><%= form.text_field :snapshot_name, class: :text_field %></div>
+      <div><%= form.label :snapshot_modality, "Modality", class: :label %><%= form.elements_select :snapshot_modality, modalities.map { |value| [ value.humanize, value ] }, { prompt: "Choose modality" } %></div>
+      <div><%= form.label :snapshot_movement_pattern, "Movement pattern", class: :label %><%= form.elements_select :snapshot_movement_pattern, movement_patterns.map { |value| [ value.humanize, value ] }, { prompt: "Choose movement pattern" } %></div>
+      <div><%= form.label :snapshot_entry_kind, "Entry kind", class: :label %><%= form.elements_select :snapshot_entry_kind, entry_kinds.map { |value| [ value.humanize, value ] }, {} %></div>
+      <div><%= form.label :snapshot_dose_class, "Default dose", class: :label %><%= form.elements_select :snapshot_dose_class, dose_classes.map { |value| [ value.humanize, value ] }, {} %></div>
+      <div><%= form.label :snapshot_equipment, "Equipment", class: :label %><%= form.text_field :snapshot_equipment, class: :text_field %></div>
+      <div><%= form.label :snapshot_guidance, "Guidance", class: :label %><%= form.text_field :snapshot_guidance, class: :text_field %></div>
+      <div class="sm:col-span-2"><%= form.label :notes, class: :label %><%= form.text_field :notes, class: :text_field %></div>
     </div>
     <div class="mt-4 flex items-center justify-between">
-      <h5 class="text-xs font-semibold uppercase tracking-wider text-stone-500">Sets / intervals</h5>
-      <%= form.button "Add set or interval", name: "add_training_set", value: coordinate, formnovalidate: true, class: "rounded border border-stone-300 px-3 py-2 text-xs font-semibold" %>
+      <h5 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Sets / intervals</h5>
+      <%= form.button "Add set or interval", name: "add_training_set", value: coordinate, formnovalidate: true, class: { btn: [ :base, { sm: :base }, { neutral: :outline } ] } %>
     </div>
     <div class="mt-3 space-y-3">
       <%= form.fields_for :training_sets do |set_form| %>

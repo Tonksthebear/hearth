@@ -14,6 +14,7 @@ class PlannedMealsController < ApplicationController
         status: :see_other
     else
       @meal_week = meal_week(planned_meal: planned_meal)
+      prepare_options
       render "meal_weeks/show", status: :unprocessable_entity
     end
   end
@@ -47,5 +48,13 @@ class PlannedMealsController < ApplicationController
         person: Current.person,
         date: date
       ).to_param
+    end
+
+    def prepare_options
+      recipe_choices = @meal_week.recipes.map { |recipe| [ recipe.title, recipe.id ] }
+      @recipe_options = [ [ "Choose a recipe", "" ] ] + recipe_choices
+      @optional_recipe_options = [ [ "No catalog recipe", "" ] ] + recipe_choices
+      @person_options = [ [ "Whole household", "" ] ] +
+        @meal_week.people.map { |person| [ person.name, person.id ] }
     end
 end

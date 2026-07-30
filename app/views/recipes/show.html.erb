@@ -3,49 +3,49 @@
 <article aria-labelledby="recipe-heading">
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-amber-700"><%= @recipe.provenance_status.humanize %> recipe</p>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @recipe.provenance_status.humanize %> recipe</p>
       <h1 id="recipe-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @recipe.title %></h1>
       <% if @recipe.description.present? %>
-        <p class="mt-3 max-w-2xl text-stone-600"><%= @recipe.description %></p>
+        <p class="mt-3 max-w-2xl text-gray-600 dark:text-gray-400"><%= @recipe.description %></p>
       <% end %>
     </div>
-    <%= link_to "Edit recipe", edit_recipe_path(@recipe), class: "rounded-lg border border-stone-300 px-4 py-2 font-semibold hover:bg-stone-100" %>
+    <%= link_to "Edit recipe", edit_recipe_path(@recipe), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
   </div>
 
-  <dl class="mt-8 grid gap-4 rounded-xl border border-stone-200 bg-white p-5 sm:grid-cols-2">
+  <dl class="mt-8 grid gap-4 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2">
     <div>
-      <dt class="text-sm font-medium text-stone-500">Source</dt>
+      <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Source</dt>
       <dd class="mt-1 font-semibold">
         <%= @recipe.source_name %>
         <% if @recipe.source_url.present? %>
-          <span class="block break-all text-sm font-normal text-stone-600"><%= @recipe.source_url %></span>
+          <span class="block break-all text-sm font-normal text-gray-600 dark:text-gray-400"><%= @recipe.source_url %></span>
         <% end %>
       </dd>
     </div>
     <% if @recipe.yield.present? %>
       <div>
-        <dt class="text-sm font-medium text-stone-500">Yield</dt>
+        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Yield</dt>
         <dd class="mt-1 font-semibold"><%= @recipe.yield %></dd>
       </div>
     <% end %>
   </dl>
 
   <div class="mt-8 grid gap-8 lg:grid-cols-2">
-    <section aria-labelledby="ingredients-heading" class="rounded-xl border border-stone-200 bg-white p-5">
+    <section aria-labelledby="ingredients-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
       <h2 id="ingredients-heading" class="text-xl font-semibold">Ingredients</h2>
       <ul class="mt-4 space-y-3">
         <% @recipe.recipe_ingredients.each do |ingredient| %>
           <li>
             <span class="font-medium"><%= [ ingredient.amount, ingredient.unit, ingredient.name ].compact_blank.join(" ") %></span>
             <% if ingredient.notes.present? %>
-              <span class="text-stone-600">— <%= ingredient.notes %></span>
+              <span class="text-gray-600 dark:text-gray-400">— <%= ingredient.notes %></span>
             <% end %>
           </li>
         <% end %>
       </ul>
     </section>
 
-    <section aria-labelledby="instructions-heading" class="rounded-xl border border-stone-200 bg-white p-5">
+    <section aria-labelledby="instructions-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
       <h2 id="instructions-heading" class="text-xl font-semibold">Instructions</h2>
       <ol class="mt-4 list-decimal space-y-3 pl-5">
         <% @recipe.recipe_instructions.each do |instruction| %>
@@ -55,10 +55,10 @@
     </section>
   </div>
 
-  <aside class="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+  <aside class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
     <p><strong><%= @recipe.provenance_status.humanize %>:</strong> <%= @recipe.provenance_description %></p>
     <p class="mt-2">This provenance label is not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
   </aside>
 
-  <p class="mt-8"><%= link_to "Back to recipes", recipes_path, class: "font-medium text-amber-800 underline hover:no-underline" %></p>
+  <p class="mt-8"><%= link_to "Back to recipes", recipes_path, class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %></p>
 </article>

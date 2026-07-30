@@ -3,6 +3,20 @@ require "application_system_test_case"
 class TrainingSessionsTest < ApplicationSystemTestCase
   WEEK_START = Date.new(2026, 7, 27)
 
+  test "requires confirmation before deleting a workout draft" do
+    training_session = training_sessions(:draft)
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path training_session_path(training_session)
+
+    dismiss_confirm("Delete this workout draft?") { click_button "Delete draft" }
+    assert TrainingSession.exists?(training_session.id)
+    assert_current_path training_session_path(training_session)
+
+    accept_confirm("Delete this workout draft?") { click_button "Delete draft" }
+    assert_current_path training_week_path(date: training_session.performed_on), wait: 5
+    assert_not TrainingSession.exists?(training_session.id)
+  end
+
   test "starts a template snapshot records actual rows completes and updates progress" do
     travel_to WEEK_START do
       sign_in_via_browser users(:one)
@@ -14,7 +28,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
 
       reps = all("input[name*='training_sets_attributes'][name$='[reps]']")
       loads = all("input[name*='training_sets_attributes'][name$='[load_amount]']")
-      load_units = all("select[name*='training_sets_attributes'][name$='[load_unit]']")
+      load_units = all("el-select[name*='training_sets_attributes'][name$='[load_unit]']")
       durations = all("input[name*='training_sets_attributes'][name$='[duration_seconds]']")
       completed = all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']")
 
@@ -22,10 +36,10 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       set_and_wait reps[1], "8"
       set_and_wait loads[0], "35"
       set_and_wait loads[1], "35"
-      load_units[0].select("lb")
-      load_units[1].select("lb")
+      choose_elements_option load_units[0], "lb"
+      choose_elements_option load_units[1], "lb"
       set_and_wait durations[2], "1800"
-      completed.each(&:check)
+      completed.each { |field| check_and_wait field }
 
       click_button_and_wait_for_text "Complete workout", "Workout completed."
       assert_text(/completed workout/i)
@@ -49,24 +63,21 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       end
       click_link_and_wait_for_path "Log ad hoc workout", new_training_session_path
 
-      find_field("Workout title").set("Neighborhood walk")
-      assert_field "Workout title", with: "Neighborhood walk"
-      find_field("Block title").set("Outdoor walk")
-      assert_field "Block title", with: "Outdoor walk"
+      fill_in_and_wait_for_value "Workout title", "Neighborhood walk"
+      fill_in_and_wait_for_value "Block title", "Outdoor walk"
       select_and_wait "Zone2", from: "Block kind"
       select_and_wait "Zone2", from: "Block dose"
       fill_in_and_wait_for_value "Actual duration (seconds)", "1800"
       fill_in_and_wait_for_value "Exercise name", "Neighborhood walk"
       select_and_wait "Cardio", from: "Modality"
       select_and_wait "Locomotion cardio", from: "Movement pattern"
-      exercise_entry_kind = all("select[name*='training_session_exercises_attributes'][name$='[snapshot_entry_kind]']").first
-      exercise_entry_kind.select("Interval")
-      assert_equal "interval", exercise_entry_kind.value
+      exercise_entry_kind = all("el-select[name*='training_session_exercises_attributes'][name$='[snapshot_entry_kind]']").first
+      choose_elements_option exercise_entry_kind, "Interval"
       select_and_wait "Zone2", from: "Default dose"
-      select_and_wait "Interval", from: all("select[name*='training_sets_attributes'][name$='[entry_kind]']").first[:id]
-      select_and_wait "Zone2", from: all("select[name*='training_sets_attributes'][name$='[dose_class]']").first[:id]
+      select_and_wait "Interval", from: all("el-select[name*='training_sets_attributes'][name$='[entry_kind]']").first[:id]
+      select_and_wait "Zone2", from: all("el-select[name*='training_sets_attributes'][name$='[dose_class]']").first[:id]
       set_and_wait all("input[name*='training_sets_attributes'][name$='[duration_seconds]']").first, "1800"
-      all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']").first.check
+      check_and_wait all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']").first
       click_button_and_wait_for_text "Save draft", "Workout draft saved."
 
       within "nav[aria-label='Household and person context']" do

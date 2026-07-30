@@ -1,0 +1,38 @@
+<div class="min-h-full">
+  <% if overlap? %>
+    <div class="<%= yass(stacked: { overlap: :zone }) %>">
+  <% end %>
+
+  <nav class="<%= yass(stacked: { style => :nav }) %>">
+    <div class="<%= yass(stacked: { style => :container }) %>">
+      <div class="<%= yass(stacked: { style => :inner }) %>">
+        <%= navbar %>
+
+        <div class="flex items-center sm:hidden">
+          <button type="button" command="--toggle" commandfor="stacked-mobile-menu" class="<%= yass(stacked: :mobile_button) %> <%= mobile_menu_button_classes %>">
+            <span class="sr-only">Open main menu</span>
+            <span class="peer/mobile-btn"><%= mobile_menu_button_content %></span>
+            <%= icon "bars-3", class: "size-6 peer-has-[*]/mobile-btn:hidden in-aria-expanded:hidden" %>
+            <%= icon "x-mark", class: "size-6 peer-has-[*]/mobile-btn:hidden not-in-aria-expanded:hidden" %>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <el-disclosure id="stacked-mobile-menu" hidden class="sm:hidden">
+      <%= mobile_menu %>
+    </el-disclosure>
+  </nav>
+
+  <% if header? %>
+    <%= header %>
+  <% end %>
+
+  <% if overlap? %>
+    </div>
+  <% end %>
+
+  <main class="<%= yass(stacked: { style => :main }) %>">
+    <%= content %>
+  </main>
+</div>

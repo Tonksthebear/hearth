@@ -81,6 +81,8 @@ class TrainingSessionsController < ApplicationController
 
     def prepare_form
       @exercises = Current.household.exercises.order(:name)
+      @exercise_options = [ [ "Structured inline exercise", "" ] ] +
+        @exercises.map { |exercise| [ exercise.name, exercise.id ] }
       @modalities = Exercise::MODALITIES
       @movement_patterns = Exercise::MOVEMENT_PATTERNS
       @block_kinds = WorkoutBlock::BLOCK_KINDS
@@ -161,7 +163,7 @@ class TrainingSessionsController < ApplicationController
     def form_locals
       {
         training_session: @training_session,
-        exercises: @exercises,
+        exercise_options: @exercise_options,
         modalities: @modalities,
         movement_patterns: @movement_patterns,
         block_kinds: @block_kinds,

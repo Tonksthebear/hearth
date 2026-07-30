@@ -40,8 +40,8 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_select "form[action='#{exercises_path}']"
-    assert_select "select[name='exercise[modality]']"
-    assert_select "select[name='exercise[movement_pattern]']"
+    assert_select "el-select[name='exercise[modality]']"
+    assert_select "el-select[name='exercise[movement_pattern]']"
   end
 
   test "does not render or load an exercise belonging to another household" do

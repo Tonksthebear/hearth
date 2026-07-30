@@ -64,3 +64,11 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+gem "view_component", "~> 4.12"
+
+gem "classy-yaml", "~> 1.7"
+
+gem "rails_icons", "~> 1.9"
+
+gem "tailwind_merge", "~> 1.5"

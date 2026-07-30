@@ -1,1 +1,7 @@
 @import "tailwindcss";
+@import "./tailwindplus_elements_components/theme.css";
+@import "../stylesheets/slimselect.css";
+@import "../stylesheets/tailwindplus_elements_components.css";
+
+@source "../../components";
+@source "../../../config/elements.yml";

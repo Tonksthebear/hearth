@@ -2,27 +2,27 @@
 <article aria-labelledby="workout-template-heading">
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-amber-700"><%= @workout_template.provenance_status.humanize %> template</p>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @workout_template.provenance_status.humanize %> template</p>
       <h1 id="workout-template-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @workout_template.title %></h1>
-      <% if @workout_template.description.present? %><p class="mt-3 text-stone-600"><%= @workout_template.description %></p><% end %>
+      <% if @workout_template.description.present? %><p class="mt-3 text-gray-600 dark:text-gray-400"><%= @workout_template.description %></p><% end %>
     </div>
     <div class="flex gap-3">
-      <%= button_to "Start workout", training_sessions_path, params: { template_id: @workout_template.id }, class: "rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
-      <%= link_to "Edit template", edit_workout_template_path(@workout_template), class: "rounded-lg border border-stone-300 px-4 py-2 font-semibold" %>
+      <%= button_to "Start workout", training_sessions_path, params: { template_id: @workout_template.id }, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
+      <%= link_to "Edit template", edit_workout_template_path(@workout_template), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
     </div>
   </div>
 
   <div class="mt-8 space-y-4">
     <% @workout_template.workout_blocks.each do |block| %>
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-wider text-stone-500"><%= block.block_kind.humanize %> · <%= block.dose_class.humanize %></p>
+      <section class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"><%= block.block_kind.humanize %> · <%= block.dose_class.humanize %></p>
         <h2 class="mt-1 text-xl font-semibold"><%= block.position %>. <%= block.title %></h2>
-        <% if block.planned_duration_minutes %><p class="mt-1 text-sm text-stone-600"><%= block.planned_duration_minutes %> planned minutes</p><% end %>
+        <% if block.planned_duration_minutes %><p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= block.planned_duration_minutes %> planned minutes</p><% end %>
         <ol class="mt-4 space-y-3">
           <% block.exercise_prescriptions.each do |prescription| %>
-            <li class="rounded-lg bg-stone-50 p-3">
+            <li class="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
               <p class="font-medium"><%= prescription.exercise.name %> · <%= prescription.sets_count %> <%= prescription.entry_kind.pluralize(prescription.sets_count) %></p>
-              <p class="mt-1 text-sm text-stone-600">
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 <% if prescription.rep_min || prescription.rep_max %><%= [ prescription.rep_min, prescription.rep_max ].compact.join("–") %> reps<% end %>
                 <% if prescription.work_seconds %><%= prescription.work_seconds %> sec work<% end %>
                 <% if prescription.rest_seconds %> · <%= prescription.rest_seconds %> sec rest<% end %>
@@ -35,7 +35,7 @@
     <% end %>
   </div>
 
-  <aside class="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+  <aside class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
     <p><strong><%= @workout_template.provenance_status.humanize %>:</strong> <%= @workout_template.provenance_description %></p>
     <% if @workout_template.source_name.present? %><p class="mt-2">Source: <%= @workout_template.source_name %><% if @workout_template.source_url.present? %> · <%= @workout_template.source_url %><% end %></p><% end %>
     <p class="mt-2">Provenance is attribution, not clinical endorsement. Hearth is a tracking tool and does not provide medical advice.</p>

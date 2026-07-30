@@ -2,11 +2,11 @@
 
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
-    <p class="text-sm font-semibold uppercase tracking-wider text-amber-700"><%= @current_person.name %></p>
+    <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @current_person.name %></p>
     <h1 class="mt-2 text-3xl font-semibold tracking-tight">Recovery</h1>
-    <p class="mt-3 text-stone-600"><%= @recovery_day.date.to_fs(:long) %> · Tracking tools, not medical advice.</p>
+    <p class="mt-3 text-gray-600 dark:text-gray-400"><%= @recovery_day.date.to_fs(:long) %> · Tracking tools, not medical advice.</p>
   </div>
-  <%= link_to "Manage habits", habits_path, class: "rounded-lg border border-stone-300 px-4 py-2 font-semibold hover:bg-stone-100" %>
+  <%= link_to "Manage habits", habits_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
 </div>
 
 <section aria-labelledby="today-heading" class="mt-10">
@@ -14,84 +14,89 @@
   <div class="mt-5 space-y-5">
     <% @recovery_day.actionable_entries.each do |entry| %>
       <% check_in = @recovery_day.check_in_for(entry) %>
-      <article id="today-person-habit-<%= entry.person_habit.id %>" class="rounded-xl border border-stone-200 bg-white p-5">
+      <article id="today-person-habit-<%= entry.person_habit.id %>" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 class="text-xl font-semibold"><%= entry.habit.name %></h3>
-            <% if entry.habit.description.present? %><p class="mt-1 text-stone-600"><%= entry.habit.description %></p><% end %>
+            <% if entry.habit.description.present? %><p class="mt-1 text-gray-600 dark:text-gray-400"><%= entry.habit.description %></p><% end %>
           </div>
-          <%= link_to "Configure", edit_person_habit_path(entry.person_habit), class: "text-sm font-semibold text-amber-800 underline" %>
+          <%= link_to "Configure", edit_person_habit_path(entry.person_habit), class: "text-sm font-semibold text-primary-800 dark:text-primary-300 underline" %>
         </div>
 
         <% if entry.habit.habit_metrics.empty? %>
           <div class="mt-5 flex flex-wrap gap-3">
             <% if check_in.persisted? %>
-              <span class="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">Checked</span>
-              <%= button_to "Clear", habit_check_in_path(check_in), method: :delete, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold" %>
+              <span class="rounded-full bg-success-100 px-3 py-1 text-sm font-semibold text-success-800 dark:bg-success-500/20 dark:text-success-200">Checked</span>
+              <%= button_to "Clear", habit_check_in_path(check_in),
+                    method: :delete,
+                    form: { data: { turbo_confirm: "Clear today's check-in?" } },
+                    class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
             <% else %>
-              <%= button_to "Check off", habit_check_ins_path, params: { habit_check_in: { person_habit_id: entry.person_habit.id } }, class: "rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white" %>
+              <%= button_to "Check off", habit_check_ins_path, params: { habit_check_in: { person_habit_id: entry.person_habit.id } }, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
             <% end %>
           </div>
         <% else %>
           <%= form_with model: check_in, class: "mt-5 space-y-4" do |form| %>
             <%= form.hidden_field :person_habit_id, value: entry.person_habit.id %>
             <% if check_in.errors.any? %>
-              <div id="check-in-errors" class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-                <ul class="list-disc pl-5"><% check_in.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
-              </div>
+              <%= render "layouts/alert", id: "check-in-errors", title: "The check-in could not be saved:", messages: check_in.errors.full_messages %>
             <% end %>
             <%= form.fields_for :habit_check_in_measurements do |measurement_form| %>
               <% measurement = measurement_form.object %>
               <% target = entry.person_habit.person_habit_metrics.find { |row| row.habit_metric_id == measurement.habit_metric_id && row.value? } %>
-              <div class="rounded-lg border border-stone-200 p-4">
+              <div class="rounded-lg border border-gray-200 p-4">
                 <%= measurement_form.hidden_field :id if measurement.persisted? %>
                 <%= measurement_form.hidden_field :habit_metric_id %>
                 <%= render "recovery_days/typed_field", form: measurement_form, metric: measurement.habit_metric, label: measurement.habit_metric.label, required: true %>
                 <% if target %>
-                  <p class="mt-2 text-sm text-stone-500">Your target: <%= target.display_value %><%= " #{measurement.habit_metric.unit}" if measurement.habit_metric.unit.present? %></p>
+                  <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Your target: <%= target.display_value %><%= " #{measurement.habit_metric.unit}" if measurement.habit_metric.unit.present? %></p>
                 <% end %>
               </div>
             <% end %>
             <div>
-              <%= form.label :notes, "Notes (optional)", class: "block text-sm font-medium" %>
-              <%= form.text_area :notes, rows: 2, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+              <%= form.label :notes, "Notes (optional)", class: :label %>
+              <%= form.text_area :notes, rows: 2, class: :text_field %>
             </div>
             <div class="flex flex-wrap gap-3">
-              <%= form.submit(check_in.persisted? ? "Correct today's check-in" : "Record today's check-in", class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white") %>
+              <%= form.submit(check_in.persisted? ? "Correct today's check-in" : "Record today's check-in", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] }) %>
             </div>
           <% end %>
           <% if check_in.persisted? %>
-            <%= button_to "Clear", habit_check_in_path(check_in), method: :delete, class: "mt-3 rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold" %>
+            <%= button_to "Clear", habit_check_in_path(check_in),
+                  method: :delete,
+                  form: { data: { turbo_confirm: "Clear today's check-in?" } },
+                  class: { btn: [ :base, { md: :base }, { neutral: :outline } ] },
+                  form_class: "mt-3" %>
           <% end %>
         <% end %>
       </article>
     <% end %>
     <% if @recovery_day.actionable_entries.empty? %>
-      <p class="rounded-xl border border-dashed border-stone-300 p-8 text-center text-stone-600">No habits scheduled today.</p>
+      <p class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-600 dark:text-gray-400">No habits scheduled today.</p>
     <% end %>
   </div>
 </section>
 
 <section aria-labelledby="recent-heading" class="mt-12">
   <h2 id="recent-heading" class="text-2xl font-semibold">Recent adherence</h2>
-  <p class="mt-2 text-sm text-stone-500">Unrecorded dates, including dates before activation, use your current schedule, so schedule edits can relabel them. Recorded check-ins remain checked.</p>
+  <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Unrecorded dates, including dates before activation, use your current schedule, so schedule edits can relabel them. Recorded check-ins remain checked.</p>
   <div class="mt-5 space-y-5">
     <% @recovery_day.entries.each do |entry| %>
-      <article class="rounded-xl border border-stone-200 bg-white p-5">
+      <article class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
         <div class="flex items-center justify-between gap-4">
           <h3 class="font-semibold"><%= entry.habit.name %></h3>
-          <% if entry.history_only? %><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-stone-600">History only</span><% end %>
+          <% if entry.history_only? %><span class="rounded-full bg-gray-100 dark:bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">History only</span><% end %>
         </div>
         <dl class="mt-4 grid gap-3 sm:grid-cols-7">
           <% @recovery_day.dates.each do |date| %>
             <% status = entry.status_on(date) %>
-            <div class="rounded-lg border border-stone-200 p-3">
-              <dt class="text-xs font-semibold text-stone-500"><%= date.strftime("%a %-m/%-d") %></dt>
+            <div class="rounded-lg border border-gray-200 p-3">
+              <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400"><%= date.strftime("%a %-m/%-d") %></dt>
               <dd class="mt-1 text-sm font-medium">
                 <%= { checked: "Checked", not_checked: "Not checked", not_scheduled: "Not scheduled", no_record: "No record" }.fetch(status) %>
               </dd>
               <% if entry.check_in_on(date)&.recorded_measurements&.any? %>
-                <ul class="mt-2 text-xs text-stone-500">
+                <ul class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   <% entry.check_in_on(date).recorded_measurements.each do |measurement| %>
                     <li><%= measurement.habit_metric.label %>: <%= measurement.display_value %><%= " #{measurement.habit_metric.unit}" if measurement.habit_metric.unit.present? %></li>
                   <% end %>

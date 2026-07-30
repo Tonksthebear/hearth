@@ -17,7 +17,7 @@ class RecipesTest < ApplicationSystemTestCase
     fill_in_and_wait_for_value "Yield", "2 bowls"
     fill_in_and_wait_for_value "Source name", "Household Notebook"
     fill_in_and_wait_for_value "Source URL", "https://example.com/chickpea-bowl"
-    select "Adapted", from: "Provenance"
+    select_element_and_wait "Provenance", "Adapted"
 
     fill_in_and_wait_for_value "Amount", "1"
     fill_in_and_wait_for_value "Unit", "can"
@@ -40,7 +40,7 @@ class RecipesTest < ApplicationSystemTestCase
 
     click_link_and_wait_for_path "Back to recipes", recipes_path
     fill_in_and_wait_for_value "Search", "Chickpeas"
-    select "Adapted", from: "Provenance"
+    select_element_and_wait "Provenance", "Adapted"
     click_button_and_wait_for_absence "Filter", "h2", recipes(:porridge).title
     assert_selector "h2", text: "Lemony Chickpea Bowl"
     assert_no_selector "h2", text: recipes(:porridge).title
