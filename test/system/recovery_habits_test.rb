@@ -24,8 +24,8 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     click_button_and_wait_for_count "Add metric", "input[name$='[key]']", 2
     fill_metric(1, key: "temperature", label: "Temperature", type: "Number", unit: "°F")
 
-    first("button[name='move_metric'][value='0:down']").click
-    assert_selector "input[name$='[key]'][value='temperature']", wait: 5
+    page.execute_script("arguments[0].click()", first("button[name='move_metric'][value='0:down']"))
+    assert_field "habit_habit_metrics_attributes_0_key", with: "temperature", wait: 5
     assert_equal %w[temperature duration], all("input[name$='[key]']").map(&:value)
 
     click_button_and_wait_for_path "Create Habit", habits_path
@@ -52,10 +52,8 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     assert_text "18 minutes"
 
     within "#today-person-habit-#{configuration.id}" do
-      find_field("Temperature").set("170")
-      assert_field "Temperature", with: "170"
-      find_field("Duration").set("22")
-      assert_field "Duration", with: "22"
+      fill_in_and_wait_for_value "Temperature", "170"
+      fill_in_and_wait_for_value "Duration", "22"
       click_button "Correct today's check-in"
     end
     assert_current_path recovery_day_path
@@ -97,7 +95,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
       within section do
         set_and_wait find("input[name$='[key]']"), key
         set_and_wait find("input[name$='[label]']"), label
-        select_and_wait type, from: find("select[name$='[value_type]']")[:id]
+        select_and_wait type, from: find("el-select[name$='[value_type]']")[:id]
         set_and_wait find("input[name$='[unit]']"), unit
       end
     end

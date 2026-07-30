@@ -4,20 +4,20 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="grid gap-3 rounded-lg bg-stone-50 p-4 sm:grid-cols-[auto_1fr_auto]">
+  <div class="grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-[auto_1fr_auto]">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
-    <span class="pt-8 font-semibold text-stone-500"><%= form.object.position %>.</span>
+    <span class="pt-8 font-semibold text-gray-500 dark:text-gray-400"><%= form.object.position %>.</span>
     <div>
-      <%= form.label :body, "Step", class: "block text-xs font-medium text-stone-600" %>
-      <%= form.text_area :body, rows: 2, required: true, class: "mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+      <%= form.label :body, "Step", class: :label %>
+      <%= form.text_area :body, rows: 2, required: true, class: :text_field %>
     </div>
     <div class="flex items-end">
       <%= form.button "Remove",
         name: "remove_instruction",
         value: form.index,
         formnovalidate: true,
-        class: "rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-50",
+        class: "rounded-lg border border-danger-200 px-3 py-2 text-sm font-semibold text-danger-800 dark:text-danger-300 hover:bg-danger-50 dark:bg-danger-500/10",
         aria: { label: "Remove step #{form.object.position}" } %>
     </div>
   </div>

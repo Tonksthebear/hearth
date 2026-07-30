@@ -1,0 +1,12 @@
+<li>
+  <% active = current_page?(path) %>
+  <%= link_to path,
+        aria: (active ? { current: "page" } : {}),
+        class: class_names(
+          "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold",
+          active ? "bg-primary-800 text-white dark:bg-black/25" : "text-primary-100 hover:bg-primary-800 hover:text-white dark:hover:bg-black/25"
+        ) do %>
+    <%= icon icon_name, class: class_names("size-6 shrink-0", active ? "text-white" : "text-primary-200 group-hover:text-white") %>
+    <%= label %>
+  <% end %>
+</li>

@@ -29,7 +29,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
     assert_nil person.reload.user
 
     assert_no_selector "html[aria-busy='true']"
-    click_button_and_wait_for_path "Switch to Taylor Updated", root_path
+    switch_person_via_browser person
     assert_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
     assert_selector "[data-household-name]", text: /#{Regexp.escape(households(:home).name)}/i
 
@@ -42,7 +42,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
     assert_no_selector "article[data-current-person='true'] h3", text: people(:one).name
 
     assert_no_selector "html[aria-busy='true']"
-    click_button_and_wait_for_text "Switch to #{people(:one).name}", people(:one).name
+    switch_person_via_browser people(:one)
     assert_selector "article[data-current-person='true'] h3", text: people(:one).name, wait: 5
     assert_no_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
   end

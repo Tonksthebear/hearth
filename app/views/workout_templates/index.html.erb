@@ -2,17 +2,17 @@
 <section aria-labelledby="templates-heading">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household catalog</p>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
       <h1 id="templates-heading" class="mt-2 text-3xl font-semibold tracking-tight">Workout templates</h1>
     </div>
-    <%= link_to "Add workout template", new_workout_template_path, class: "rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
+    <%= link_to "Add workout template", new_workout_template_path, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
   </div>
   <div class="mt-8 grid gap-4">
     <% @workout_templates.each do |workout_template| %>
-      <article class="rounded-xl border border-stone-200 bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-wider text-stone-500"><%= workout_template.provenance_status.humanize %></p>
-        <h2 class="mt-2 text-xl font-semibold"><%= link_to workout_template.title, workout_template, class: "text-amber-900 underline hover:no-underline" %></h2>
-        <% if workout_template.source_name.present? %><p class="mt-1 text-sm text-stone-600">Source: <%= workout_template.source_name %></p><% end %>
+      <article class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"><%= workout_template.provenance_status.humanize %></p>
+        <h2 class="mt-2 text-xl font-semibold"><%= link_to workout_template.title, workout_template, class: "text-primary-900 underline hover:no-underline" %></h2>
+        <% if workout_template.source_name.present? %><p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Source: <%= workout_template.source_name %></p><% end %>
       </article>
     <% end %>
   </div>

@@ -1,6 +1,6 @@
 <% content_for :title, "Edit #{@workout_template.title} · Hearth" %>
 <section aria-labelledby="edit-template-heading">
-  <p class="text-sm font-semibold uppercase tracking-wider text-amber-700">Shared household catalog</p>
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
   <h1 id="edit-template-heading" class="mt-2 text-3xl font-semibold tracking-tight">Edit <%= @workout_template.title %></h1>
-  <%= render "form", workout_template: @workout_template, provenance_statuses: @provenance_statuses, block_kinds: @block_kinds, dose_classes: @dose_classes, entry_kinds: @entry_kinds, exercises: @exercises %>
+  <%= render "form", workout_template: @workout_template, provenance_statuses: @provenance_statuses, block_kinds: @block_kinds, dose_classes: @dose_classes, entry_kinds: @entry_kinds, exercise_options: @exercise_options %>
 </section>

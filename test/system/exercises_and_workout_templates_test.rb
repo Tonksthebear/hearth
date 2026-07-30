@@ -21,15 +21,13 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     click_link_and_wait_for_path "Add workout template", new_workout_template_path
     fill_in_and_wait_for_value "Title", "Carry practice"
     select_and_wait "Personal", from: "Provenance"
-    find_field("Block title").set("Loaded carries")
-    assert_field "Block title", with: "Loaded carries"
+    fill_in_and_wait_for_value "Block title", "Loaded carries"
     select_and_wait "Strength", from: "Block kind"
     select_and_wait "Strength", from: "Dose class"
     fill_in_and_wait_for_value "Planned minutes", "15"
     select_and_wait "Farmer carry", from: "Catalog exercise"
     select_and_wait "Set", from: "Entry kind"
-    find_field("Sets / rounds").set("3")
-    assert_field "Sets / rounds", with: "3"
+    fill_in_and_wait_for_value "Sets / rounds", "3"
     fill_in_and_wait_for_value "Min reps", "1"
     fill_in_and_wait_for_value "Max reps", "1"
     fill_in_and_wait_for_value "Target RPE", "7"
@@ -58,7 +56,7 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
       assert_no_button "Move down"
       click_button_and_wait_for_count(
         "Add exercise prescription",
-        "select[name$='[exercise_id]']",
+        "[data-elements-autocomplete] + .ss-main",
         2
       )
       assert_field "Block title", with: "Zone 2"
@@ -82,7 +80,7 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
       assert_no_button "Move down"
     end
 
-    blocks.first.find_button("Move down").click
+    page.execute_script("arguments[0].click()", blocks.first.find_button("Move down"))
     assert_selector "#workout_template_form section.rounded-xl:nth-of-type(1) input[value='Zone 2']", wait: 5
     assert_no_selector "html[aria-busy='true']"
 

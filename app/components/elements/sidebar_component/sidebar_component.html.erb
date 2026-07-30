@@ -1,0 +1,20 @@
+<%= render MobileComponent.new do %>
+  <%= mobile_sidebar || sidebar %>
+<% end %>
+
+<%= render DesktopComponent.new do %>
+  <%= desktop_sidebar || sidebar %>
+<% end %>
+
+<!-- Sticky header -->
+<%= tag.div class: class_names(yass(:header), @header_classes) do %>
+  <button type="button" command="show-modal" commandfor="sidebar" class="-m-2.5 p-2.5 lg:hidden <%= @mobile_menu_classes %>">
+    <span class="sr-only">Open sidebar</span>
+    <div class="content peer/mobile"><%= @mobile_menu_content %></div>
+    <%= icon "bars-3", variant: :mini, class: "size-5 hidden peer-empty/mobile:block" %>
+  </button>
+  <%= header %>
+<% end %>
+<%= content_tag :main, **@options do %>
+  <%= content %>
+<% end %>

@@ -1,27 +1,27 @@
 <% content_for :title, "#{@training_session.snapshot_title} · Hearth" %>
 <article aria-labelledby="training-session-heading">
-  <p class="text-sm font-semibold uppercase tracking-wider text-amber-700"><%= @training_session.completed? ? "Completed workout" : "Workout draft" %></p>
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @training_session.completed? ? "Completed workout" : "Workout draft" %></p>
   <h1 id="training-session-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @training_session.snapshot_title %></h1>
-  <p class="mt-2 text-stone-600"><%= @training_session.performed_on.to_fs(:long) %> · <%= @training_session.person.name %></p>
+  <p class="mt-2 text-gray-600 dark:text-gray-400"><%= @training_session.performed_on.to_fs(:long) %> · <%= @training_session.person.name %></p>
 
   <% unless @training_session.completed? %>
     <div class="mt-5 flex gap-3">
-      <%= link_to "Resume workout", edit_training_session_path(@training_session), class: "rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white" %>
-      <%= button_to "Delete draft", training_session_path(@training_session), method: :delete, class: "rounded-lg border border-red-200 px-4 py-2 font-semibold text-red-800" %>
+      <%= link_to "Resume workout", edit_training_session_path(@training_session), class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
+      <%= button_to "Delete draft", training_session_path(@training_session), method: :delete, class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
     </div>
   <% end %>
 
   <div class="mt-8 space-y-4">
     <% @training_session.training_session_blocks.each do |block| %>
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
-        <p class="text-xs font-semibold uppercase tracking-wider text-stone-500"><%= block.snapshot_block_kind.humanize %> · <%= block.snapshot_dose_class.humanize %></p>
+      <section class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"><%= block.snapshot_block_kind.humanize %> · <%= block.snapshot_dose_class.humanize %></p>
         <h2 class="mt-1 text-xl font-semibold"><%= block.position %>. <%= block.snapshot_title %></h2>
-        <p class="mt-1 text-sm text-stone-600"><%= number_with_precision(block.actual_duration_seconds.to_f / 60, precision: 1, strip_insignificant_zeros: true) %> actual minutes</p>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= number_with_precision(block.actual_duration_seconds.to_f / 60, precision: 1, strip_insignificant_zeros: true) %> actual minutes</p>
         <div class="mt-4 space-y-3">
           <% block.training_session_exercises.each do |exercise| %>
-            <div class="rounded-lg bg-stone-50 p-4">
+            <div class="rounded-lg bg-gray-50 p-4">
               <h3 class="font-semibold"><%= exercise.snapshot_name %></h3>
-              <p class="text-sm text-stone-600"><%= exercise.snapshot_modality.humanize %> · <%= exercise.snapshot_movement_pattern.humanize %></p>
+              <p class="text-sm text-gray-600 dark:text-gray-400"><%= exercise.snapshot_modality.humanize %> · <%= exercise.snapshot_movement_pattern.humanize %></p>
               <ol class="mt-3 space-y-2">
                 <% exercise.training_sets.each do |set| %>
                   <li class="text-sm">
@@ -39,9 +39,9 @@
   </div>
 
   <% if @training_session.snapshot_provenance_status.present? %>
-    <aside class="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+    <aside class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950">
       Snapshot provenance: <%= @training_session.snapshot_provenance_status.humanize %><% if @training_session.snapshot_source_name.present? %> · <%= @training_session.snapshot_source_name %><% end %>. Attribution is not clinical endorsement or medical advice.
     </aside>
   <% end %>
-  <p class="mt-8"><%= link_to "Back to training week", training_week_path(date: @training_session.performed_on), class: "font-medium text-amber-800 underline" %></p>
+  <p class="mt-8"><%= link_to "Back to training week", training_week_path(date: @training_session.performed_on), class: "font-medium text-primary-800 underline" %></p>
 </article>

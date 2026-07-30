@@ -1,0 +1,42 @@
+<section aria-labelledby="person-context-heading">
+  <h2 id="person-context-heading" class="sr-only">Person context</h2>
+<%= render Elements::DropdownComponent.new(anchor: "bottom end") do |menu| %>
+  <%= menu.button(class: "relative flex items-center rounded-md px-2 py-1.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:text-white dark:hover:bg-white/5") do %>
+    <span class="flex size-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300" aria-hidden="true">
+      <%= @current_person.name.first.upcase %>
+    </span>
+    <span class="ml-3 hidden sm:inline"><%= @current_person.name %></span>
+    <%= icon "chevron-down", variant: :mini, class: "ml-2 size-5 text-gray-400" %>
+    <span class="sr-only">Open person menu</span>
+  <% end %>
+
+  <%= menu.menu(class: "divide-y divide-gray-100 dark:divide-white/10") do %>
+    <%= menu.section do %>
+      <% @household_people.each do |person| %>
+        <% if person == @current_person %>
+          <span class="flex items-center px-4 py-2 text-sm font-semibold text-primary-700 dark:text-primary-300" aria-current="true">
+            <%= icon "check", variant: :mini, class: "mr-3 size-5" %>
+            <%= person.name %>
+          </span>
+        <% else %>
+          <%= button_to person_context_path,
+                method: :patch,
+                params: { person_id: person.id },
+                class: "flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary-600 dark:text-gray-300 dark:hover:bg-white/5" do %>
+            <span class="mr-3 flex size-5 items-center justify-center text-xs font-semibold"><%= person.name.first.upcase %></span>
+            Switch to <%= person.name %>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% end %>
+    <%= menu.section do %>
+      <%= button_to session_path,
+            method: :delete,
+            class: "flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary-600 dark:text-gray-300 dark:hover:bg-white/5" do %>
+        <%= icon "arrow-right-start-on-rectangle", variant: :mini, class: "mr-3 size-5 text-gray-400" %>
+        Sign out
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>
+</section>

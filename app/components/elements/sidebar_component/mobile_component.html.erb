@@ -1,0 +1,18 @@
+<el-dialog>
+  <dialog id="sidebar" class="<%= yass(:dialog) %>">
+    <el-dialog-backdrop class="<%= yass(:backdrop) %>"></el-dialog-backdrop>
+
+    <div tabindex="0" class="<%= yass(:container) %>">
+      <el-dialog-panel class="<%= yass(:panel) %>">
+        <div class="absolute top-0 left-full flex w-16 justify-center pt-5 duration-300 ease-in-out group-data-closed/dialog-panel:opacity-0">
+          <button type="button" command="close" commandfor="sidebar" class="-m-2.5 p-2.5">
+            <span class="sr-only">Close sidebar</span>
+            <%= icon "x-mark", class: "size-6 text-white" %>
+          </button>
+        </div>
+
+        <%= content %>
+      </el-dialog-panel>
+    </div>
+  </dialog>
+</el-dialog>

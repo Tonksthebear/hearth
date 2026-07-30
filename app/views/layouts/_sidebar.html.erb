@@ -1,0 +1,35 @@
+<div class="relative flex grow flex-col gap-y-5 overflow-y-auto bg-primary-700 px-6 pb-4 dark:bg-primary-900 dark:ring-1 dark:ring-white/10">
+  <div class="flex h-16 shrink-0 items-center">
+    <%= link_to root_path, class: "flex items-center gap-3 rounded-md text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" do %>
+      <span class="flex size-9 items-center justify-center rounded-lg bg-white/15">
+        <%= icon "heart", variant: :solid, class: "size-6" %>
+      </span>
+      <span class="text-lg font-bold tracking-tight">Hearth</span>
+    <% end %>
+  </div>
+
+  <nav class="flex flex-1 flex-col" aria-label="Household and person context">
+    <ul role="list" class="flex flex-1 flex-col gap-y-7">
+      <li>
+        <ul role="list" class="-mx-2 space-y-1">
+          <%= render "layouts/sidebar_link", label: "Dashboard", path: root_path, icon_name: "home" %>
+          <%= render "layouts/sidebar_link", label: "Manage people", path: people_path, icon_name: "users" %>
+          <%= render "layouts/sidebar_link", label: "Recipes", path: recipes_path, icon_name: "book-open" %>
+          <%= render "layouts/sidebar_link", label: "Meals", path: meal_week_path, icon_name: "calendar-days" %>
+          <%= render "layouts/sidebar_link", label: "Shopping", path: shopping_list_path, icon_name: "shopping-cart" %>
+          <%= render "layouts/sidebar_link", label: "Exercises", path: exercises_path, icon_name: "bolt" %>
+          <%= render "layouts/sidebar_link", label: "Workout templates", path: workout_templates_path, icon_name: "clipboard-document-list" %>
+          <%= render "layouts/sidebar_link", label: "Training", path: training_week_path, icon_name: "chart-bar" %>
+          <%= render "layouts/sidebar_link", label: "Recovery", path: recovery_day_path, icon_name: "moon" %>
+        </ul>
+      </li>
+
+      <li class="mt-auto">
+        <div class="rounded-lg bg-primary-800/50 p-3 text-primary-100 dark:bg-black/20">
+          <p class="truncate text-xs font-semibold uppercase tracking-wide">Household</p>
+          <p class="mt-1 truncate text-sm font-semibold text-white" data-household-name><%= @household.name %></p>
+        </div>
+      </li>
+    </ul>
+  </nav>
+</div>

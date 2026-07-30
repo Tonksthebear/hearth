@@ -4,36 +4,36 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <section class="rounded-xl bg-stone-50 p-5">
+  <section class="rounded-xl bg-gray-50 p-5">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="font-semibold">Block <%= form.object.position %></h3>
       <div class="flex flex-wrap gap-2">
         <% if form.object.position > 1 %>
-          <%= form.button "Move up", name: "move_block", value: "#{form.index}:up", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+          <%= form.button "Move up", name: "move_block", value: "#{form.index}:up", formnovalidate: true, class: { btn: [ :base, { xs: :base }, { neutral: :outline } ] } %>
         <% end %>
         <% if form.object.position < block_count %>
-          <%= form.button "Move down", name: "move_block", value: "#{form.index}:down", formnovalidate: true, class: "rounded border border-stone-300 px-2 py-1 text-xs" %>
+          <%= form.button "Move down", name: "move_block", value: "#{form.index}:down", formnovalidate: true, class: { btn: [ :base, { xs: :base }, { neutral: :outline } ] } %>
         <% end %>
-        <%= form.button "Remove block", name: "remove_block", value: form.index, formnovalidate: true, class: "rounded border border-red-200 px-2 py-1 text-xs text-red-800" %>
+        <%= form.button "Remove block", name: "remove_block", value: form.index, formnovalidate: true, class: { btn: [ :base, { xs: :base }, { danger: :outline } ] } %>
       </div>
     </div>
     <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div><%= form.label :title, "Block title", class: "block text-xs font-medium" %><%= form.text_field :title, required: true, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :block_kind, "Block kind", class: "block text-xs font-medium" %><%= form.select :block_kind, block_kinds.map { |value| [ value.humanize, value ] }, {}, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :dose_class, class: "block text-xs font-medium" %><%= form.select :dose_class, dose_classes.map { |value| [ value.humanize, value ] }, {}, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div><%= form.label :planned_duration_minutes, "Planned minutes", class: "block text-xs font-medium" %><%= form.number_field :planned_duration_minutes, min: 1, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
-      <div class="sm:col-span-2 lg:col-span-4"><%= form.label :notes, class: "block text-xs font-medium" %><%= form.text_area :notes, rows: 2, class: "mt-1 block w-full rounded border border-stone-300 px-2 py-2" %></div>
+      <div><%= form.label :title, "Block title", class: :label %><%= form.text_field :title, required: true, class: :text_field %></div>
+      <div><%= form.label :block_kind, "Block kind", class: :label %><%= form.elements_select :block_kind, block_kinds.map { |value| [ value.humanize, value ] }, {} %></div>
+      <div><%= form.label :dose_class, class: :label %><%= form.elements_select :dose_class, dose_classes.map { |value| [ value.humanize, value ] }, {} %></div>
+      <div><%= form.label :planned_duration_minutes, "Planned minutes", class: :label %><%= form.number_field :planned_duration_minutes, min: 1, class: :text_field %></div>
+      <div class="sm:col-span-2 lg:col-span-4"><%= form.label :notes, class: :label %><%= form.text_area :notes, rows: 2, class: :text_field %></div>
     </div>
     <div class="mt-5 flex items-center justify-between">
-      <h4 class="text-sm font-semibold uppercase tracking-wider text-stone-500">Exercise prescriptions</h4>
-      <%= form.button "Add exercise prescription", name: "add_prescription", value: form.index, formnovalidate: true, class: "rounded border border-stone-300 px-3 py-2 text-xs font-semibold" %>
+      <h4 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Exercise prescriptions</h4>
+      <%= form.button "Add exercise prescription", name: "add_prescription", value: form.index, formnovalidate: true, class: { btn: [ :base, { sm: :base }, { neutral: :outline } ] } %>
     </div>
     <div class="mt-3 space-y-3">
       <% prescription_count = form.object.exercise_prescriptions.count { |prescription| !prescription.marked_for_destruction? } %>
       <%= form.fields_for :exercise_prescriptions do |prescription_form| %>
-        <%= render "prescription_fields", form: prescription_form, block_index: form.index, prescription_count: prescription_count, dose_classes: dose_classes, entry_kinds: entry_kinds, exercises: exercises %>
+        <%= render "prescription_fields", form: prescription_form, block_index: form.index, prescription_count: prescription_count, dose_classes: dose_classes, entry_kinds: entry_kinds, exercise_options: exercise_options %>
       <% end %>
     </div>
   </section>

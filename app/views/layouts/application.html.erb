@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="h-full bg-gray-50 dark:bg-gray-900">
   <head>
     <title><%= content_for(:title) || "Hearth" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,72 +8,48 @@
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-
     <%= yield :head %>
-
-    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
-    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
 
     <link rel="icon" href="/icon.png" type="image/png">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
-    <%# Includes all stylesheet files in app/assets/stylesheets %>
-    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="min-h-screen bg-stone-50 text-stone-900">
+  <body class="h-full text-gray-900 dark:text-white" style="--sidebar-width: 18rem">
     <% if authenticated? %>
-      <header class="border-b border-stone-200 bg-white">
-        <div class="mx-auto max-w-5xl px-5 py-4">
-          <div class="flex items-center justify-between gap-4">
-            <%= link_to "Hearth", root_path, class: "text-xl font-semibold tracking-tight text-amber-800" %>
-            <%= button_to "Sign out", session_path, method: :delete, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-100" %>
+      <%= render Elements::SidebarComponent.new do |sidebar| %>
+        <% sidebar.with_sidebar do %>
+          <%= render "layouts/sidebar" %>
+        <% end %>
+
+        <% sidebar.with_header(class: "border-b border-gray-200 bg-white shadow-xs dark:border-white/10 dark:bg-gray-900 dark:shadow-none lg:flex") do %>
+          <div class="flex flex-1 items-center justify-between gap-x-4">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-gray-900 dark:text-white" data-household-name><%= @household.name %></p>
+              <p class="truncate text-xs text-gray-500 dark:text-gray-400"><%= @current_person.name %></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <%= render "layouts/person_menu" %>
+              <%= button_to "Sign out", session_path, method: :delete, class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %>
+            </div>
           </div>
+        <% end %>
 
-          <nav aria-label="Household and person context" class="mt-4 grid gap-4 border-t border-stone-100 pt-4 sm:grid-cols-2">
-            <section aria-labelledby="shared-navigation-heading">
-              <p id="shared-navigation-heading" class="text-xs font-semibold uppercase tracking-wider text-stone-500">Shared household</p>
-              <div class="mt-2 flex flex-wrap items-center gap-3">
-                <span class="font-medium"><%= @household.name %></span>
-                <%= link_to "Manage people", people_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Recipes", recipes_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Meals", meal_week_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Shopping", shopping_list_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Exercises", exercises_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Workout templates", workout_templates_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Training", training_week_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-                <%= link_to "Recovery", recovery_day_path, class: "text-sm font-medium text-amber-800 underline hover:no-underline" %>
-              </div>
-            </section>
-
-            <section aria-labelledby="person-context-heading">
-              <p id="person-context-heading" class="text-xs font-semibold uppercase tracking-wider text-stone-500">Person context</p>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <% @household_people.each do |person| %>
-                  <% if person == @current_person %>
-                    <span aria-current="true" class="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900"><%= person.name %></span>
-                  <% else %>
-                    <%= button_to "Switch to #{person.name}", person_context_path, method: :patch, params: { person_id: person.id }, class: "rounded-full border border-stone-300 px-3 py-1 text-sm font-medium hover:bg-stone-100" %>
-                  <% end %>
-                <% end %>
-              </div>
-            </section>
-          </nav>
+        <div class="py-8 sm:py-10">
+          <div class="px-4 sm:px-6 lg:px-8">
+            <%= render "layouts/flash" %>
+            <%= yield %>
+          </div>
         </div>
-      </header>
+      <% end %>
+    <% else %>
+      <main class="min-h-full">
+        <%= render "layouts/flash" %>
+        <%= yield %>
+      </main>
     <% end %>
-
-    <main class="mx-auto w-full max-w-5xl px-5 py-12">
-      <% if notice = flash[:notice] %>
-        <p id="notice" class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800"><%= notice %></p>
-      <% end %>
-      <% if alert = flash[:alert] %>
-        <p id="alert" class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800"><%= alert %></p>
-      <% end %>
-
-      <%= yield %>
-    </main>
   </body>
 </html>

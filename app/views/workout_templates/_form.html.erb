@@ -1,40 +1,40 @@
 <div id="workout_template_form">
   <%= form_with model: workout_template, class: "mt-8 space-y-8" do |form| %>
     <% if workout_template.errors.any? %>
-      <div id="workout-template-errors" class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+      <div id="workout-template-errors" class="rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-danger-800 dark:text-danger-300">
         <p class="font-semibold">Please correct the following:</p>
         <ul class="mt-2 list-disc pl-5"><% workout_template.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
       </div>
     <% end %>
 
-    <fieldset class="grid gap-5 rounded-xl border border-stone-200 bg-white p-5 sm:grid-cols-2">
+    <fieldset class="grid gap-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2">
       <legend class="px-2 text-lg font-semibold">Template details</legend>
       <div class="sm:col-span-2">
-        <%= form.label :title, class: "block text-sm font-medium" %>
-        <%= form.text_field :title, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+        <%= form.label :title, class: :label %>
+        <%= form.text_field :title, required: true, class: :text_field %>
       </div>
       <div class="sm:col-span-2">
-        <%= form.label :description, class: "block text-sm font-medium" %>
-        <%= form.text_area :description, rows: 3, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+        <%= form.label :description, class: :label %>
+        <%= form.text_area :description, rows: 3, class: :text_field %>
       </div>
       <div>
-        <%= form.label :provenance_status, "Provenance", class: "block text-sm font-medium" %>
-        <%= form.select :provenance_status, provenance_statuses.map { |value| [ value.humanize, value ] }, {}, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+        <%= form.label :provenance_status, "Provenance", class: :label %>
+        <%= form.elements_select :provenance_status, provenance_statuses.map { |value| [ value.humanize, value ] }, {}, required: true %>
       </div>
       <div>
-        <%= form.label :source_name, "Source name", class: "block text-sm font-medium" %>
-        <%= form.text_field :source_name, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+        <%= form.label :source_name, "Source name", class: :label %>
+        <%= form.text_field :source_name, class: :text_field %>
       </div>
       <div class="sm:col-span-2">
-        <%= form.label :source_url, "Source URL", class: "block text-sm font-medium" %>
-        <%= form.url_field :source_url, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+        <%= form.label :source_url, "Source URL", class: :label %>
+        <%= form.url_field :source_url, class: :text_field %>
       </div>
     </fieldset>
 
-    <fieldset class="rounded-xl border border-stone-200 bg-white p-5">
+    <fieldset class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
       <div class="flex items-center justify-between gap-4">
         <legend class="text-lg font-semibold">Ordered workout blocks</legend>
-        <%= form.button "Add block", name: "add_block", value: "1", formnovalidate: true, class: "rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold hover:bg-stone-100" %>
+        <%= form.button "Add block", name: "add_block", value: "1", formnovalidate: true, class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
       </div>
       <div class="mt-5 space-y-5">
         <% block_count = workout_template.workout_blocks.count { |block| !block.marked_for_destruction? } %>
@@ -45,14 +45,14 @@
             block_kinds: block_kinds,
             dose_classes: dose_classes,
             entry_kinds: entry_kinds,
-            exercises: exercises %>
+            exercise_options: exercise_options %>
         <% end %>
       </div>
     </fieldset>
 
     <div class="flex items-center gap-4">
-      <%= form.submit class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
-      <%= link_to "Cancel", workout_template.persisted? ? workout_template_path(workout_template) : workout_templates_path, class: "text-sm font-medium text-stone-700 underline" %>
+      <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+      <%= link_to "Cancel", workout_template.persisted? ? workout_template_path(workout_template) : workout_templates_path, class: "text-sm font-medium text-gray-700 underline" %>
     </div>
   <% end %>
 </div>

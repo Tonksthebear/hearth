@@ -1,31 +1,31 @@
-<%= form_with model: exercise, class: "mt-8 grid gap-5 rounded-xl border border-stone-200 bg-white p-5 sm:grid-cols-2" do |form| %>
+<%= form_with model: exercise, class: "mt-8 grid gap-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2" do |form| %>
   <% if exercise.errors.any? %>
-    <div class="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+    <div class="sm:col-span-2 rounded-lg border border-danger-200 bg-danger-50 dark:bg-danger-500/10 p-4 text-danger-800 dark:text-danger-300">
       <ul class="list-disc pl-5"><% exercise.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
     </div>
   <% end %>
   <div class="sm:col-span-2">
-    <%= form.label :name, class: "block text-sm font-medium" %>
-    <%= form.text_field :name, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+    <%= form.label :name, class: :label %>
+    <%= form.text_field :name, required: true, class: :text_field %>
   </div>
   <div>
-    <%= form.label :modality, class: "block text-sm font-medium" %>
-    <%= form.select :modality, modalities.map { |value| [ value.humanize, value ] }, { prompt: "Choose modality" }, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+    <%= form.label :modality, class: :label %>
+    <%= form.elements_select :modality, modalities.map { |value| [ value.humanize, value ] }, { prompt: "Choose modality" }, required: true %>
   </div>
   <div>
-    <%= form.label :movement_pattern, "Movement pattern", class: "block text-sm font-medium" %>
-    <%= form.select :movement_pattern, movement_patterns.map { |value| [ value.humanize, value ] }, { prompt: "Choose movement pattern" }, required: true, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+    <%= form.label :movement_pattern, "Movement pattern", class: :label %>
+    <%= form.elements_select :movement_pattern, movement_patterns.map { |value| [ value.humanize, value ] }, { prompt: "Choose movement pattern" }, required: true %>
   </div>
   <div>
-    <%= form.label :equipment, class: "block text-sm font-medium" %>
-    <%= form.text_field :equipment, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+    <%= form.label :equipment, class: :label %>
+    <%= form.text_field :equipment, class: :text_field %>
   </div>
   <div>
-    <%= form.label :guidance, class: "block text-sm font-medium" %>
-    <%= form.text_area :guidance, rows: 3, class: "mt-2 block w-full rounded-lg border border-stone-300 px-3 py-2" %>
+    <%= form.label :guidance, class: :label %>
+    <%= form.text_area :guidance, rows: 3, class: :text_field %>
   </div>
   <div class="sm:col-span-2 flex items-center gap-4">
-    <%= form.submit class: "cursor-pointer rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600" %>
-    <%= link_to "Cancel", exercise.persisted? ? exercise_path(exercise) : exercises_path, class: "text-sm font-medium text-stone-700 underline" %>
+    <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+    <%= link_to "Cancel", exercise.persisted? ? exercise_path(exercise) : exercises_path, class: "text-sm font-medium text-gray-700 underline" %>
   </div>
 <% end %>

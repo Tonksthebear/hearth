@@ -1,0 +1,23 @@
+*, *::before, *::after { box-sizing: border-box; }
+html { min-height: 100%; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { min-height: 100vh; margin: 0; background: #f9fafb; color: #111827; }
+main { display: grid; min-height: 100vh; place-items: center; padding: 4rem 1.5rem; text-align: center; }
+.content { max-width: 36rem; }
+.brand { display: inline-flex; align-items: center; gap: .625rem; color: #92400e; font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+.mark { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border-radius: .75rem; background: #b45309; color: white; }
+.status { margin: 2rem 0 0; color: #b45309; font-size: 1rem; font-weight: 600; }
+h1 { margin: .75rem 0 0; font-size: clamp(2rem, 7vw, 3.75rem); line-height: 1; letter-spacing: -.035em; }
+.description { margin: 1.5rem auto 0; color: #4b5563; font-size: 1.125rem; line-height: 1.75; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; margin-top: 2.5rem; }
+.button { display: inline-flex; align-items: center; justify-content: center; border-radius: .375rem; padding: .75rem 1rem; background: #b45309; color: white; font-size: .875rem; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgb(0 0 0 / .05); }
+.button:hover { background: #92400e; }
+.link { display: inline-flex; align-items: center; padding: .75rem 1rem; color: #111827; font-size: .875rem; font-weight: 600; text-decoration: none; }
+.link:hover { color: #b45309; }
+@media (prefers-color-scheme: dark) {
+  body { background: #111827; color: white; }
+  .brand, .status { color: #fbbf24; }
+  .mark { background: #d97706; }
+  .description { color: #9ca3af; }
+  .link { color: white; }
+  .link:hover { color: #fbbf24; }
+}

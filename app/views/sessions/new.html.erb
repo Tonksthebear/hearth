@@ -1,29 +1,36 @@
-<div class="mx-auto md:w-2/3 w-full">
-  <% if alert = flash[:alert] %>
-    <p class="py-2 px-3 bg-red-50 mb-5 text-red-500 font-medium rounded-lg inline-block" id="alert"><%= alert %></p>
-  <% end %>
+<% content_for :title, "Sign in · Hearth" %>
 
-  <h1 class="font-bold text-4xl">Sign in</h1>
+<div class="flex min-h-full flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+  <div class="sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm dark:bg-primary-500">
+      <%= icon "heart", variant: :solid, class: "size-8" %>
+    </div>
+    <h1 class="mt-6 text-center text-2xl/9 font-bold tracking-tight text-gray-900 dark:text-white">Sign in to Hearth</h1>
+  </div>
 
-  <%= form_with url: session_url, class: "contents" do |form| %>
-    <div class="my-5">
-      <%= form.label :email_address, "Email address", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+  <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-[480px]">
+    <div class="bg-white px-6 py-12 shadow-sm sm:rounded-lg sm:px-12 dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+      <%= form_with url: session_url, class: "space-y-6" do |form| %>
+        <div>
+          <%= form.label :email_address, "Email address", class: :label %>
+          <div class="mt-2">
+            <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", class: :text_field %>
+          </div>
+        </div>
+
+        <div>
+          <%= form.label :password, class: :label %>
+          <div class="mt-2">
+            <%= form.password_field :password, required: true, autocomplete: "current-password", placeholder: "Enter your password", maxlength: 72, class: :text_field %>
+          </div>
+        </div>
+
+        <%= form.submit "Sign in", class: { btn: [ :base, { xl: :base }, { primary: :solid }, "w-full" ] } %>
+      <% end %>
     </div>
 
-    <div class="my-5">
-      <%= form.label :password, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.password_field :password, required: true, autocomplete: "current-password", placeholder: "Enter your password", maxlength: 72, class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
-    </div>
-
-    <div class="col-span-6 sm:flex sm:items-center sm:gap-4">
-      <div class="inline">
-        <%= form.submit "Sign in", class: "w-full sm:w-auto text-center rounded-md px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white inline-block font-medium cursor-pointer" %>
-      </div>
-
-      <div class="mt-4 text-sm text-gray-500 sm:mt-0">
-        <%= link_to "Forgot password?", new_password_path, class: "text-gray-700 underline hover:no-underline" %>
-      </div>
-    </div>
-  <% end %>
+    <p class="mt-6 text-center text-sm/6 text-gray-500 dark:text-gray-400">
+      <%= link_to "Forgot password?", new_password_path, class: "font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300" %>
+    </p>
+  </div>
 </div>
