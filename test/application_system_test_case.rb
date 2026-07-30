@@ -141,7 +141,14 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def set_and_wait(field, value)
       field_id = field[:id]
-      field.set(value)
+
+      3.times do
+        current_field = find_by_id(field_id)
+        current_field.set("")
+        value.each_char { |character| current_field.send_keys(character) }
+        break if page.has_field?(field_id, with: value, wait: 1)
+      end
+
       assert_field field_id, with: value, wait: 5
       assert_equal value, find_by_id(field_id).value
       assert_no_selector "html[aria-busy='true']"
