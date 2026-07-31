@@ -133,7 +133,7 @@ class Agent::Grant < ApplicationRecord
       grant = includes(:conversation, :agent_session, :browser_session).find_by(token_locator: locator)
       return unless grant&.secret_matches?(secret)
       unless grant.revoked_at.nil? && grant.expires_at > at
-        grant.agent_session&.require_mcp_reauthorization!
+        grant.require_session_reauthorization_if_last!(at: at)
         return
       end
       return unless grant.capability_groups.all? { |group| capability_groups.key?(group) }
@@ -147,7 +147,7 @@ class Agent::Grant < ApplicationRecord
       return unless grant.browser_context_active?
       if grant.calls_limit && grant.calls_used >= grant.calls_limit ||
           grant.output_tokens_limit && grant.output_tokens_used >= grant.output_tokens_limit
-        grant.agent_session.require_mcp_reauthorization!
+        grant.require_session_reauthorization_if_last!(at: at)
         return
       end
 
@@ -215,6 +215,16 @@ class Agent::Grant < ApplicationRecord
     return browser_session_id == agent_session.browser_session_id unless browser_issued?
 
     agent_session.browser_session_id == browser_session_id && browser_session.present?
+  end
+
+  def require_session_reauthorization_if_last!(at: Time.current)
+    replacement_exists = self.class.active_at(at)
+      .where(agent_session_id: agent_session_id)
+      .where.not(id: id)
+      .where("calls_limit IS NULL OR calls_used < calls_limit")
+      .where("output_tokens_limit IS NULL OR output_tokens_used < output_tokens_limit")
+      .exists?
+    agent_session.require_mcp_reauthorization! unless replacement_exists
   end
 
   private

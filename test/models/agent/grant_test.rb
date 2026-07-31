@@ -123,6 +123,18 @@ class Agent::GrantTest < ActiveSupport::TestCase
     assert_equal "reauthorization_required", credential.grant.agent_session.reload.mcp_authorization_status
   end
 
+  test "an expired superseded grant leaves a session authorized by its usable replacement" do
+    session = create_runtime_session
+    expired = session.issue_runtime_grant!
+    replacement = session.issue_runtime_grant!
+    expired.grant.update!(expires_at: 1.minute.from_now)
+    replacement.grant.update!(expires_at: 5.minutes.from_now)
+
+    assert_nil Agent::Grant.authenticate(bearer: expired.bearer, at: expired.grant.expires_at)
+    assert_equal "authorized", session.reload.mcp_authorization_status
+    assert_equal replacement.grant, Agent::Grant.authenticate(bearer: replacement.bearer)
+  end
+
   test "denies wrong secret expiry revocation and unknown capability" do
     credential = issue_grant
     args = {
