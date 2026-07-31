@@ -51,7 +51,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
         "--prompt", "boundary",
         "--evidence", evidence,
         environment: {
-          "FAKE_ACP_MODE" => "normal",
+          "FAKE_ACP_MODE" => "streaming",
           "FAKE_SESSION_ID" => "puma-boundary-#{SecureRandom.hex(6)}",
           "FAKE_AGENT_INFO_FILE" => info_file
         }
@@ -73,6 +73,9 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       assert_equal "ACP-only", row["proof_scope"]
       assert_equal [], row["mcp_servers"]
       assert_equal "end_turn", row["stop_reason"]
+      assert_equal 300, row["update_count"]
+      assert_equal Acp::Connection::DEFAULT_QUEUE_SIZE, row["retained_update_count"]
+      assert_equal 300 - Acp::Connection::DEFAULT_QUEUE_SIZE, row["dropped_update_count"]
     ensure
       runtime&.stop
       puma&.stop
@@ -175,6 +178,75 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       assert_process_gone(agent_pid)
       refute File.exist?(File.join(root, ".hearth/tmp/acp/supervisor.pid"))
       runtime.stop
+    ensure
+      runtime&.stop
+    end
+  end
+
+  test "evidence records a retryable recovery failure and exits nonzero" do
+    with_instance_root do |root|
+      configure_runtime_profile
+      evidence = File.join(root, "failed-runtime-evidence.jsonl")
+      runtime = start_runtime(
+        root,
+        "--session", agent_sessions(:connected).id.to_s,
+        "--evidence", evidence,
+        environment: {
+          "FAKE_ACP_MODE" => "early_exit",
+          "FAKE_SESSION_ID" => agent_sessions(:connected).external_session_id
+        }
+      )
+
+      result = runtime.wait
+      row = JSON.parse(File.readlines(evidence).sole)
+
+      assert_not_predicate result.fetch(:status), :success?
+      assert_equal "failed", row["outcome"]
+      assert_equal "disconnected", row.dig("lifecycle", "transport_status")
+      assert_match(/agent exited/, row.dig("lifecycle", "recovery_error"))
+      assert_nil row["agent_pid"]
+    ensure
+      runtime&.stop
+    end
+  end
+
+  test "default production runtime resolves four isolated instance databases" do
+    with_instance_root do |root|
+      prepare_production_databases(root)
+      evidence = File.join(root, "production-runtime-evidence.jsonl")
+      runtime = ProcessHarness.new(
+        {
+          "RAILS_ENV" => nil,
+          "DATABASE_URL" => nil,
+          "CACHE_DATABASE_URL" => nil,
+          "QUEUE_DATABASE_URL" => nil,
+          "CABLE_DATABASE_URL" => nil,
+          "SECRET_KEY_BASE" => "test-secret-key-base-" * 4
+        },
+        RbConfig.ruby,
+        RUNTIME,
+        "--root",
+        root,
+        "--once",
+        "--evidence",
+        evidence,
+        chdir: root
+      ).start
+
+      result = runtime.wait
+      row = JSON.parse(File.readlines(evidence).sole)
+
+      assert_predicate result.fetch(:status), :success?, result.fetch(:stderr)
+      assert_equal(
+        {
+          "primary" => "production.sqlite3",
+          "cache" => "production_cache.sqlite3",
+          "queue" => "production_queue.sqlite3",
+          "cable" => "production_cable.sqlite3"
+        },
+        row["database_targets"]
+      )
+      assert row["database_targets"].values.none? { |target| target == "[outside-instance]" }
     ensure
       runtime&.stop
     end
@@ -289,6 +361,27 @@ class AcpRuntimeTest < ActiveSupport::TestCase
         "--pid", File.join(root, "puma.pid"),
         chdir: Rails.root.to_s
       ).start
+    end
+
+    def prepare_production_databases(root)
+      storage = File.join(root, ".hearth/storage")
+      FileUtils.mkdir_p(storage)
+      environment = {
+        "RAILS_ENV" => "production",
+        "DATABASE_URL" => "sqlite3:#{File.join(storage, 'production.sqlite3')}",
+        "CACHE_DATABASE_URL" => "sqlite3:#{File.join(storage, 'production_cache.sqlite3')}",
+        "QUEUE_DATABASE_URL" => "sqlite3:#{File.join(storage, 'production_queue.sqlite3')}",
+        "CABLE_DATABASE_URL" => "sqlite3:#{File.join(storage, 'production_cable.sqlite3')}",
+        "SECRET_KEY_BASE" => "test-secret-key-base-" * 4
+      }
+      result = ProcessHarness.new(
+        environment,
+        RbConfig.ruby,
+        Rails.root.join("bin/rails").to_s,
+        "db:prepare",
+        chdir: Rails.root.to_s
+      ).start.wait
+      assert_predicate result.fetch(:status), :success?, result.fetch(:stderr)
     end
 
     def configure_runtime_profile

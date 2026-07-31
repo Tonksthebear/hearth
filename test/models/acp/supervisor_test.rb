@@ -71,7 +71,7 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
       recovery_backoffs: [ 0, 0, 0 ],
       on_fatal: ->(agent_session, error) { calls << [ agent_session.id, error.class ] }
     ) do |supervisor|
-      3.times { supervisor.recover_session(agent_sessions(:connected).reload) }
+      4.times { supervisor.recover_session(agent_sessions(:connected).reload) }
 
       failed = agent_sessions(:connected).reload
       assert_equal "failed", failed.status
@@ -110,6 +110,44 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
       assert_kind_of Acp::Connection::Error, first_error
       refute first_thread.alive?
       assert_predicate supervisor.connection_for(second), :running?
+    end
+  end
+
+  test "an unmodelled recovery error fails only that session" do
+    healthy_factory = connection_factory(modes: [ "normal" ])
+    calls = 0
+    factory = lambda do |**arguments|
+      calls += 1
+      raise "unexpected adapter failure" if calls == 2
+
+      healthy_factory.call(**arguments)
+    end
+
+    with_supervisor(connection_factory: factory) do |supervisor|
+      healthy = supervisor.start_session(conversation: agent_conversations(:active))
+
+      failed = supervisor.recover_session(agent_sessions(:connected))
+
+      assert_equal "failed", failed.status
+      assert_match(/unexpected adapter failure/, failed.recovery_error)
+      assert_predicate supervisor.connection_for(healthy), :running?
+    end
+  end
+
+  test "disabled profiles cannot start or recover and disconnect an attached session" do
+    with_supervisor do |supervisor|
+      agent_session = supervisor.start_session(conversation: agent_conversations(:active))
+      agent_session.conversation.profile.update!(enabled: false)
+
+      supervisor.tick
+      supervisor.tick
+
+      assert_equal "disconnected", agent_session.reload.status
+      assert_equal "Agent profile is disabled", agent_session.recovery_error
+      assert_raises(Acp::Supervisor::Error) { supervisor.connection_for(agent_session) }
+      assert_raises(Acp::Supervisor::ProfileDisabled) do
+        supervisor.start_session(conversation: agent_conversations(:active))
+      end
     end
   end
 

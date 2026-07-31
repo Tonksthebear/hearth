@@ -28,6 +28,9 @@ class Agent::ProfileRuntimeConfigurationTest < ActiveSupport::TestCase
       profile.update!(working_directory: "agents/grok")
       assert_equal File.join(root, "agents/grok"), profile.working_directory_for(root)
 
+      assert_raises(ActiveRecord::RecordInvalid) { profile.update!(working_directory: "../outside") }
+      assert_includes profile.errors[:working_directory], "must stay inside the Hearth instance root"
+
       profile.update_column(:working_directory, "../outside")
       assert_raises(ArgumentError) { profile.working_directory_for(root) }
     end

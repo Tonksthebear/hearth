@@ -17,6 +17,7 @@ class Agent::Profile < ApplicationRecord
   validates :update_policy, inclusion: { in: UPDATE_POLICIES }
   validate :arguments_are_explicit
   validate :environment_keys_do_not_contain_values
+  validate :working_directory_is_relative_and_contained
 
   def argv
     [ executable_path, *arguments ]
@@ -48,5 +49,15 @@ class Agent::Profile < ApplicationRecord
         environment_keys.all? { |key| key.is_a?(String) && key.match?(/\A[A-Z][A-Z0-9_]*\z/) }
 
       errors.add(:environment_keys, "must contain environment variable names only")
+    end
+
+    def working_directory_is_relative_and_contained
+      return if working_directory.blank?
+
+      directory = Pathname.new(working_directory)
+      normalized = directory.cleanpath.to_s
+      return unless directory.absolute? || normalized == ".." || normalized.start_with?("../")
+
+      errors.add(:working_directory, "must stay inside the Hearth instance root")
     end
 end

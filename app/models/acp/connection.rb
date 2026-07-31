@@ -32,7 +32,7 @@ module Acp
     STOP_WRITER = Object.new.freeze
 
     attr_reader :agent_capabilities, :agent_info, :auth_methods, :default_auth_method_id,
-      :mcp_servers, :pid
+      :dropped_event_count, :mcp_servers, :pid
 
     def initialize(argv:, cwd:, environment: {}, mcp_servers: [], timeout: DEFAULT_TIMEOUT,
       max_line_bytes: DEFAULT_MAX_LINE_BYTES, queue_size: DEFAULT_QUEUE_SIZE,
@@ -57,11 +57,13 @@ module Acp
       @events = SizedQueue.new(Integer(queue_size))
       @pending = {}
       @pending_mutex = Mutex.new
+      @events_mutex = Mutex.new
       @state_mutex = Mutex.new
       @stderr_mutex = Mutex.new
       @finalize_mutex = Mutex.new
       @stderr = +""
       @next_id = 0
+      @dropped_event_count = 0
       @stopping = false
       @finalized = false
     end
@@ -246,16 +248,10 @@ module Acp
       end
 
       def pop_with_deadline(queue, timeout)
-        deadline = monotonic_now + Float(timeout)
-        loop do
-          return queue.pop(true)
-        rescue ThreadError
-          error = failure
-          raise error if error
-          raise TimeoutError, "ACP queue wait timed out" if monotonic_now >= deadline
+        value = queue.pop(timeout: Float(timeout))
+        return value if value
 
-          sleep 0.005
-        end
+        raise(failure || TimeoutError.new("ACP queue wait timed out"))
       end
 
       def enqueue_outbound(message)
@@ -271,15 +267,9 @@ module Acp
       end
 
       def bounded_push(queue, value)
-        deadline = monotonic_now + @queue_timeout
-        loop do
-          queue.push(value, true)
-          return
-        rescue ThreadError
-          raise BackpressureError, "ACP queue remained saturated" if monotonic_now >= deadline
+        return if queue.push(value, timeout: @queue_timeout)
 
-          sleep 0.005
-        end
+        raise BackpressureError, "ACP queue remained saturated"
       end
 
       def write_outbound
@@ -350,7 +340,23 @@ module Acp
         if message.key?("id")
           handle_agent_request(message)
         else
-          bounded_push(@events, message)
+          retain_event(message)
+        end
+      end
+
+      def retain_event(message)
+        @events_mutex.synchronize do
+          loop do
+            @events.push(message, true)
+            break
+          rescue ThreadError
+            begin
+              @events.pop(true)
+              @dropped_event_count += 1
+            rescue ThreadError
+              next
+            end
+          end
         end
       end
 
@@ -432,23 +438,26 @@ module Acp
 
       def fail_connection(error)
         callback = nil
-        pending = nil
         @state_mutex.synchronize do
           return if @failure || @stopping
 
           @failure = error
           callback = @on_fatal
         end
+        reject_pending(error)
+        callback.call(error)
+        @cleanup_thread ||= Thread.new { finalize }
+      rescue StandardError
+        @cleanup_thread ||= Thread.new { finalize }
+      end
+
+      def reject_pending(error)
         pending = @pending_mutex.synchronize do
           queues = @pending.values
           @pending.clear
           queues
         end
         pending.each { |queue| queue.push(error, true) rescue nil }
-        callback.call(error)
-        @cleanup_thread ||= Thread.new { finalize }
-      rescue StandardError
-        @cleanup_thread ||= Thread.new { finalize }
       end
 
       def finalize
@@ -456,8 +465,9 @@ module Acp
           return if @finalized
 
           @state_mutex.synchronize { @stopping = true }
+          reject_pending(ProcessError.new("ACP connection stopped"))
           @outbound.push(STOP_WRITER, true) rescue nil
-          @stdin.close unless @stdin&.closed?
+          @stdin&.close unless @stdin&.closed?
           terminate_process_group
           @writer_thread&.join(@termination_grace)
           [ @stdout_thread, @stderr_thread ].compact.each do |thread|

@@ -81,14 +81,27 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     end
   end
 
-  test "duplicate response ids and event queue saturation fail the connection" do
-    %w[duplicate_id backpressure].each do |mode|
-      with_connection(mode: mode, queue_size: 1) do |connection|
-        connection.initialize_connection
-        wait_until { connection.failure }
+  test "duplicate response ids fail the connection" do
+    with_connection(mode: "duplicate_id", queue_size: 1) do |connection|
+      connection.initialize_connection
+      wait_until { connection.failure }
 
-        assert_kind_of Acp::Connection::ProtocolError, connection.failure
-      end
+      assert_kind_of Acp::Connection::ProtocolError, connection.failure
+    end
+  end
+
+  test "retains a bounded tail without disconnecting during a streaming turn" do
+    with_connection(mode: "streaming") do |connection|
+      connection.initialize_connection
+      connection.new_session
+
+      result = connection.prompt([ { type: "text", text: "stream" } ])
+      updates = connection.drain_events
+
+      assert_equal "end_turn", result["stopReason"]
+      assert_equal Acp::Connection::DEFAULT_QUEUE_SIZE, updates.length
+      assert_equal 300 - Acp::Connection::DEFAULT_QUEUE_SIZE, connection.dropped_event_count
+      assert_predicate connection, :running?
     end
   end
 
@@ -134,6 +147,15 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     ensure
       connection&.stop
       replacement&.stop
+    end
+  end
+
+  test "stop is safe before the connection starts" do
+    Dir.mktmpdir("acp-stop-before-start") do |workspace|
+      connection = build_connection(workspace: workspace)
+
+      assert_nil connection.stop
+      assert_nil connection.stop
     end
   end
 

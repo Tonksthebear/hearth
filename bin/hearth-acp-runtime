@@ -66,6 +66,7 @@ supervisor = Acp::Supervisor.new(
 
 agent_session = nil
 operation = "recover_due"
+operation_error = nil
 begin
   if options[:conversation_id]
     conversation = Agent::Conversation.find(options[:conversation_id])
@@ -91,14 +92,27 @@ begin
   turn = if options[:prompt] && agent_session&.status == "connected"
     supervisor.prompt(agent_session, [ { type: "text", text: options[:prompt] } ])
   end
+  operation_error = agent_session&.recovery_error unless agent_session&.status.in?([ nil, "connected" ])
 
   if options[:evidence]
-    connection = agent_session && supervisor.connection_for(agent_session)
+    connection = supervisor.connection_for(agent_session) if agent_session&.status == "connected"
     updates = connection ? connection.drain_events : []
+    storage = instance_root.join(".hearth/storage").expand_path
+    database_targets = if Rails.env.production?
+      ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).to_h do |configuration|
+        database = Pathname.new(configuration.database).expand_path
+        relative = if database.to_s.start_with?("#{storage}#{File::SEPARATOR}")
+          database.relative_path_from(storage).to_s
+        else
+          "[outside-instance]"
+        end
+        [ configuration.name, relative ]
+      end
+    end
     evidence = {
       evidence_schema: "hearth_acp_runtime/v1",
       observed_at: Time.current.iso8601,
-      outcome: fatal_error ? "failed" : "observed",
+      outcome: fatal_error || operation_error ? "failed" : "observed",
       operation: operation,
       protocol_version: agent_session&.installation&.protocol_version,
       agent: agent_session && {
@@ -114,12 +128,17 @@ begin
       session_persisted: agent_session&.persisted? || false,
       stop_reason: turn&.fetch("stopReason", nil),
       update_types: updates.filter_map { |entry| entry.dig("params", "update", "sessionUpdate") }.uniq,
+      update_count: updates.length + (connection&.dropped_event_count || 0),
+      retained_update_count: updates.length,
+      dropped_update_count: connection&.dropped_event_count || 0,
       lifecycle: {
         list_observed: supervisor.session_list_observations.key?(agent_session&.id),
         recovery_method: supervisor.recovery_methods[agent_session&.id],
         transport_status: agent_session&.status,
-        mcp_authorization_status: agent_session&.mcp_authorization_status
+        mcp_authorization_status: agent_session&.mcp_authorization_status,
+        recovery_error: agent_session&.recovery_error
       },
+      database_targets: database_targets,
       mcp_servers: [],
       proof_scope: "ACP-only",
       supervisor_pid: Process.pid,
@@ -141,3 +160,4 @@ ensure
 end
 
 abort "ACP runtime stopped after recovery exhaustion: #{fatal_error.message}" if fatal_error
+abort "ACP runtime operation failed: #{operation_error}" if options[:once] && operation_error

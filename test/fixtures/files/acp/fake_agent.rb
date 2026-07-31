@@ -43,14 +43,13 @@ loop do
   if message["id"] == permission_id && message["result"]
     outcome = message.dig("result", "outcome")
     abort "permission was not denied" unless outcome == { "outcome" => "selected", "optionId" => "reject" }
-    write.call(jsonrpc: "2.0", method: "session/update", params: {
-      sessionId: session_id,
-      update: { sessionUpdate: "agent_message_chunk", messageId: "message-1", content: { type: "text", text: "HEARTH_" } }
-    })
-    write.call(jsonrpc: "2.0", method: "session/update", params: {
-      sessionId: session_id,
-      update: { sessionUpdate: "agent_message_chunk", messageId: "message-1", content: { type: "text", text: "ACP_OK" } }
-    })
+    chunks = mode == "streaming" ? 300.times.map(&:to_s) : %w[HEARTH_ ACP_OK]
+    chunks.each do |text|
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", messageId: "message-1", content: { type: "text", text: text } }
+      })
+    end
     write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
     prompt_id = nil
     next

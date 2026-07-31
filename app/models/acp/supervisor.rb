@@ -3,6 +3,7 @@ module Acp
     class Error < StandardError; end
     class RecoveryUnavailable < Error; end
     class InstallationMismatch < Error; end
+    class ProfileDisabled < Error; end
 
     DEFAULT_BACKOFFS = [ 0.25, 1, 4 ].freeze
 
@@ -32,6 +33,7 @@ module Acp
 
     def start_session(conversation:, browser_session: nil, authentication_method: nil)
       ensure_started!
+      ensure_profile_enabled!(conversation.profile)
       connection = build_connection(conversation.profile).start
       initialized = connection.initialize_connection
       installation = observe_installation!(conversation.profile, connection, initialized, authentication_method)
@@ -60,6 +62,7 @@ module Acp
 
     def recover_session(agent_session, authentication_method: nil)
       ensure_started!
+      ensure_profile_enabled!(agent_session.conversation.profile)
       prepare_for_recovery!(agent_session)
       connection = build_connection(agent_session.conversation.profile).start
       initialized = connection.initialize_connection
@@ -87,6 +90,9 @@ module Acp
     rescue Acp::Connection::Error, Error, ActiveRecord::ActiveRecordError => error
       connection&.stop
       terminal_recovery_failure(agent_session, error)
+    rescue StandardError => error
+      connection&.stop
+      terminal_recovery_failure(agent_session, error)
     end
 
     def prompt(agent_session, content)
@@ -108,9 +114,14 @@ module Acp
 
     def tick
       ensure_started!
+      disconnect_disabled_profiles
       reap_failed_connections
       attached_ids = @connections_mutex.synchronize { @connections.keys }
-      Agent::Session.recoverable.where.not(id: attached_ids).find_each { |agent_session| recover_session(agent_session) }
+      Agent::Session.recoverable
+        .joins(conversation: :profile)
+        .where(agent_profiles: { enabled: true })
+        .where.not(id: attached_ids)
+        .find_each { |agent_session| recover_session(agent_session) }
       self
     end
 
@@ -135,6 +146,31 @@ module Acp
     private
       def ensure_started!
         raise Error, "ACP supervisor has not acquired its runtime directory" unless @started
+      end
+
+      def ensure_profile_enabled!(profile)
+        raise ProfileDisabled, "Agent profile is disabled" unless profile.enabled?
+      end
+
+      def disconnect_disabled_profiles
+        disabled_ids = Agent::Session
+          .joins(conversation: :profile)
+          .where(id: @connections_mutex.synchronize { @connections.keys })
+          .where(agent_profiles: { enabled: false })
+          .pluck(:id)
+        disabled = @connections_mutex.synchronize do
+          disabled_ids.to_h { |session_id| [ session_id, @connections.delete(session_id) ] }
+        end
+        disabled.each do |session_id, connection|
+          connection&.stop
+          agent_session = Agent::Session.find_by(id: session_id)
+          if agent_session&.status.in?(%w[ starting connected ])
+            agent_session.disconnect!(
+              reason: "Agent profile disabled",
+              recovery_error: "Agent profile is disabled"
+            )
+          end
+        end
       end
 
       def build_connection(profile)
@@ -237,7 +273,7 @@ module Acp
         return unless agent_session
 
         attempt = agent_session.reload.recovery_attempts + 1
-        if attempt >= @recovery_backoffs.length
+        if attempt > @recovery_backoffs.length
           terminal_recovery_failure(agent_session, error)
         else
           retry_at = Time.current + @recovery_backoffs.fetch(attempt - 1)

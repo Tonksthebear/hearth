@@ -77,7 +77,7 @@ The production ACP runtime is a Hearth-owned Ruby pipe supervisor, run as an ope
 
 The process proof recorded in `docs/acp-evidence/process-boundary.jsonl` shows:
 
-- the fake agent is a direct child of the standalone spike supervisor;
+- the fake agent is a direct child of the standalone ACP proof supervisor;
 - the agent is not a child of Puma;
 - the same supervisor/agent pair remains alive while Puma stops and restarts;
 - non-MCP ACP traffic succeeds after that restart; and
@@ -100,6 +100,9 @@ A supported agent:
 - accepts the same negotiated `mcpServers` configuration on new, load, and resume;
 - allows the client to deny `session/request_permission` without deadlock;
 - correlates request IDs while allowing streamed notifications and agent-to-client requests;
+- retains the latest 128 streamed notifications per connection, counts older
+  notifications dropped from that diagnostic buffer, and never disconnects an
+  otherwise healthy turn merely because the diagnostic consumer is slower;
 - returns bounded errors for malformed frames, oversized frames, timeouts, and early exit; and
 - releases its process tree when the supervising client exits.
 
@@ -109,7 +112,8 @@ ACP protocol version 1 is the current stable wire contract and is pinned deliber
 
 ## Content contract
 
-Text is always allowed. Resource links are part of the ACP baseline but are not exercised by this spike.
+Text is always allowed. Resource links are part of the ACP baseline but are not
+exercised by the production runtime proof.
 
 Embedded text resources are sent only when `promptCapabilities.embeddedContext` is true. Images are sent only when `promptCapabilities.image` is true. The automated peer receives real content sourced from `attachment.txt` and `attachment.png`; unsupported content is rejected before `session/prompt` is written.
 
@@ -159,7 +163,12 @@ PIDs were absent after both runs. The older `live-agents.jsonl` and
 tool-call evidence is historical and is not attributed to the production
 runtime.
 
-The spike writes the same result to stdout and to the optional JSONL evidence path. Its result narrows agent identity and negotiated capabilities to the fields consumed by this contract; it contains no credentials, authorization headers, raw prompts, raw tool payloads, session IDs, household data, developer home paths, or agent-controlled `_meta`. Stderr is diagnostic only and must not be copied wholesale.
+`bin/hearth-acp-runtime` writes the same sanitized result to stdout and to the
+optional JSONL evidence path. Its result narrows agent identity and negotiated
+capabilities to the fields consumed by this contract; it contains no
+credentials, authorization headers, raw prompts, raw tool payloads, session
+IDs, household data, developer home paths, or agent-controlled `_meta`. Stderr
+is diagnostic only and must not be copied wholesale.
 
 ## Primary references
 
