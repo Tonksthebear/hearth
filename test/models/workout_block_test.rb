@@ -26,7 +26,7 @@ class WorkoutBlockTest < ActiveSupport::TestCase
         workout_block_id: workout_blocks(:strength).id,
         exercise_id: exercises(:bike).id,
         position: 0,
-        entry_kind: "interval",
+        performance_kind: "interval",
         sets_count: 1,
         work_seconds: 60
       })
@@ -37,7 +37,7 @@ class WorkoutBlockTest < ActiveSupport::TestCase
         workout_block_id: workout_blocks(:strength).id,
         exercise_id: exercises(:bike).id,
         position: 1,
-        entry_kind: "interval",
+        performance_kind: "interval",
         sets_count: 1,
         work_seconds: 60
       })

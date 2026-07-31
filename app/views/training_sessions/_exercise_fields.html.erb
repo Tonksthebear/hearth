@@ -1,37 +1,86 @@
 <% coordinate = "#{block_index}:#{form.index}" %>
+<% performance_kind = form.object.snapshot_performance_kind %>
 <% if form.object.marked_for_destruction? %>
   <div hidden>
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
+  <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-800/50" data-controller="performance-fields">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm font-semibold">Exercise <%= form.object.position %></p>
       <%= form.button "Remove exercise", name: "remove_session_exercise", value: coordinate, formnovalidate: true, class: { btn: [ :base, { xs: :base }, { danger: :outline } ] } %>
     </div>
-    <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-primary-800 dark:text-primary-300 underline" %>.</p>
-    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-primary-800 underline dark:text-primary-300" %>.</p>
+
+    <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div class="sm:col-span-2"><%= form.label :exercise_id, "Catalog exercise (optional)", class: :label %><%= form.elements_autocomplete :exercise_id, exercise_options, {}, { placeholder: "Structured inline exercise" } %></div>
       <div class="sm:col-span-2"><%= form.label :snapshot_name, "Exercise name", class: :label %><%= form.text_field :snapshot_name, class: :text_field %></div>
       <div><%= form.label :snapshot_modality, "Modality", class: :label %><%= form.elements_select :snapshot_modality, modalities.map { |value| [ value.humanize, value ] }, { prompt: "Choose modality" } %></div>
       <div><%= form.label :snapshot_movement_pattern, "Movement pattern", class: :label %><%= form.elements_select :snapshot_movement_pattern, movement_patterns.map { |value| [ value.humanize, value ] }, { prompt: "Choose movement pattern" } %></div>
-      <div><%= form.label :snapshot_entry_kind, "Entry kind", class: :label %><%= form.elements_select :snapshot_entry_kind, entry_kinds.map { |value| [ value.humanize, value ] }, {} %></div>
+      <div><%= form.label :snapshot_performance_kind, "Primary performance", class: :label %><%= form.elements_select :snapshot_performance_kind, performance_kind_options, {}, { data: { performance_fields_target: "kind", action: "click->performance-fields#change change->performance-fields#change" } } %></div>
       <div><%= form.label :snapshot_dose_class, "Default dose", class: :label %><%= form.elements_select :snapshot_dose_class, dose_classes.map { |value| [ value.humanize, value ] }, {} %></div>
       <div><%= form.label :snapshot_equipment, "Equipment", class: :label %><%= form.text_field :snapshot_equipment, class: :text_field %></div>
       <div><%= form.label :snapshot_guidance, "Guidance", class: :label %><%= form.text_field :snapshot_guidance, class: :text_field %></div>
-      <div class="sm:col-span-2"><%= form.label :notes, class: :label %><%= form.text_field :notes, class: :text_field %></div>
     </div>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-performance-fields-target="fields"></div>
+    <template data-performance-fields-target="template" data-kind="reps">
+      <div><%= form.label :snapshot_rep_min, "Minimum reps", class: :label %><%= form.number_field :snapshot_rep_min, min: 1, class: :text_field %></div>
+      <div><%= form.label :snapshot_rep_max, "Maximum reps", class: :label %><%= form.number_field :snapshot_rep_max, min: 1, class: :text_field %></div>
+    </template>
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <% work_active = %w[duration distance count interval].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count interval"<%= " data-hidden" unless work_active %>><%= form.label :snapshot_work_seconds, "Work duration (seconds)", class: :label %><%= form.number_field :snapshot_work_seconds, min: 1, class: :text_field, disabled: !work_active %></div>
+      <% distance_active = %w[duration distance].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance"<%= " data-hidden" unless distance_active %>><%= form.label :snapshot_target_distance_amount, "Distance", class: :label %><%= form.number_field :snapshot_target_distance_amount, min: 0, step: 0.01, class: :text_field, disabled: !distance_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance"<%= " data-hidden" unless distance_active %>><%= form.label :snapshot_target_distance_unit, "Distance unit", class: :label %><%= form.elements_select :snapshot_target_distance_unit, distance_unit_options, { include_blank: true }, { disabled: !distance_active } %></div>
+      <% count_active = %w[duration distance count].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count"<%= " data-hidden" unless count_active %>><%= form.label :snapshot_target_count, "Count", class: :label %><%= form.number_field :snapshot_target_count, min: 1, class: :text_field, disabled: !count_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count"<%= " data-hidden" unless count_active %>><%= form.label :snapshot_target_count_unit, "Count unit", class: :label %><%= form.elements_select :snapshot_target_count_unit, count_unit_options, { include_blank: true }, { disabled: !count_active } %></div>
+      <div><%= form.label :snapshot_rest_seconds, "Recovery / rest (seconds)", class: :label %><%= form.number_field :snapshot_rest_seconds, min: 0, class: :text_field %></div>
+    </div>
+
+    <details class="mt-4 rounded-lg border border-gray-200 p-4 dark:border-white/10">
+      <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">Prescription cues and targets</summary>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <% tempo_active = performance_kind == "reps" %>
+        <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps"<%= " data-hidden" unless tempo_active %>><%= form.label :snapshot_tempo_cue, "Tempo / eccentric cue", class: :label %><%= form.text_field :snapshot_tempo_cue, class: :text_field, disabled: !tempo_active %></div>
+        <div><%= form.label :snapshot_target_rpe, "Target RPE", class: :label %><%= form.number_field :snapshot_target_rpe, min: 0, max: 10, step: 0.5, class: :text_field %></div>
+        <div><%= form.label :snapshot_target_rir, "Target RIR", class: :label %><%= form.number_field :snapshot_target_rir, min: 0, max: 10, step: 0.5, class: :text_field %></div>
+        <div><%= form.label :snapshot_target_heart_rate_min, "Minimum heart rate", class: :label %><%= form.number_field :snapshot_target_heart_rate_min, min: 1, class: :text_field %></div>
+        <div><%= form.label :snapshot_target_heart_rate_max, "Maximum heart rate", class: :label %><%= form.number_field :snapshot_target_heart_rate_max, min: 1, class: :text_field %></div>
+        <div><%= form.label :snapshot_target_heart_rate_unit, "Heart-rate unit", class: :label %><%= form.elements_select :snapshot_target_heart_rate_unit, heart_rate_unit_options, { include_blank: true } %></div>
+        <div class="sm:col-span-2"><%= form.label :snapshot_load_guidance, "Load guidance", class: :label %><%= form.text_field :snapshot_load_guidance, class: :text_field %></div>
+        <div class="flex gap-3 sm:col-span-2">
+          <div class="flex h-6 shrink-0 items-center"><%= form.check_box :snapshot_per_side, class: "size-4 rounded-sm border-gray-300 text-primary-600 focus:ring-primary-600 dark:border-white/10 dark:bg-white/5" %></div>
+          <div class="text-sm/6"><%= form.label :snapshot_per_side, "Performed on each side", class: "font-medium text-gray-900 dark:text-white" %><p class="text-gray-500 dark:text-gray-400">Each recorded value applies independently to both sides.</p></div>
+        </div>
+      </div>
+    </details>
+
     <div class="mt-4 flex items-center justify-between">
-      <h5 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Sets / intervals</h5>
-      <%= form.button "Add set or interval", name: "add_training_set", value: coordinate, formnovalidate: true, class: { btn: [ :base, { sm: :base }, { neutral: :outline } ] } %>
+      <h5 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Performance rows</h5>
+      <%= form.button "Add performance row", name: "add_training_set", value: coordinate, formnovalidate: true, class: { btn: [ :base, { sm: :base }, { neutral: :outline } ] } %>
     </div>
     <div class="mt-3 space-y-3">
       <%= form.fields_for :training_sets do |set_form| %>
-        <%= render "set_fields", form: set_form, coordinate: coordinate, dose_classes: dose_classes, entry_kinds: entry_kinds %>
+        <%= render "set_fields", form: set_form, coordinate: coordinate, performance_kind: form.object.snapshot_performance_kind, dose_classes: dose_classes, distance_unit_options: distance_unit_options, count_unit_options: count_unit_options, load_unit_options: load_unit_options %>
       <% end %>
     </div>
+
+    <details class="mt-4 rounded-lg border border-gray-200 p-4 dark:border-white/10">
+      <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">Exercise feedback</summary>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Optional observations for future planning. Hearth does not diagnose pain or provide treatment advice.</p>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div><%= form.label :difficulty, class: :label %><%= form.elements_select :difficulty, difficulty_options, { include_blank: true } %></div>
+        <div><%= form.label :soreness_or_pain, "Soreness or pain noted", class: :label %><%= form.text_field :soreness_or_pain, class: :text_field %></div>
+        <div><%= form.label :substitution, "Substitution used", class: :label %><%= form.text_field :substitution, class: :text_field %></div>
+        <div><%= form.label :next_time_adjustment, "Adjust next time", class: :label %><%= form.text_field :next_time_adjustment, class: :text_field %></div>
+        <div class="sm:col-span-2"><%= form.label :notes, class: :label %><%= form.text_area :notes, rows: 2, class: :text_field %></div>
+      </div>
+    </details>
   </div>
 <% end %>

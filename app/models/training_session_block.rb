@@ -16,7 +16,7 @@ class TrainingSessionBlock < ApplicationRecord
   def add_exercise
     training_session_exercises.build(
       position: active_exercises.size + 1,
-      snapshot_entry_kind: "set",
+      snapshot_performance_kind: "reps",
       snapshot_dose_class: snapshot_dose_class
     ).add_set
     normalize_positions

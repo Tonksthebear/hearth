@@ -6,9 +6,11 @@ sunday_squat:
   snapshot_modality: strength
   snapshot_movement_pattern: squat
   snapshot_equipment: Dumbbell
-  snapshot_entry_kind: set
+  snapshot_performance_kind: reps
   snapshot_dose_class: strength
   snapshot_sets_count: 2
+  snapshot_rep_min: 8
+  snapshot_rep_max: 10
 
 sunday_bike:
   training_session_block: sunday_zone2
@@ -17,9 +19,11 @@ sunday_bike:
   snapshot_name: Stationary bike
   snapshot_modality: cardio
   snapshot_movement_pattern: locomotion_cardio
-  snapshot_entry_kind: interval
+  snapshot_performance_kind: interval
   snapshot_dose_class: zone2
   snapshot_sets_count: 1
+  snapshot_work_seconds: 1770
+  snapshot_rest_seconds: 0
 
 next_exercise:
   training_session_block: next_block
@@ -27,8 +31,10 @@ next_exercise:
   snapshot_name: Walk
   snapshot_modality: cardio
   snapshot_movement_pattern: locomotion_cardio
-  snapshot_entry_kind: interval
+  snapshot_performance_kind: interval
   snapshot_dose_class: none
+  snapshot_work_seconds: 600
+  snapshot_rest_seconds: 0
 
 other_person_exercise:
   training_session_block: other_person_block
@@ -36,8 +42,10 @@ other_person_exercise:
   snapshot_name: Intervals
   snapshot_modality: cardio
   snapshot_movement_pattern: locomotion_cardio
-  snapshot_entry_kind: interval
+  snapshot_performance_kind: interval
   snapshot_dose_class: vigorous
+  snapshot_work_seconds: 300
+  snapshot_rest_seconds: 60
 
 draft_exercise:
   training_session_block: draft_block
@@ -46,5 +54,7 @@ draft_exercise:
   snapshot_name: Goblet squat
   snapshot_modality: strength
   snapshot_movement_pattern: squat
-  snapshot_entry_kind: set
+  snapshot_performance_kind: reps
   snapshot_dose_class: strength
+  snapshot_rep_min: 8
+  snapshot_rep_max: 10

@@ -32,6 +32,12 @@ class TrainingSessionTest < ActiveSupport::TestCase
     assert_equal "Goblet squat", snapshot_exercise.snapshot_name
     assert_equal 8, snapshot_exercise.snapshot_rep_min
     assert_equal 10, snapshot_exercise.snapshot_rep_max
+    assert_equal "reps", snapshot_exercise.snapshot_performance_kind
+    assert_predicate snapshot_exercise, :snapshot_per_side?
+    assert_equal "3 sec lowering", snapshot_exercise.snapshot_tempo_cue
+    assert_equal 120, snapshot_exercise.snapshot_target_heart_rate_min
+    assert_equal 150, snapshot_exercise.snapshot_target_heart_rate_max
+    assert_equal "bpm", snapshot_exercise.snapshot_target_heart_rate_unit
   end
 
   test "inline ad hoc snapshots require taxonomy and do not create catalog records" do
@@ -86,6 +92,39 @@ class TrainingSessionTest < ActiveSupport::TestCase
     assert_equal "cardio", performed_exercise.snapshot_modality
   end
 
+  test "starting a template prefills secondary duration for distance and count work" do
+    template = households(:home).workout_templates.create!(title: "Measured work", provenance_status: :personal)
+    block = template.workout_blocks.create!(
+      position: 1,
+      title: "Conditioning",
+      block_kind: :zone2,
+      dose_class: :zone2,
+      planned_duration_minutes: 20
+    )
+    block.exercise_prescriptions.create!(
+      exercise: exercises(:bike),
+      position: 1,
+      performance_kind: :distance,
+      sets_count: 1,
+      work_seconds: 600,
+      target_distance_amount: 5,
+      target_distance_unit: :km
+    )
+    block.exercise_prescriptions.create!(
+      exercise: exercises(:squat),
+      position: 2,
+      performance_kind: :count,
+      sets_count: 1,
+      work_seconds: 300,
+      target_count: 40,
+      target_count_unit: :steps
+    )
+
+    session = TrainingSession.start_from(template: template, person: people(:one))
+
+    assert_equal [ 600, 300 ], session.training_session_blocks.first.training_session_exercises.map { |exercise| exercise.training_sets.sole.duration_seconds }
+  end
+
   test "completion requires actual block duration and complete structured performance" do
     session = training_sessions(:in_progress)
     block = session.training_session_blocks.first
@@ -111,7 +150,9 @@ class TrainingSessionTest < ActiveSupport::TestCase
 
   test "completion rejects classified time beyond the containing block" do
     session = training_sessions(:in_progress)
-    set = session.training_session_blocks.first.training_session_exercises.first.training_sets.first
+    exercise = session.training_session_blocks.first.training_session_exercises.first
+    exercise.update!(snapshot_performance_kind: :duration, snapshot_work_seconds: 901)
+    set = exercise.training_sets.first
     set.update!(completed: true, duration_seconds: 901, dose_class: :vigorous)
 
     error = assert_raises(ActiveRecord::RecordInvalid) { session.complete! }

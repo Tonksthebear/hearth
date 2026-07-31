@@ -40,6 +40,12 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       assert_selector "h1", text: "Today", wait: 5
     end
 
+    def ensure_person_via_browser(person)
+      return if find_button("Open person menu").has_text?(person.name)
+
+      switch_person_via_browser person
+    end
+
     def visit_and_wait_for_path(path)
       visit path
       page.has_current_path?(path, wait: 5)

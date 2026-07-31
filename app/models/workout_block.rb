@@ -20,7 +20,7 @@ class WorkoutBlock < ApplicationRecord
   def add_prescription
     exercise_prescriptions.build(
       position: active_prescriptions.size + 1,
-      entry_kind: "set",
+      performance_kind: "reps",
       sets_count: 1
     )
     normalize_positions

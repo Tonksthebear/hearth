@@ -28,6 +28,28 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to workout_template_path(template)
     assert_equal [ 1 ], template.workout_blocks.pluck(:position)
     assert_equal [ 1 ], template.workout_blocks.first.exercise_prescriptions.pluck(:position)
+    prescription = template.workout_blocks.first.exercise_prescriptions.first
+    assert_predicate prescription, :per_side?
+    assert_equal "3 sec lowering", prescription.tempo_cue
+    assert_equal "bpm", prescription.target_heart_rate_unit
+  end
+
+  test "new renders one live selector and only nonempty native templates" do
+    sign_in_as users(:one)
+
+    get new_workout_template_path
+
+    assert_response :success
+    assert_select "el-select[name$='[performance_kind]'][value='reps']", count: 1
+    assert_select "template[data-performance-fields-target='template'][data-kind='reps']", count: 1
+    assert_select "template[data-kind='duration'], template[data-kind='distance'], template[data-kind='count'], template[data-kind='interval']", count: 0
+    assert_select "el-select[name$='[target_distance_unit]'][disabled]", count: 1
+    assert_select "el-select[name$='[target_count_unit]']"
+    assert_select "[data-kinds='duration distance count interval'][data-hidden] input[name$='[work_seconds]'][disabled]", count: 1
+    assert_select "[data-kinds='reps']:not([data-hidden]) input[name$='[tempo_cue]']:not([disabled])", count: 1
+
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_empty ids.tally.select { |_id, count| count > 1 }
   end
 
   test "an untouched required exercise renders the validation alert and blank choice" do
@@ -42,6 +64,16 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "#workout-template-errors", text: /exercise must exist/i
     assert_select "select[name$='[exercise_id]'] option[value='']", text: "Choose exercise"
+  end
+
+  test "edit renders unique ids across live controls and inert templates" do
+    sign_in_as users(:one)
+
+    get edit_workout_template_path(workout_templates(:balanced))
+
+    assert_response :success
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_empty ids.tally.select { |_id, count| count > 1 }
   end
 
   test "Turbo structural actions preserve the full three-level form without persistence" do
@@ -151,10 +183,15 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
             exercise_prescriptions_attributes: {
               "0" => {
                 exercise_id: exercises(:squat).id,
-                entry_kind: "set",
+                performance_kind: "reps",
                 sets_count: "2",
                 rep_min: "8",
                 rep_max: "10",
+                per_side: "1",
+                tempo_cue: "3 sec lowering",
+                target_heart_rate_min: "120",
+                target_heart_rate_max: "150",
+                target_heart_rate_unit: "bpm",
                 dose_class: "strength"
               }
             }
@@ -189,7 +226,7 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
                   {
                     id: prescription.id,
                     exercise_id: prescription.exercise_id,
-                    entry_kind: prescription.entry_kind,
+                    performance_kind: prescription.performance_kind,
                     sets_count: prescription.sets_count,
                     rep_min: prescription.rep_min,
                     rep_max: prescription.rep_max,
