@@ -22,6 +22,119 @@ class RecipeTest < ActiveSupport::TestCase
     assert_equal "From your household", recipe.source_label
   end
 
+  test "accepts a bounded image cover with named card and hero variants" do
+    recipe = households(:home).recipes.build(
+      title: "Covered recipe",
+      provenance_status: :personal,
+      cover: cover_upload
+    )
+
+    assert recipe.save
+    assert_predicate recipe.cover, :attached?
+    assert_equal [ 640, 448 ], recipe.cover.variant(:card).variation.transformations[:resize_to_fill]
+    assert_equal [ 1200, 1200 ], recipe.cover.variant(:hero).variation.transformations[:resize_to_fill]
+  end
+
+  test "rejects unsafe and oversized covers" do
+    unsafe_recipe = households(:home).recipes.build(
+      title: "Unsafe cover",
+      provenance_status: :personal,
+      cover: invalid_cover_upload
+    )
+    oversized_data = file_fixture("recipes/cover.png").binread
+    oversized_data << "\0" * (Recipe::COVER_MAX_BYTES + 1 - oversized_data.bytesize)
+    oversized_blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new(oversized_data),
+      filename: "oversized.png",
+      content_type: "image/png",
+    )
+    oversized_recipe = households(:home).recipes.build(
+      title: "Oversized cover",
+      provenance_status: :personal,
+      cover: oversized_blob
+    )
+
+    assert_not unsafe_recipe.save
+    assert_includes unsafe_recipe.errors[:cover], "must be a JPEG, PNG, or GIF"
+    assert_not oversized_recipe.save
+    assert_includes oversized_recipe.errors[:cover], "must be 10 MB or smaller"
+  ensure
+    oversized_blob&.purge
+  end
+
+  test "invalid replacement and invalid removal preserve the stored cover" do
+    recipe = households(:home).recipes.create!(
+      title: "Stable cover",
+      provenance_status: :personal,
+      cover: cover_upload
+    )
+    original_blob = recipe.cover.blob
+
+    recipe.assign_attributes(
+      title: "",
+      cover: invalid_cover_upload,
+      remove_cover: "1"
+    )
+
+    assert_not recipe.save
+    assert_equal original_blob, recipe.reload.cover.blob
+
+    recipe.assign_attributes(title: "", remove_cover: "1")
+    assert_not recipe.save
+    assert_equal original_blob, recipe.reload.cover.blob
+  end
+
+  test "successful removal purges after persistence and a replacement wins over removal" do
+    recipe = households(:home).recipes.create!(
+      title: "Changing cover",
+      provenance_status: :personal,
+      cover: cover_upload
+    )
+    removed_blob = recipe.cover.blob
+    assert_nil recipe.cover_signed_id
+
+    recipe.update!(remove_cover: "1")
+
+    assert_not recipe.reload.cover.attached?
+    assert_not ActiveStorage::Blob.exists?(removed_blob.id)
+
+    recipe.cover.attach(cover_upload)
+    replaced_blob = recipe.cover.blob
+    recipe.assign_attributes(
+      cover: replacement_cover_upload,
+      remove_cover: "1"
+    )
+    recipe.save!
+
+    assert_predicate recipe.reload.cover, :attached?
+    assert_not_equal replaced_blob.id, recipe.cover.blob.id
+    assert_not ActiveStorage::Blob.exists?(replaced_blob.id)
+  end
+
+  test "persists an uploaded blob for signed id structural form round trips" do
+    recipe = households(:home).recipes.build(
+      title: "Structural upload",
+      provenance_status: :personal,
+      cover: cover_upload
+    )
+
+    assert_difference "ActiveStorage::Blob.count", 1 do
+      recipe.preserve_cover_for_form
+    end
+
+    signed_id = recipe.cover_signed_id
+    assert_predicate signed_id, :present?
+    assert ActiveStorage::Blob.find_signed!(signed_id).service.exist?(recipe.cover.blob.key)
+
+    round_tripped = households(:home).recipes.build(
+      title: "Structural upload",
+      provenance_status: :personal,
+      cover: signed_id
+    )
+    assert round_tripped.save
+    assert_equal recipe.cover.blob, round_tripped.cover.blob
+  end
+
   test "imported provenance statuses still require a source" do
     %i[verified adapted observed].each do |status|
       recipe = households(:home).recipes.build(title: status.to_s, provenance_status: status)
@@ -172,6 +285,18 @@ class RecipeTest < ActiveSupport::TestCase
   end
 
   private
+    def cover_upload
+      Rack::Test::UploadedFile.new(file_fixture("recipes/cover.png"), "image/png")
+    end
+
+    def replacement_cover_upload
+      Rack::Test::UploadedFile.new(file_fixture("recipes/replacement-cover.png"), "image/png")
+    end
+
+    def invalid_cover_upload
+      Rack::Test::UploadedFile.new(file_fixture("recipes/not-an-image.txt"), "text/plain")
+    end
+
     def valid_import_attributes
       {
         title: "Imported Bowl",

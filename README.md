@@ -170,7 +170,7 @@ The single `/rails/storage` mount contains:
 - `production_cache.sqlite3` — Solid Cache
 - `production_queue.sqlite3` — Solid Queue
 - `production_cable.sqlite3` — Solid Cable
-- Active Storage files
+- Active Storage originals and generated variants, including recipe cover images
 
 Keep the whole directory together when backing up or restoring.
 
@@ -224,7 +224,7 @@ docker run -d \
 curl --fail http://localhost:3001/up
 ```
 
-Use the same `SECRET_KEY_BASE` when restoring. Confirm the recovered household before replacing the original volume.
+Use the same `SECRET_KEY_BASE` when restoring. Confirm the recovered household and open a recipe with a cover image to verify both its database attachment and stored file before replacing the original volume.
 
 ## Upgrade and rollback
 
@@ -234,7 +234,7 @@ Before every upgrade:
 2. Back up the entire storage volume.
 3. Build or pull the new image.
 4. Recreate the container with the same secret and volume.
-5. Check `/up`, sign in, and inspect a representative meal, session, and habit entry.
+5. Check `/up`, sign in, and inspect a representative meal, session, habit entry, and recipe cover image.
 
 The entrypoint runs `db:prepare`, which applies forward migrations. A code rollback after a schema change may not be safe; restore the pre-upgrade whole-volume backup together with the prior image.
 

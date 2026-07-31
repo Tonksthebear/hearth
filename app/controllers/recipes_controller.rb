@@ -8,6 +8,7 @@ class RecipesController < ApplicationController
     @recipes = Current.household.recipes
       .matching(@query)
       .with_provenance_status(@status)
+      .with_attached_cover
       .order(:title)
   end
 
@@ -25,6 +26,7 @@ class RecipesController < ApplicationController
     @recipe.normalize_positions
 
     if structural_action?
+      @recipe.preserve_cover_for_form
       @recipe.ensure_form_rows
       render_form_update
     elsif @recipe.save
@@ -42,6 +44,7 @@ class RecipesController < ApplicationController
     @recipe.normalize_positions
 
     if structural_action?
+      @recipe.preserve_cover_for_form
       @recipe.ensure_form_rows
       render_form_update
     elsif @recipe.save
@@ -64,6 +67,8 @@ class RecipesController < ApplicationController
       params.fetch(:recipe).permit(
         :title,
         :description,
+        :cover,
+        :remove_cover,
         :yield,
         :source_name,
         :source_url,

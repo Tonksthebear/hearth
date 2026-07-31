@@ -1,4 +1,6 @@
 class Recipe < ApplicationRecord
+  COVER_CONTENT_TYPES = %w[image/jpeg image/png image/gif].freeze
+  COVER_MAX_BYTES = 10.megabytes
   IMPORT_KEYS = %w[
     title description yield source_name source_url provenance_status
     recipe_ingredients_attributes recipe_instructions_attributes
@@ -13,6 +15,10 @@ class Recipe < ApplicationRecord
   }.freeze
 
   belongs_to :household
+  has_one_attached :cover do |attachable|
+    attachable.variant :card, resize_to_fill: [ 640, 448 ]
+    attachable.variant :hero, resize_to_fill: [ 1200, 1200 ]
+  end
   has_many :planned_meals, dependent: :restrict_with_exception
   has_many :meal_logs, dependent: :restrict_with_exception
   has_many :recipe_ingredients, -> { order(:position) }, dependent: :destroy
@@ -33,6 +39,13 @@ class Recipe < ApplicationRecord
   validates :source_url,
     format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) },
     allow_blank: true
+  validate :acceptable_cover
+
+  attr_accessor :remove_cover
+
+  before_save :apply_cover_change
+  after_commit :purge_replaced_cover, on: %i[ create update ]
+  after_rollback :clear_cover_to_purge
   scope :matching, ->(query) {
     if query.present?
       pattern = "%#{sanitize_sql_like(query.downcase, "!")}%"
@@ -132,11 +145,88 @@ class Recipe < ApplicationRecord
     PROVENANCE_DESCRIPTIONS.fetch(provenance_status)
   end
 
+  def preserve_cover_for_form
+    change = pending_cover_creation
+    return self unless change
+    return self unless cover_blob_acceptable?(change.blob)
+    return self if change.blob.persisted?
+
+    change.blob.save!
+    change.upload
+    self.cover = change.blob
+    self
+  rescue
+    change.blob.destroy! if change&.blob&.persisted? && change.blob.attachments.none?
+    raise
+  end
+
+  def cover_signed_id
+    change = pending_cover_creation
+    change.blob.signed_id if change&.blob&.persisted?
+  end
+
   def source_label
     source_name.presence || "From your household"
   end
 
   private
+    def acceptable_cover
+      cover_blob_acceptable?(cover.blob) if cover.attached?
+    end
+
+    def cover_blob_acceptable?(blob)
+      acceptable = true
+
+      unless COVER_CONTENT_TYPES.include?(blob.content_type)
+        errors.add(:cover, "must be a JPEG, PNG, or GIF")
+        acceptable = false
+      end
+
+      if blob.byte_size > COVER_MAX_BYTES
+        errors.add(:cover, "must be 10 MB or smaller")
+        acceptable = false
+      end
+
+      acceptable
+    end
+
+    def apply_cover_change
+      change = pending_cover_creation
+      current_blob = persisted_cover_blob
+
+      if remove_cover? && !change
+        @cover_blob_to_purge = current_blob
+        self.cover = nil
+      elsif change && current_blob && change.blob != current_blob
+        @cover_blob_to_purge = current_blob
+      end
+    end
+
+    def pending_cover_creation
+      change = attachment_changes["cover"]
+      change if change.is_a?(ActiveStorage::Attached::Changes::CreateOne)
+    end
+
+    def persisted_cover_blob
+      return unless persisted?
+
+      ActiveStorage::Attachment.find_by(record: self, name: "cover")&.blob
+    end
+
+    def purge_replaced_cover
+      @cover_blob_to_purge&.purge
+    ensure
+      clear_cover_to_purge
+    end
+
+    def clear_cover_to_purge
+      @cover_blob_to_purge = nil
+    end
+
+    def remove_cover?
+      ActiveModel::Type::Boolean.new.cast(remove_cover)
+    end
+
     def active_ingredients
       recipe_ingredients.reject(&:marked_for_destruction?)
     end

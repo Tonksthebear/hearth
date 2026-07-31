@@ -1,76 +1,131 @@
 <div id="recipe_form">
-  <%= form_with model: recipe, class: "mt-8 space-y-8" do |form| %>
+  <%= form_with model: recipe, class: "mt-8 space-y-12" do |form| %>
     <% if recipe.errors.any? %>
       <%= render "layouts/alert", id: "recipe-errors", title: "Please correct the following:", messages: recipe.errors.full_messages %>
     <% end %>
 
-    <fieldset class="grid gap-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2">
-      <legend class="px-2 text-lg font-semibold">Recipe details</legend>
-      <div class="sm:col-span-2">
-        <%= form.label :title, class: :label %>
-        <%= form.text_field :title, required: true, class: :text_field %>
-      </div>
-      <div class="sm:col-span-2">
-        <%= form.label :description, class: :label %>
-        <%= form.text_area :description, rows: 3, class: :text_field %>
-      </div>
-      <div>
-        <%= form.label :yield, "Yield", class: :label %>
-        <%= form.text_field :yield, placeholder: "4 servings", class: :text_field %>
-      </div>
-      <div>
-        <%= form.label :provenance_status, "Provenance", class: :label %>
-        <%= form.elements_select :provenance_status,
-          provenance_statuses.map { |status| [ status.humanize, status ] },
-          { include_blank: "Choose a status" },
-          required: true %>
-      </div>
-      <div>
-        <%= form.label :source_name, "Source name", class: :label %>
-        <%= form.text_field :source_name, class: :text_field %>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Optional for personal household recipes; required for imported provenance.</p>
-      </div>
-      <div>
-        <%= form.label :source_url, "Source URL", class: :label %>
-        <%= form.url_field :source_url, class: :text_field %>
+    <fieldset class="border-b border-gray-900/10 pb-12 dark:border-white/10">
+      <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Recipe details</legend>
+      <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">The practical details your household needs to cook this recipe.</p>
+
+      <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+        <div class="sm:col-span-4">
+          <%= form.label :title, class: :label %>
+          <div class="mt-2">
+            <%= form.text_field :title, required: true, class: :text_field %>
+          </div>
+        </div>
+
+        <div class="col-span-full">
+          <%= form.label :description, class: :label %>
+          <div class="mt-2">
+            <%= form.text_area :description, rows: 3, class: :text_field %>
+          </div>
+        </div>
+
+        <div class="sm:col-span-3">
+          <%= form.label :yield, "Yield", class: :label %>
+          <div class="mt-2">
+            <%= form.text_field :yield, placeholder: "4 servings", class: :text_field %>
+          </div>
+        </div>
+
+        <div class="col-span-full">
+          <%= form.label :cover, "Cover image", class: :label %>
+          <p id="recipe-cover-hint" class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">JPEG, PNG, or GIF up to 10 MB.</p>
+
+          <% if recipe.cover.attached? && recipe.cover.blob.persisted? %>
+            <div class="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
+              <%= image_tag recipe.cover.variant(:card),
+                alt: "#{recipe.title.presence || "Recipe"} cover",
+                class: "aspect-10/7 w-full rounded-lg object-cover outline -outline-offset-1 outline-black/5 sm:w-48 dark:outline-white/10" %>
+              <div class="flex items-center gap-3">
+                <%= form.toggle :remove_cover, aria: { describedby: "remove-cover-hint" } %>
+                <div>
+                  <%= form.label :remove_cover, "Remove cover when this recipe is saved", class: :label %>
+                  <p id="remove-cover-hint" class="text-sm/6 text-gray-500 dark:text-gray-400">A newly selected image takes precedence.</p>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <% if recipe.cover_signed_id.present? %>
+            <%= form.hidden_field :cover, value: recipe.cover_signed_id %>
+          <% end %>
+          <div class="mt-3">
+            <%= form.file_field :cover,
+              accept: Recipe::COVER_CONTENT_TYPES.join(","),
+              class: :file_field,
+              aria: { describedby: "recipe-cover-hint" } %>
+          </div>
+        </div>
       </div>
     </fieldset>
 
-    <fieldset class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+    <fieldset class="border-b border-gray-900/10 pb-12 dark:border-white/10">
       <div class="flex items-center justify-between gap-4">
-        <legend class="text-lg font-semibold">Ingredients</legend>
+        <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Ingredients</legend>
         <%= form.button "Add ingredient",
           name: "add_ingredient",
           value: "1",
           formnovalidate: true,
           class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
       </div>
-      <div class="mt-5 space-y-4">
+      <div class="mt-8 space-y-4">
         <%= form.fields_for :recipe_ingredients do |ingredient_form| %>
           <%= render "ingredient_fields", form: ingredient_form %>
         <% end %>
       </div>
     </fieldset>
 
-    <fieldset class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+    <fieldset class="border-b border-gray-900/10 pb-12 dark:border-white/10">
       <div class="flex items-center justify-between gap-4">
-        <legend class="text-lg font-semibold">Instructions</legend>
+        <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Instructions</legend>
         <%= form.button "Add step",
           name: "add_instruction",
           value: "1",
           formnovalidate: true,
           class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
       </div>
-      <div class="mt-5 space-y-4">
+      <div class="mt-8 space-y-4">
         <%= form.fields_for :recipe_instructions do |instruction_form| %>
           <%= render "instruction_fields", form: instruction_form %>
         <% end %>
       </div>
     </fieldset>
 
-    <div class="flex items-center gap-4">
+    <fieldset class="border-b border-gray-900/10 pb-12 dark:border-white/10">
+      <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Source details</legend>
+      <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Optional for household recipes; keep attribution with imported recipes.</p>
+
+      <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+        <div class="sm:col-span-3">
+          <%= form.label :provenance_status, "Provenance", class: :label %>
+          <div class="mt-2">
+            <%= form.elements_select :provenance_status,
+              provenance_statuses.map { |status| [ status.humanize, status ] },
+              { include_blank: "Choose a status" },
+              required: true %>
+          </div>
+        </div>
+        <div class="sm:col-span-3">
+          <%= form.label :source_name, "Source name", class: :label %>
+          <div class="mt-2">
+            <%= form.text_field :source_name, class: :text_field %>
+          </div>
+        </div>
+        <div class="col-span-full">
+          <%= form.label :source_url, "Source URL", class: :label %>
+          <div class="mt-2">
+            <%= form.url_field :source_url, class: :text_field %>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="flex items-center justify-end gap-x-6">
+      <%= link_to "Cancel", recipe.persisted? ? recipe_path(recipe) : recipes_path, class: "text-sm/6 font-semibold text-gray-900 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white" %>
       <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
-      <%= link_to "Cancel", recipe.persisted? ? recipe_path(recipe) : recipes_path, class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
     </div>
   <% end %>
 </div>

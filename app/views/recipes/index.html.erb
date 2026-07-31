@@ -6,67 +6,89 @@
     <div>
       <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
       <h1 id="recipes-heading" class="mt-2 text-3xl font-semibold tracking-tight">Recipes</h1>
-      <p class="mt-2 max-w-2xl text-gray-600 dark:text-gray-400">Find meals by recipe, source, or ingredient and keep their provenance visible.</p>
+      <p class="mt-2 max-w-2xl text-gray-600 dark:text-gray-400">Find something useful to cook from your household catalog.</p>
     </div>
     <%= link_to "Add recipe", new_recipe_path, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
   </div>
 
-  <%= form_with url: recipes_path, method: :get, class: "mt-8 grid gap-4 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-[1fr_auto_auto]" do |form| %>
-    <div>
+  <%= form_with url: recipes_path, method: :get, class: "mt-8 flex flex-col gap-3 sm:flex-row sm:items-end" do |form| %>
+    <div class="grow">
       <%= form.label :q, "Search", class: :label %>
-      <%= form.search_field :q, value: @query, placeholder: "Title, source, or ingredient", class: :text_field %>
+      <div class="mt-2">
+        <%= form.search_field :q, value: @query, placeholder: "Title, source, or ingredient", class: :text_field %>
+      </div>
     </div>
-    <div>
-      <%= form.label :status, "Provenance", class: :label %>
-      <%= form.elements_select :status,
-        [ [ "All statuses", "" ] ] + @provenance_statuses.map { |status| [ status.humanize, status ] },
-        {},
-        value: @status %>
-    </div>
-    <div class="flex items-end gap-3">
-      <%= form.submit "Filter", class: { btn: [ :base, { lg: :base }, { neutral: :solid } ] } %>
+    <% if @status.present? %>
+      <%= form.hidden_field :status, value: @status %>
+    <% end %>
+    <div class="flex items-center gap-3">
+      <%= form.submit "Search", class: { btn: [ :base, { lg: :base }, { neutral: :solid } ] } %>
       <% if @query.present? || @status.present? %>
-        <%= link_to "Clear", recipes_path, class: "pb-2 text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
+        <%= link_to "Clear", recipes_path, class: "text-sm/6 font-semibold text-gray-900 hover:text-gray-700 dark:text-white dark:hover:text-gray-300" %>
       <% end %>
     </div>
   <% end %>
 
-  <div class="mt-8 text-sm text-gray-500 dark:text-gray-400">
-    <p class="font-medium text-gray-700 dark:text-gray-300">About provenance</p>
-    <dl class="mt-2 space-y-1">
-      <% @provenance_statuses.each do |status| %>
-        <div><dt class="inline font-medium"><%= status.humanize %>:</dt> <dd class="inline"><%= Recipe::PROVENANCE_DESCRIPTIONS.fetch(status) %></dd></div>
-      <% end %>
-    </dl>
-    <p class="mt-2">These labels are not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
-  </div>
-
   <% if @recipes.any? %>
-    <ul class="mt-8 grid gap-4">
+    <ul role="list" class="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
       <% @recipes.each do |recipe| %>
-        <li class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 class="text-xl font-semibold"><%= link_to recipe.title, recipe, class: "text-primary-800 dark:text-primary-300 underline hover:no-underline" %></h2>
-              <% if recipe.description.present? %>
-                <p class="mt-2 text-gray-600 dark:text-gray-400"><%= recipe.description %></p>
+        <li>
+          <%= link_to recipe, class: "group block rounded-lg focus:outline-2 focus:outline-offset-2 focus:outline-primary-600 dark:focus:outline-primary-500" do %>
+            <div class="overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+              <% if recipe.cover.attached? %>
+                <%= image_tag recipe.cover.variant(:card),
+                  alt: "#{recipe.title} cover",
+                  class: "pointer-events-none aspect-10/7 w-full rounded-lg object-cover outline -outline-offset-1 outline-black/5 group-hover:opacity-75 dark:outline-white/10" %>
+              <% else %>
+                <div role="img" aria-label="No cover image for <%= recipe.title %>" class="flex aspect-10/7 items-center justify-center rounded-lg bg-gray-100 text-gray-400 outline -outline-offset-1 outline-black/5 group-hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:outline-white/10 dark:group-hover:bg-gray-700">
+                  <%= icon "book-open", variant: :solid, class: "size-12" %>
+                </div>
               <% end %>
             </div>
-          </div>
-          <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            Source:
-            <span class="font-medium"><%= recipe.source_label %></span>
-            <% if recipe.source_url.present? %>
-              <span class="break-all">(<%= recipe.source_url %>)</span>
-            <% end %>
-          </p>
+            <h2 class="mt-2 block truncate text-sm font-medium text-gray-900 dark:text-white"><%= recipe.title %></h2>
+            <p class="block truncate text-sm text-gray-500 dark:text-gray-400"><%= recipe.yield.presence || recipe.description.presence || "Household recipe" %></p>
+          <% end %>
         </li>
       <% end %>
     </ul>
   <% else %>
-    <div class="mt-8 rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-white/15 dark:bg-gray-800/50">
-      <h2 class="text-lg font-semibold">No recipes found</h2>
-      <p class="mt-2 text-gray-600 dark:text-gray-400">Try a different search or add the first recipe to this household.</p>
+    <div class="mt-8 rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center dark:border-white/15 dark:bg-gray-800/50">
+      <h2 class="text-sm font-semibold text-gray-900 dark:text-white">No recipes found</h2>
+      <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Try a different search or add the first recipe to this household.</p>
     </div>
   <% end %>
+
+  <aside aria-labelledby="source-details-heading" class="mt-12 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:inset-ring dark:inset-ring-white/10">
+    <div class="px-4 py-6 sm:px-6">
+      <h2 id="source-details-heading" class="text-base/7 font-semibold text-gray-900 dark:text-white">Source details</h2>
+      <p class="mt-1 max-w-2xl text-sm/6 text-gray-500 dark:text-gray-300">Filter imported attribution or review what each source status means.</p>
+    </div>
+    <div class="border-t border-gray-100 dark:border-white/5">
+      <%= form_with url: recipes_path, method: :get, class: "px-4 py-6 sm:grid sm:grid-cols-3 sm:items-end sm:gap-4 sm:px-6" do |form| %>
+        <%= form.hidden_field :q, value: @query if @query.present? %>
+        <div class="sm:col-span-2">
+          <%= form.label :status, "Provenance", class: :label %>
+          <div class="mt-2">
+            <%= form.elements_select :status,
+              [ [ "All statuses", "" ] ] + @provenance_statuses.map { |status| [ status.humanize, status ] },
+              {},
+              value: @status %>
+          </div>
+        </div>
+        <div class="mt-4 sm:mt-0">
+          <%= form.submit "Filter", class: { btn: [ :base, { lg: :base }, { neutral: :outline } ] } %>
+        </div>
+      <% end %>
+      <dl class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/5 dark:border-white/5">
+        <% @provenance_statuses.each do |status| %>
+          <div class="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= status.humanize %>:</dt>
+            <dd class="mt-1 text-sm/6 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300"><%= Recipe::PROVENANCE_DESCRIPTIONS.fetch(status) %></dd>
+          </div>
+        <% end %>
+      </dl>
+    </div>
+  </aside>
+
+  <p class="mt-4 text-sm/6 text-gray-500 dark:text-gray-400">These labels are not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
 </section>

@@ -48,7 +48,17 @@ production_database_assertion = <<~'RUBY'
   }
   actual_paths = configs.transform_values { |config| config.configuration_hash[:migrations_paths] }
   raise "Migration paths changed: #{actual_paths.inspect}" unless actual_paths == expected_paths
+  active_storage_tables = %w[
+    active_storage_attachments active_storage_blobs active_storage_variant_records
+  ]
+  missing_tables = active_storage_tables.reject { |table| ActiveRecord::Base.connection.table_exists?(table) }
+  raise "Missing Active Storage tables: #{missing_tables.inspect}" if missing_tables.any?
+  raise "Unexpected Active Storage service" unless Rails.application.config.active_storage.service == :local
+  expected_storage_root = Rails.root.join("storage").to_s
+  actual_storage_root = ActiveStorage::Blob.service.root.to_s
+  raise "Active Storage root changed: #{actual_storage_root}" unless actual_storage_root == expected_storage_root
   puts "Production databases verified: #{configs.transform_values(&:database).inspect}"
+  puts "Production Active Storage verified: #{actual_storage_root}"
 RUBY
 
 CI.run do
