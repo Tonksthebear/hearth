@@ -85,6 +85,7 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
     recipe = households(:home).recipes.build(title: "Form recipe", provenance_status: :personal)
     recipe.recipe_ingredients.build(display_name: "Carrots", position: 1, form_key: "new-carrots")
     recipe.recipe_ingredients.build(display_name: "Salt", position: 2, form_key: "new-salt")
+    recipe.recipe_ingredients.build(display_name: "", position: 3, form_key: "blank-line")
     instruction = recipe.recipe_instructions.build(
       body: "Combine.",
       position: 1,
@@ -99,7 +100,10 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
         recipe: @recipe,
         provenance_statuses: Recipe.provenance_statuses.keys,
         ingredient_name_options: [["Carrots", "Carrots"]],
-        ingredient_reference_options: @recipe.ingredient_reference_options %>
+        ingredient_reference_options: elements_options_for_select(
+          @recipe.ingredient_reference_options,
+          disabled: @recipe.disabled_ingredient_reference_keys
+        ) %>
     ERB
 
     ingredient_select = document.at_css("select[name='recipe[recipe_ingredients_attributes][0][display_name]']")
@@ -109,7 +113,10 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
 
     reference_select = document.at_css("select[multiple][name='recipe[recipe_instructions_attributes][0][ingredient_reference_keys][]']")
     assert_equal %w[new-carrots new-salt], reference_select.css("option[selected]").map { |option| option["value"] }.sort
+    assert_nil reference_select["data-slim-select-create"]
     assert_equal "true", reference_select["aria-invalid"]
+    assert document.at_css("option[value='blank-line'][disabled]")
+    assert_nil document.at_css("option[value='new-carrots']")["disabled"]
     assert_includes document.text, "contains an unknown ingredient"
     assert document.at_css("input[name='recipe[recipe_instructions_attributes][0][duration_amount]']")
     assert document.at_css("select[name='recipe[recipe_instructions_attributes][0][temperature_unit]']")

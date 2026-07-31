@@ -31,6 +31,21 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: recipes(:porridge).title, count: 0
   end
 
+  test "index does not load ingredient autocomplete options" do
+    sign_in_as users(:one)
+    ingredient_queries = []
+    callback = ->(_name, _started, _finished, _unique_id, payload) {
+      ingredient_queries << payload[:sql] if payload[:sql].match?(/FROM "ingredients"/)
+    }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      get recipes_path
+    end
+
+    assert_response :success
+    assert_empty ingredient_queries
+  end
+
   test "index leads with recipe cards and show leads with cooking content" do
     sign_in_as users(:one)
 
@@ -67,6 +82,29 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "dd", text: /#{Regexp.escape(recipes(:porridge).source_url)}/
     assert_select "p", text: /not clinical endorsement/i
     assert_select "p", text: /does not provide medical advice/i
+  end
+
+  test "show eager loads instruction ingredient references" do
+    sign_in_as users(:one)
+    recipe = recipes(:porridge)
+    ingredient = recipe.recipe_ingredients.first
+
+    3.times do |index|
+      instruction = recipe.recipe_instructions.create!(body: "Extra step #{index}", position: recipe.recipe_instructions.maximum(:position) + 1)
+      instruction.recipe_instruction_ingredients.create!(recipe:, recipe_ingredient: ingredient, position: 1)
+    end
+
+    reference_queries = []
+    callback = ->(_name, _started, _finished, _unique_id, payload) {
+      reference_queries << payload[:sql] if payload[:sql].include?("recipe_instruction_ingredients")
+    }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      get recipe_path(recipe)
+    end
+
+    assert_response :success
+    assert_operator reference_queries.length, :<=, 1
   end
 
   test "index explains every available provenance status as secondary details" do
@@ -148,6 +186,36 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, instruction.position
     assert_equal BigDecimal("1.5"), instruction.duration_amount
     assert_equal %w[Carrots Salt], instruction.referenced_recipe_ingredients.pluck(:display_name)
+  end
+
+  test "forged instruction ingredient keys reject create and render the real error state" do
+    sign_in_as users(:one)
+
+    assert_no_difference [ "Recipe.count", "RecipeInstructionIngredient.count" ] do
+      post recipes_path, params: {
+        recipe: valid_recipe_params.deep_merge(
+          recipe_ingredients_attributes: {
+            "0" => { display_name: "Carrots", form_key: "carrots-key" }
+          },
+          recipe_instructions_attributes: {
+            "0" => { body: "Combine.", ingredient_reference_keys: %w[carrots-key forged-key] }
+          }
+        )
+      }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /references an unknown ingredient/
+    assert_select "select[multiple][aria-invalid='true']"
+  end
+
+  test "new recipe disables blank ingredient reference options on the server render" do
+    sign_in_as users(:one)
+
+    get new_recipe_path
+
+    assert_response :success
+    assert_select "select[multiple] option[disabled]", text: /enter a name/
   end
 
   test "Turbo replacement preserves form keys references cues and staged cover" do

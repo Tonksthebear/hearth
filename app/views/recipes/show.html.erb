@@ -63,11 +63,12 @@
           <li class="pl-2">
             <p><%= instruction.body %></p>
             <% cues = [ instruction.duration_cue, instruction.temperature_cue ].compact %>
-            <% if cues.any? || instruction.referenced_recipe_ingredients.any? %>
+            <% references = instruction.referenced_recipe_ingredients.to_a %>
+            <% if cues.any? || references.any? %>
               <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">
                 <%= cues.join(" · ") %>
-                <% if instruction.referenced_recipe_ingredients.any? %>
-                  <%= " · " if cues.any? %><%= instruction.referenced_recipe_ingredients.map(&:display_name).join(", ") %>
+                <% if references.any? %>
+                  <%= " · " if cues.any? %><%= references.map(&:display_name).join(", ") %>
                 <% end %>
               </p>
             <% end %>

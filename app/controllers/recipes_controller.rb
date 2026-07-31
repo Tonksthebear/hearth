@@ -66,21 +66,26 @@ class RecipesController < ApplicationController
 
   private
     def set_recipe
-      @recipe = Current.household.recipes.find(params[:id])
+      scope = Current.household.recipes
+      scope = scope.includes(recipe_instructions: :referenced_recipe_ingredients) if action_name == "show"
+      @recipe = scope.find(params[:id])
     end
 
     def prepare_form
       @provenance_statuses = Recipe.provenance_statuses.keys
-      @ingredient_name_options = [ [ "", "" ], *Current.household.ingredients.order(:name).pluck(:name, :name) ]
     end
 
     def prepare_ingredient_reference_options
+      @ingredient_name_options = [ [ "", "" ], *Current.household.ingredients.order(:name).pluck(:name, :name) ]
       current_names = @recipe.recipe_ingredients
         .reject(&:marked_for_destruction?)
         .filter_map { |ingredient| ingredient.display_name.presence }
         .map { |name| [ name, name ] }
       @ingredient_name_options = [ *@ingredient_name_options, *current_names ].uniq { |_, value| value }
-      @ingredient_reference_options = @recipe.ingredient_reference_options
+      @ingredient_reference_options = helpers.elements_options_for_select(
+        @recipe.ingredient_reference_options,
+        disabled: @recipe.disabled_ingredient_reference_keys
+      )
     end
 
     def recipe_params

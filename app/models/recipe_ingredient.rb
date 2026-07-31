@@ -42,6 +42,8 @@ class RecipeIngredient < ApplicationRecord
     end
 
     def persist_ingredient
+      return unless will_save_change_to_display_name? || ingredient_id.nil?
+
       self.ingredient = Ingredient.resolve!(household: recipe.household, name: display_name)
     end
 

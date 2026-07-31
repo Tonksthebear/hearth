@@ -81,15 +81,25 @@ class Recipe < ApplicationRecord
 
       return household.recipes.create!(normalized_attributes) unless import_key
 
-      transaction do
-        recipe = household.recipes.lock.find_or_initialize_by(import_key:)
-        ingredient_attributes = normalized_attributes.delete("recipe_ingredients_attributes") || []
-        instruction_attributes = normalized_attributes.delete("recipe_instructions_attributes") || []
-        recipe.assign_attributes(normalized_attributes)
-        reconcile_import_rows(recipe.recipe_ingredients, ingredient_attributes)
-        reconcile_import_rows(recipe.recipe_instructions, instruction_attributes)
-        recipe.save!
-        recipe
+      attempts = 0
+      begin
+        import_attributes = normalized_attributes.deep_dup
+
+        transaction do
+          recipe = household.recipes.find_or_initialize_by(import_key:)
+          ingredient_attributes = import_attributes.delete("recipe_ingredients_attributes") || []
+          instruction_attributes = import_attributes.delete("recipe_instructions_attributes") || []
+          recipe.assign_attributes(import_attributes)
+          reconcile_import_rows(recipe.recipe_ingredients, ingredient_attributes)
+          reconcile_import_rows(recipe.recipe_instructions, instruction_attributes)
+          recipe.save!
+          recipe
+        end
+      rescue ActiveRecord::RecordNotUnique
+        attempts += 1
+        retry if attempts == 1
+
+        raise
       end
     end
 
@@ -189,8 +199,12 @@ class Recipe < ApplicationRecord
   def ingredient_reference_options
     active_ingredients.map do |ingredient|
       label = ingredient.display_name.presence || "Ingredient #{ingredient.position} (enter a name)"
-      [ label, ingredient.form_key, { disabled: ingredient.display_name.blank? } ]
+      [ label, ingredient.form_key ]
     end
+  end
+
+  def disabled_ingredient_reference_keys
+    active_ingredients.select { |ingredient| ingredient.display_name.blank? }.map(&:form_key)
   end
 
   def provenance_description
@@ -237,10 +251,23 @@ class Recipe < ApplicationRecord
         next unless instruction.ingredient_reference_keys_assigned?
 
         keys = instruction.ingredient_reference_keys
-        instruction.errors.add(:ingredient_reference_keys, "contains duplicates") if keys.uniq.length != keys.length
+        invalid = false
+
+        if keys.uniq.length != keys.length
+          instruction.errors.add(:ingredient_reference_keys, "contains duplicates")
+          errors.add(:base, "Step #{instruction.position} referenced ingredients contain duplicates")
+          invalid = true
+        end
 
         unknown_keys = keys - active_by_key.keys - destroyed_keys
-        instruction.errors.add(:ingredient_reference_keys, "contains an unknown ingredient") if unknown_keys.any?
+        if unknown_keys.any?
+          instruction.errors.add(:ingredient_reference_keys, "contains an unknown ingredient")
+          errors.add(:base, "Step #{instruction.position} references an unknown ingredient")
+          invalid = true
+        end
+
+        next if invalid
+
         instruction.ingredient_reference_keys = keys.filter_map { |key| active_by_key[key]&.form_key }.uniq
       end
     end

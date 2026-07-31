@@ -347,6 +347,38 @@ class RecipeTest < ActiveSupport::TestCase
     assert_includes instruction.errors[:ingredient_reference_keys], "contains an unknown ingredient"
   end
 
+  test "duplicate instruction ingredient keys alone prevent persistence" do
+    recipe = households(:home).recipes.build(title: "Duplicate links", provenance_status: :personal)
+    recipe.recipe_ingredients.build(display_name: "First", position: 1, form_key: "first-key")
+    instruction = recipe.recipe_instructions.build(
+      body: "Combine.",
+      position: 1,
+      ingredient_reference_keys: %w[first-key first-key]
+    )
+
+    assert_no_difference "RecipeInstructionIngredient.count" do
+      assert_not recipe.save
+    end
+    assert_includes instruction.errors[:ingredient_reference_keys], "contains duplicates"
+    assert_includes recipe.errors[:base], "Step 1 referenced ingredients contain duplicates"
+  end
+
+  test "unknown instruction ingredient keys alone prevent persistence" do
+    recipe = households(:home).recipes.build(title: "Forged links", provenance_status: :personal)
+    recipe.recipe_ingredients.build(display_name: "First", position: 1, form_key: "first-key")
+    instruction = recipe.recipe_instructions.build(
+      body: "Combine.",
+      position: 1,
+      ingredient_reference_keys: %w[first-key forged-key]
+    )
+
+    assert_no_difference "RecipeInstructionIngredient.count" do
+      assert_not recipe.save
+    end
+    assert_includes instruction.errors[:ingredient_reference_keys], "contains an unknown ingredient"
+    assert_includes recipe.errors[:base], "Step 1 references an unknown ingredient"
+  end
+
   test "keyed import is idempotent and reconciles reordered graphs without position collisions" do
     attributes = valid_import_attributes.merge(
       import_key: "meals:test-bowl",
@@ -400,6 +432,45 @@ class RecipeTest < ActiveSupport::TestCase
       attributes: valid_import_attributes.merge(import_key: "meals:first", source_url: "https://example.com/new-location")
     )
     assert_equal first, updated
+  end
+
+  test "keyed imports retry a unique insert race and converge on the existing recipe" do
+    household = households(:home)
+    existing = Recipe.import!(household:, attributes: valid_import_attributes.merge(import_key: "meals:race"))
+    recipes = household.recipes
+    original_finder = recipes.method(:find_or_initialize_by)
+    attempts = 0
+
+    finder = lambda do |attributes|
+      attempts += 1
+      raise ActiveRecord::RecordNotUnique if attempts == 1
+
+      original_finder.call(attributes)
+    end
+
+    recipes.define_singleton_method(:find_or_initialize_by, finder)
+    result = Recipe.import!(household:, attributes: valid_import_attributes.merge(import_key: "meals:race", title: "Race winner"))
+
+    assert_equal existing, result
+    assert_equal "Race winner", result.reload.title
+    assert_equal 2, attempts
+  ensure
+    recipes&.singleton_class&.remove_method(:find_or_initialize_by) if recipes&.singleton_methods(false)&.include?(:find_or_initialize_by)
+  end
+
+  test "unchanged ingredient lines do not re-resolve canonical ingredients on save" do
+    line = recipe_ingredients(:porridge_oats)
+    ingredient_queries = []
+    callback = ->(_name, _started, _finished, _unique_id, payload) {
+      ingredient_queries << payload[:sql] if payload[:sql].match?(/FROM "ingredients"/)
+    }
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      line.update!(notes: "Freshly updated")
+    end
+
+    assert_equal "Freshly updated", line.reload.notes
+    assert_operator ingredient_queries.length, :<=, 1
   end
 
   test "malformed keyed updates roll back the complete imported graph" do
