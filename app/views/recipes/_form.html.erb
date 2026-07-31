@@ -34,9 +34,9 @@
           <%= form.label :cover, "Cover image", class: :label %>
           <p id="recipe-cover-hint" class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">JPEG, PNG, or GIF up to 10 MB.</p>
 
-          <% if recipe.cover.attached? && recipe.cover.blob.persisted? %>
+          <% if (cover_attachment = recipe.cover_attachment_for_form) %>
             <div class="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <%= image_tag recipe.cover.variant(:card),
+              <%= image_tag cover_attachment.variant(:card),
                 alt: "#{recipe.title.presence || "Recipe"} cover",
                 class: "aspect-10/7 w-full rounded-lg object-cover outline -outline-offset-1 outline-black/5 sm:w-48 dark:outline-white/10" %>
               <div class="flex items-center gap-3">

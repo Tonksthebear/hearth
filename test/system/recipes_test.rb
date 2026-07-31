@@ -92,12 +92,21 @@ class RecipesTest < ApplicationSystemTestCase
     attach_file "Cover image", file_fixture("recipes/not-an-image.txt")
     click_button_and_wait_for_text "Update Recipe", "Cover must be a JPEG, PNG, or GIF"
     assert_equal replacement_blob, recipe.reload.cover.blob
+    assert_selector "img[alt='Lemony Chickpea Supper cover']"
+    assert_field "Remove cover when this recipe is saved", visible: :all
 
-    visit_and_wait_for_path edit_recipe_path(recipe)
+    fill_in_and_wait_for_value "Source name", ""
+    attach_file "Cover image", file_fixture("recipes/cover.png")
+    click_button_and_wait_for_text "Update Recipe", "Source name can't be blank"
+    staged_replacement_blob = ActiveStorage::Blob.find_signed!(
+      find("input[type='hidden'][name='recipe[cover]']", visible: :hidden).value
+    )
+    fill_in_and_wait_for_value "Source name", "Household Notebook"
     check_and_wait find_field("Remove cover when this recipe is saved", visible: :all)
     click_button_and_wait_for_path "Update Recipe", recipe_path(recipe)
     assert_selector "[role='img'][aria-label='No cover image for Lemony Chickpea Supper']"
     assert_not recipe.reload.cover.attached?
     assert_not ActiveStorage::Blob.exists?(replacement_blob.id)
+    assert_not ActiveStorage::Blob.exists?(staged_replacement_blob.id)
   end
 end

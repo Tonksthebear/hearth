@@ -22,7 +22,9 @@ class RecipesController < ApplicationController
   end
 
   def create
-    @recipe = Current.household.recipes.build(recipe_params)
+    attributes = recipe_params
+    @recipe = Current.household.recipes.build(attributes)
+    @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
 
     if structural_action?
@@ -41,7 +43,9 @@ class RecipesController < ApplicationController
   end
 
   def update
-    @recipe.assign_attributes(recipe_params)
+    attributes = recipe_params
+    @recipe.assign_attributes(attributes)
+    @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
 
     if structural_action?

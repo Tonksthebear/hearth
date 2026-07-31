@@ -102,6 +102,7 @@ class RecipeTest < ActiveSupport::TestCase
     replaced_blob = recipe.cover.blob
     recipe.assign_attributes(
       cover: replacement_cover_upload,
+      cover_uploaded_this_request: true,
       remove_cover: "1"
     )
     recipe.save!

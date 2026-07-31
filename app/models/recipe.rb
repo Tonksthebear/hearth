@@ -41,7 +41,7 @@ class Recipe < ApplicationRecord
     allow_blank: true
   validate :acceptable_cover
 
-  attr_accessor :remove_cover
+  attr_accessor :cover_uploaded_this_request, :remove_cover
 
   before_save :apply_cover_change
   after_commit :purge_replaced_cover, on: %i[ create update ]
@@ -165,6 +165,13 @@ class Recipe < ApplicationRecord
     change.blob.signed_id if change&.blob&.persisted?
   end
 
+  def cover_attachment_for_form
+    change = pending_cover_creation
+    return change.attachment if change&.blob&.persisted?
+
+    persisted_cover_attachment
+  end
+
   def source_label
     source_name.presence || "From your household"
   end
@@ -196,11 +203,11 @@ class Recipe < ApplicationRecord
       change = pending_cover_creation
       current_blob = persisted_cover_blob
 
-      if remove_cover? && !change
-        @cover_blob_to_purge = current_blob
+      if remove_cover? && !cover_uploaded_this_request?
+        @cover_blobs_to_purge = [ current_blob, change&.blob ].compact.uniq
         self.cover = nil
       elsif change && current_blob && change.blob != current_blob
-        @cover_blob_to_purge = current_blob
+        @cover_blobs_to_purge = [ current_blob ]
       end
     end
 
@@ -210,19 +217,27 @@ class Recipe < ApplicationRecord
     end
 
     def persisted_cover_blob
-      return unless persisted?
+      persisted_cover_attachment&.blob
+    end
 
-      ActiveStorage::Attachment.find_by(record: self, name: "cover")&.blob
+    def persisted_cover_attachment
+      ActiveStorage::Attachment.find_by(record: self, name: "cover") if persisted?
     end
 
     def purge_replaced_cover
-      @cover_blob_to_purge&.purge
+      @cover_blobs_to_purge&.each(&:purge)
     ensure
       clear_cover_to_purge
     end
 
     def clear_cover_to_purge
-      @cover_blob_to_purge = nil
+      @cover_blobs_to_purge = nil
+      self.cover_uploaded_this_request = nil
+      self.remove_cover = nil
+    end
+
+    def cover_uploaded_this_request?
+      ActiveModel::Type::Boolean.new.cast(cover_uploaded_this_request)
     end
 
     def remove_cover?
