@@ -4,7 +4,7 @@
 <div>
   <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @activity_history.person.name %>'s activities</p>
   <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">History</h1>
-  <p class="mt-2 text-gray-600 dark:text-gray-400">Completed workouts, habit check-ins, and retained skipped plans.</p>
+  <p class="mt-2 text-gray-600 dark:text-gray-400">Completed workouts, habit check-ins, and retained skipped plans from the last <%= ActivityHistory::WINDOW_DAYS %> days.</p>
 </div>
 
 <div class="mt-10">
@@ -39,4 +39,11 @@
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Completed and skipped outcomes will appear here.</p>
     </div>
   <% end %>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <% unless @activity_history.recent? %>
+      <%= link_to "Back to recent", activity_history_path, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+    <% end %>
+    <%= link_to "Show earlier", activity_history_path(before: @activity_history.previous_end_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+  </div>
 </div>

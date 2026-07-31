@@ -41,11 +41,14 @@ class PlannedWorkoutTest < ActiveSupport::TestCase
     end
   end
 
-  test "future plan cannot be skipped but can be removed as planning correction" do
+  test "future plan cannot be started or skipped but can be removed as planning correction" do
     travel_to Time.zone.local(2026, 7, 30, 10) do
       plan = planned_workouts(:future_balanced)
 
       assert_raises(ActiveRecord::RecordInvalid) { plan.skip! }
+      assert_no_difference "TrainingSession.count" do
+        assert_raises(ActiveRecord::RecordInvalid) { plan.start! }
+      end
       assert_difference "PlannedWorkout.count", -1 do
         plan.destroy!
       end

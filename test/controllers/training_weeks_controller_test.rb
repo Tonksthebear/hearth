@@ -1,7 +1,7 @@
 require "test_helper"
 
 class TrainingWeeksControllerTest < ActionDispatch::IntegrationTest
-  test "renders only Current person's drafts sessions targets and progress" do
+  test "renders only Current person's in-progress sessions targets and progress" do
     sign_in_as users(:one)
     template = workout_templates(:balanced)
 

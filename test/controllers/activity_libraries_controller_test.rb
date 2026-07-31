@@ -10,6 +10,8 @@ class ActivityLibrariesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", "Library"
     assert_select "a[href=?]", training_week_path
     assert_select "a[href=?]", recovery_day_path
-    assert_select "body", text: person_habits(:sam_movement).habit.name, count: 0
+    assert_select "section[aria-labelledby='library-recovery-heading'] li",
+      text: /#{Regexp.escape(person_habits(:sam_movement).habit.name)}/,
+      count: 0
   end
 end

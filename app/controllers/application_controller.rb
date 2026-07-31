@@ -46,8 +46,8 @@ class ApplicationController < ActionController::Base
         ]
       when :activities
         [
-          [ "Week", activity_week_path, %w[activity_weeks planned_workouts planned_workout/skips training_sessions] ],
-          [ "Library", activity_library_path, %w[activity_libraries training_weeks weekly_dose_targets recovery_days habit_check_ins habits person_habits workout_templates exercises] ],
+          [ "Week", activity_week_path, %w[activity_weeks planned_workouts planned_workout/skips training_sessions training_weeks weekly_dose_targets] ],
+          [ "Library", activity_library_path, %w[activity_libraries recovery_days habit_check_ins habits person_habits workout_templates exercises] ],
           [ "History", activity_history_path, %w[activity_histories] ]
         ]
       else

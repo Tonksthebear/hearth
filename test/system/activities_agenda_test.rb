@@ -13,6 +13,11 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       click_link_and_wait_for_path "Previous", activity_week_path(date: WEEK_START - 7.days)
       assert_selector "[data-activity-date='2026-07-20']"
       click_link_and_wait_for_path "Current week", activity_week_path
+      click_link_and_wait_for_path "Next", activity_week_path(date: WEEK_START + 7.days)
+      within "[data-activity-date='2026-08-03'] li", text: workout_templates(:balanced).title do
+        assert_no_button "Start"
+      end
+      click_link_and_wait_for_path "Current week", activity_week_path
 
       existing_plan_ids = PlannedWorkout.ids
       within "section[aria-labelledby='schedule-workout-heading']" do

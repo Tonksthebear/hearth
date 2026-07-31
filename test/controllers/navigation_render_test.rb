@@ -50,6 +50,7 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
 
     {
       activity_week_path => "Week",
+      training_week_path => "Week",
       activity_library_path => "Library",
       activity_history_path => "History"
     }.each do |path, secondary_label|

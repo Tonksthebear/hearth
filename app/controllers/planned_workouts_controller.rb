@@ -14,19 +14,19 @@ class PlannedWorkoutsController < ApplicationController
   end
 
   def update
+    date = @planned_workout.scheduled_on
     @planned_workout.reschedule!(scheduled_on: planned_workout_params[:scheduled_on])
-    redirect_to activity_week_path(date: @planned_workout.scheduled_on), notice: "Workout rescheduled.", status: :see_other
+    redirect_to redirect_path(@planned_workout.scheduled_on), notice: "Workout rescheduled.", status: :see_other
   rescue ActiveRecord::RecordInvalid
-    prepare_week
-    render "activity_weeks/show", status: :unprocessable_entity
+    redirect_to redirect_path(date), alert: @planned_workout.errors.full_messages.to_sentence, status: :see_other
   end
 
   def destroy
     date = @planned_workout.scheduled_on
     if @planned_workout.destroy
-      redirect_to activity_week_path(date: date), notice: "Workout removed from plan.", status: :see_other
+      redirect_to redirect_path(date), notice: "Workout removed from plan.", status: :see_other
     else
-      redirect_to activity_week_path(date: date), alert: @planned_workout.errors.full_messages.to_sentence, status: :see_other
+      redirect_to redirect_path(date), alert: @planned_workout.errors.full_messages.to_sentence, status: :see_other
     end
   end
 
@@ -37,6 +37,10 @@ class PlannedWorkoutsController < ApplicationController
 
     def planned_workout_params
       params.expect(planned_workout: %i[ workout_template_id scheduled_on ])
+    end
+
+    def redirect_path(date)
+      params[:return_to] == "today" ? root_path : activity_week_path(date: date)
     end
 
     def prepare_week

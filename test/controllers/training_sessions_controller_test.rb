@@ -48,6 +48,26 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "refuses future already-started and skipped plans with an in-app redirect" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_as users(:one)
+
+      [
+        planned_workouts(:future_balanced),
+        planned_workouts(:linked_in_progress),
+        planned_workouts(:skipped_balanced)
+      ].each do |plan|
+        assert_no_difference "TrainingSession.count" do
+          post training_sessions_path,
+            params: { planned_workout_id: plan.id, return_to: "activity_week", date: plan.scheduled_on }
+        end
+
+        assert_redirected_to activity_week_path(date: plan.scheduled_on)
+        assert_match(/Only a due, planned workout can be started/, flash[:alert])
+      end
+    end
+  end
+
   test "does not start another person's planned workout" do
     sign_in_as users(:one)
 

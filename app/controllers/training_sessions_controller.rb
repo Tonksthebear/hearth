@@ -9,7 +9,14 @@ class TrainingSessionsController < ApplicationController
   def create
     if params[:planned_workout_id].present?
       planned_workout = Current.person.planned_workouts.find(params[:planned_workout_id])
-      session = planned_workout.start!
+      begin
+        session = planned_workout.start!
+      rescue ActiveRecord::RecordInvalid
+        redirect_to planned_workout_return_path(planned_workout),
+          alert: planned_workout.errors.full_messages.to_sentence,
+          status: :see_other
+        return
+      end
       redirect_to edit_training_session_path(session), notice: "Workout started.", status: :see_other
       return
     elsif params[:template_id].present?
@@ -76,6 +83,10 @@ class TrainingSessionsController < ApplicationController
   private
     def set_training_session
       @training_session = Current.person.training_sessions.find(params[:id])
+    end
+
+    def planned_workout_return_path(planned_workout)
+      params[:return_to] == "today" ? root_path : activity_week_path(date: params[:date].presence || planned_workout.scheduled_on)
     end
 
     def selected_date

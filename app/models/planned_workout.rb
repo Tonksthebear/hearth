@@ -4,7 +4,6 @@ class PlannedWorkout < ApplicationRecord
   belongs_to :workout_template
   belongs_to :training_session, optional: true
 
-  scope :during, ->(date_range) { where(scheduled_on: date_range) }
   scope :skipped, -> { where.not(skipped_at: nil) }
 
   validates :scheduled_on, presence: true
@@ -32,10 +31,14 @@ class PlannedWorkout < ApplicationRecord
     planned? && scheduled_on <= Date.current
   end
 
+  def startable?
+    planned? && scheduled_on <= Date.current
+  end
+
   def start!
     with_lock do
-      unless planned?
-        errors.add(:base, "Only a planned workout can be started.")
+      unless startable?
+        errors.add(:base, "Only a due, planned workout can be started.")
         raise ActiveRecord::RecordInvalid, self
       end
 

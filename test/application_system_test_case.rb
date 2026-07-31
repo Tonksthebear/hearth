@@ -12,16 +12,6 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       fill_in_and_wait_for_value "Email address", user.email_address
       fill_in_and_wait_for_value "Password", "password"
       click_button_and_wait_for_path "Sign in", root_path
-      ensure_person_via_browser(user.person)
-    end
-
-    def ensure_person_via_browser(person)
-      find_button("Open person menu").click
-      if page.has_button?("Switch to #{person.name}", wait: 1)
-        click_button_and_wait_for_path "Switch to #{person.name}", root_path
-      else
-        find_button("Open person menu").click
-      end
     end
 
     def switch_person_via_browser(person)
