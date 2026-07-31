@@ -46,6 +46,18 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
     end
   end
 
+  test "isolated harness removes its registered pool after success and exceptions" do
+    with_isolated_database { }
+    assert_nil IsolatedMigrationBase.connection_handler.retrieve_connection_pool(IsolatedMigrationBase.name)
+
+    error = assert_raises(RuntimeError) do
+      with_isolated_database { raise "expected isolated harness failure" }
+    end
+
+    assert_equal "expected isolated harness failure", error.message
+    assert_nil IsolatedMigrationBase.connection_handler.retrieve_connection_pool(IsolatedMigrationBase.name)
+  end
+
   test "fresh and collided histories converge without losing data" do
     canonical_schema = with_isolated_database do |connection, context, pool|
       context.migrate
@@ -185,13 +197,16 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
             yield connection, context, isolated_pool
           end
         ensure
-          if migration_class_redirected
-            singleton.alias_method :migration_class, original_method
-            singleton.remove_method original_method
+          begin
+            if migration_class_redirected
+              singleton.alias_method :migration_class, original_method
+              singleton.remove_method original_method
+            end
+            IsolatedMigrationBase.remove_connection if isolated_pool
+            assert_nil IsolatedMigrationBase.connection_handler.retrieve_connection_pool(IsolatedMigrationBase.name)
+          ensure
+            ActiveRecord::Migration.verbose = original_migration_verbosity
           end
-          isolated_pool&.disconnect!
-          IsolatedMigrationBase.remove_connection if IsolatedMigrationBase.connected?
-          ActiveRecord::Migration.verbose = original_migration_verbosity
         end
       end
 
