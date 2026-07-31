@@ -63,6 +63,44 @@ class PasswordsControllerTest < ActionDispatch::IntegrationTest
     assert_notice "Password has been reset"
   end
 
+  test "password reset revokes every grant for destroyed browser sessions" do
+    user = users(:one)
+    Current.session = user.sessions.create!
+    Current.household = households(:home)
+    Current.person = people(:one)
+    conversation = Agent::Conversation.create!(
+      household: Current.household,
+      person: Current.person,
+      profile: agent_profiles(:hearth),
+      title: "Password reset conversation"
+    )
+    agent_session = Agent::Session.create!(
+      household: Current.household,
+      person: Current.person,
+      conversation: conversation,
+      installation: agent_installations(:local),
+      browser_session: Current.session,
+      external_session_id: "password-reset-session"
+    )
+    grant = Agent::Grant.issue!(
+      conversation: conversation,
+      agent_session: agent_session,
+      capability_groups: [ "health_read" ],
+      expires_at: 10.minutes.from_now
+    ).grant
+
+    put password_path(user.password_reset_token), params: {
+      password: "new password",
+      password_confirmation: "new password"
+    }
+
+    assert_redirected_to new_session_path
+    assert_predicate grant.reload, :revoked_at?
+    assert_nil grant.browser_session_id
+    assert Agent::Message.exists?(agent_messages(:prompt).id)
+    assert Agent::AuditEvent.exists?(agent_audit_events(:conversation_started).id)
+  end
+
   test "update with non matching passwords" do
     token = @user.password_reset_token
     assert_no_changes -> { @user.reload.password_digest } do

@@ -1,0 +1,12 @@
+connected:
+  household: home
+  person: two
+  conversation: active
+  installation: local
+  browser_session: browser
+  external_session_id: acp-session-opaque-1
+  status: connected
+  advertised_capabilities:
+    loadSession: true
+  authentication_status: authenticated
+  connected_at: 2026-07-30 12:00:00

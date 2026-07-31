@@ -34,6 +34,41 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_not Session.exists?(session_id)
   end
 
+  test "destroy revokes grants while preserving ACP transcript and audit history" do
+    sign_in_as users(:one)
+    Current.household = households(:home)
+    Current.person = people(:one)
+    conversation = Agent::Conversation.create!(
+      household: Current.household,
+      person: Current.person,
+      profile: agent_profiles(:hearth),
+      title: "Logout conversation"
+    )
+    agent_session = Agent::Session.create!(
+      household: Current.household,
+      person: Current.person,
+      conversation: conversation,
+      installation: agent_installations(:local),
+      browser_session: Current.session,
+      external_session_id: "logout-session"
+    )
+    grant = Agent::Grant.issue!(
+      conversation: conversation,
+      agent_session: agent_session,
+      capability_groups: [ "health_read" ],
+      expires_at: 10.minutes.from_now
+    ).grant
+    message = agent_messages(:prompt)
+    audit_event = agent_audit_events(:conversation_started)
+
+    delete session_path
+
+    assert_predicate grant.reload, :revoked_at?
+    assert_nil grant.browser_session_id
+    assert Agent::Message.exists?(message.id)
+    assert Agent::AuditEvent.exists?(audit_event.id)
+  end
+
   test "returns to the protected page after authentication" do
     get root_path
     assert_redirected_to new_session_path

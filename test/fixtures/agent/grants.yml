@@ -1,0 +1,16 @@
+active:
+  household: home
+  person: two
+  conversation: active
+  agent_session: connected
+  browser_session: browser
+  issued_by: two
+  token_locator: fixture-locator
+  token_digest: b7d2135184b81e81eb93b1ec34b59aad28d58fc0762d52f7b51c11f2837bca24
+  capability_groups:
+    - health_read
+  calls_limit: 2
+  calls_used: 0
+  output_tokens_limit: 10
+  output_tokens_used: 0
+  expires_at: <%= 1.hour.from_now %>

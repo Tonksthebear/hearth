@@ -1,0 +1,5 @@
+approved:
+  permission_request: decided
+  decided_by: two
+  outcome: approved
+  reason: User approved this request

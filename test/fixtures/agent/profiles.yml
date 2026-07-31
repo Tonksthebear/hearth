@@ -1,0 +1,7 @@
+hearth:
+  household: home
+  name: Test ACP agent
+  launch_command: test-agent
+  environment_keys:
+    - TEST_AGENT_HOME
+  enabled: true

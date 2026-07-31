@@ -8,6 +8,8 @@ class Household < ApplicationRecord
   has_many :workout_templates, dependent: :destroy
   has_many :exercises, dependent: :destroy
   has_many :habits, dependent: :destroy
+  has_many :agent_profiles, class_name: "Agent::Profile", dependent: :restrict_with_exception
+  has_many :agent_conversations, class_name: "Agent::Conversation", dependent: :restrict_with_exception
 
   validates :name, presence: true
   validates :installation_key, inclusion: { in: [ 1 ] }, uniqueness: true

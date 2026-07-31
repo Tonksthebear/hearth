@@ -25,6 +25,57 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
     assert_select "article[data-current-person='true'] h3", people(:one).name
   end
 
+  test "switching selected person neither revokes nor widens an issued grant" do
+    sign_in_as users(:one)
+    Current.household = households(:home)
+    Current.person = people(:one)
+    conversation = Agent::Conversation.create!(
+      household: Current.household,
+      person: Current.person,
+      profile: agent_profiles(:hearth),
+      title: "Person switch conversation"
+    )
+    agent_session = Agent::Session.create!(
+      household: Current.household,
+      person: Current.person,
+      conversation: conversation,
+      installation: agent_installations(:local),
+      browser_session: Current.session,
+      external_session_id: "person-switch-session"
+    )
+    credential = Agent::Grant.issue!(
+      conversation: conversation,
+      agent_session: agent_session,
+      capability_groups: [ "health_read" ],
+      expires_at: 10.minutes.from_now
+    )
+
+    patch person_context_path, params: { person_id: people(:two).id }
+
+    assert_nil credential.grant.reload.revoked_at
+    assert Agent::Grant.verify(
+      bearer: credential.bearer,
+      browser_session: credential.grant.browser_session,
+      conversation: conversation,
+      agent_session: agent_session,
+      capability: "health.read"
+    )
+
+    other_conversation = Agent::Conversation.create!(
+      household: households(:home),
+      person: people(:two),
+      profile: agent_profiles(:hearth),
+      title: "Other person"
+    )
+    assert_nil Agent::Grant.verify(
+      bearer: credential.bearer,
+      browser_session: credential.grant.browser_session,
+      conversation: other_conversation,
+      agent_session: agent_session,
+      capability: "health.read"
+    )
+  end
+
   test "unknown numeric selection returns not found without changing context" do
     sign_in_as users(:one)
     patch person_context_path, params: { person_id: people(:two).id }
