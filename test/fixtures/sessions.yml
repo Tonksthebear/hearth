@@ -1,0 +1,4 @@
+browser:
+  user: two
+  ip_address: 127.0.0.1
+  user_agent: Hearth test
