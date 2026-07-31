@@ -69,8 +69,8 @@
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
       <% @workout_templates.each do |workout_template| %>
         <article class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
-          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"><%= workout_template.provenance_status.humanize %></p>
-          <h3 class="mt-1 font-semibold"><%= link_to workout_template.title, workout_template, class: "text-primary-900 dark:text-primary-300 underline" %></h3>
+          <h3 class="font-semibold"><%= link_to workout_template.title, workout_template, class: "text-primary-900 dark:text-primary-300 underline" %></h3>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Source: <%= workout_template.source_label %> · <%= workout_template.provenance_status.humanize %></p>
           <%= button_to "Start workout", training_sessions_path, params: { template_id: workout_template.id }, class: { btn: [ :base, { md: :base }, { neutral: :outline } ] }, form_class: "mt-3" %>
         </article>
       <% end %>

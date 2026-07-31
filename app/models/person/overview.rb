@@ -3,11 +3,11 @@ class Person::Overview
 
   class << self
     def current(household:, person:)
-      new(household: household, person: person, date: Date.current)
+      new(household: household, person: person)
     end
   end
 
-  def initialize(household:, person:, date:)
+  def initialize(household:, person:)
     @household = household
     @person = household.people.find(person.id)
     @meal_week = MealWeek.current(household: household, person: @person)
@@ -19,10 +19,10 @@ class Person::Overview
 
   private
     def materialize!
-      meal_week.planned_meals.to_a.freeze
-      meal_week.meal_logs.to_a.freeze
-      training_week.draft_sessions.to_a.freeze
-      training_week.completed_sessions.to_a.freeze
+      meal_week.planned_meals.to_a
+      meal_week.meal_logs.to_a
+      training_week.draft_sessions.to_a
+      training_week.completed_sessions.to_a
       recovery_day.entries
     end
 end

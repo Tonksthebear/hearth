@@ -1,13 +1,9 @@
-<nav aria-label="Meals" class="mb-8 border-b border-gray-200 dark:border-white/10">
-  <div class="-mb-px flex gap-6">
-    <% [ [ "Week", meal_week_path ], [ "Recipes", recipes_path ], [ "Shopping", shopping_list_path ] ].each do |label, path| %>
-      <% active = current_page?(path) || (label == "Recipes" && controller_name == "recipes") %>
-      <%= link_to label, path,
-            aria: (active ? { current: "page" } : {}),
-            class: class_names(
-              "border-b-2 px-1 pb-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600",
-              active ? "border-primary-600 text-primary-700 dark:border-primary-400 dark:text-primary-300" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            ) %>
+<nav aria-label="Meals" class="mb-8">
+  <div class="<%= yass(nav_tabs: :list) %>">
+    <% @secondary_navigation.each do |item| %>
+      <%= link_to item[:label], item[:path],
+            aria: (item[:active] ? { current: "page" } : {}),
+            class: yass(nav_tabs: :tab) %>
     <% end %>
   </div>
 </nav>

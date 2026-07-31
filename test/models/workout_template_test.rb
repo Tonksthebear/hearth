@@ -7,6 +7,7 @@ class WorkoutTemplateTest < ActiveSupport::TestCase
 
     personal = households(:home).workout_templates.build(title: "Mine", provenance_status: :personal)
     assert_predicate personal, :valid?
+    assert_equal "From your household", personal.source_label
   end
 
   test "mutates three-level form rows with safe coordinates and one-based positions" do

@@ -36,7 +36,7 @@
   </div>
 
   <dl class="mt-8 border-t border-gray-200 pt-5 text-sm text-gray-600 dark:border-white/10 dark:text-gray-400">
-    <div><dt class="inline font-medium">Source:</dt> <dd class="inline"><%= @workout_template.source_name.presence || "From your household" %><% if @workout_template.source_url.present? %> · <%= @workout_template.source_url %><% end %></dd></div>
+    <div><dt class="inline font-medium">Source:</dt> <dd class="inline"><%= @workout_template.source_label %><% if @workout_template.source_url.present? %> · <%= @workout_template.source_url %><% end %></dd></div>
     <div class="mt-1"><dt class="inline font-medium">Provenance:</dt> <dd class="inline"><%= @workout_template.provenance_status.humanize %> · <%= @workout_template.provenance_description %></dd></div>
   </dl>
   <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Provenance is attribution, not clinical endorsement. Hearth is a tracking tool and does not provide medical advice.</p>

@@ -105,6 +105,10 @@ class TrainingSession < ApplicationRecord
     completed_at.present?
   end
 
+  def snapshot_source_label
+    snapshot_source_name.presence || "From your household"
+  end
+
   def add_block
     training_session_blocks.build(
       position: active_blocks.size + 1,

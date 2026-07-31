@@ -31,9 +31,34 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     get recipe_path(recipes(:porridge))
     assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Meals"
     assert_select "nav[aria-label='Meals'] a[href=?]", shopping_list_path
+    assert_select "nav[aria-label='Meals'] > div.flex.-mb-px"
+    assert_select "nav[aria-label='Meals'] a.py-4.dark\\:hover\\:border-white\\/20"
 
     get recovery_day_path
     assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Activities"
     assert_select "nav[aria-label='Activities'] a[href=?]", exercises_path
+  end
+
+  test "administrative pages do not falsely mark a primary destination current" do
+    sign_in_as users(:one)
+
+    get person_path(people(:one))
+
+    assert_response :success
+    assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", count: 0
+  end
+
+  test "form pages retain their prepared route subnavigation" do
+    sign_in_as users(:one)
+
+    get new_training_session_path
+
+    assert_response :success
+    assert_select "nav[aria-label='Activities'] a[aria-current='page']", text: "Training"
+
+    get new_recipe_path
+
+    assert_response :success
+    assert_select "nav[aria-label='Meals'] a[aria-current='page']", text: "Recipes"
   end
 end

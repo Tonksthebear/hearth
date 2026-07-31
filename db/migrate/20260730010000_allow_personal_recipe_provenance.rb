@@ -6,6 +6,7 @@ class AllowPersonalRecipeProvenance < ActiveRecord::Migration[8.1]
     add_check_constraint :recipes,
       "provenance_status IN ('personal', 'verified', 'adapted', 'observed')",
       name: "recipes_provenance_status"
+    # Rollback restores NOT NULL and therefore requires every recipe to have source_name populated.
     change_column_null :recipes, :source_name, true
   end
 end

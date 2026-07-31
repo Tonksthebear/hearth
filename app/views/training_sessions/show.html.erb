@@ -44,7 +44,7 @@
 
   <% if @training_session.snapshot_provenance_status.present? %>
     <p class="mt-8 border-t border-gray-200 pt-5 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
-      Source details: <%= @training_session.snapshot_source_name.presence || "From your household" %> · <%= @training_session.snapshot_provenance_status.humanize %>. Attribution is not clinical endorsement or medical advice.
+      Source details: <%= @training_session.snapshot_source_label %> · <%= @training_session.snapshot_provenance_status.humanize %>. Attribution is not clinical endorsement or medical advice.
     </p>
   <% end %>
   <p class="mt-8"><%= link_to "Back to training week", training_week_path(date: @training_session.performed_on), class: "font-medium text-primary-800 dark:text-primary-300 underline" %></p>

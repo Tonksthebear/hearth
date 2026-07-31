@@ -44,6 +44,19 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "p", text: /does not provide medical advice/i
   end
 
+  test "index explains every available provenance status as secondary details" do
+    sign_in_as users(:one)
+
+    get recipes_path
+
+    assert_response :success
+    Recipe.provenance_statuses.each_key do |status|
+      assert_select "dt", text: "#{status.humanize}:"
+      assert_select "dd", text: Recipe::PROVENANCE_DESCRIPTIONS.fetch(status)
+    end
+    assert_select ".bg-primary-50", text: /About provenance/, count: 0
+  end
+
   test "person context does not change the shared catalog" do
     sign_in_as users(:one)
 

@@ -1,19 +1,9 @@
-<nav aria-label="Activities" class="mb-8 border-b border-gray-200 dark:border-white/10">
-  <div class="-mb-px flex gap-6 overflow-x-auto">
-    <% [
-      [ "Overview", activity_overview_path, %w[activity_overviews] ],
-      [ "Training", training_week_path, %w[training_weeks training_sessions weekly_dose_targets] ],
-      [ "Recovery", recovery_day_path, %w[recovery_days habit_check_ins person_habits habits] ],
-      [ "Templates", workout_templates_path, %w[workout_templates] ],
-      [ "Exercises", exercises_path, %w[exercises] ]
-    ].each do |label, path, controllers| %>
-      <% active = controllers.include?(controller_name) %>
-      <%= link_to label, path,
-            aria: (active ? { current: "page" } : {}),
-            class: class_names(
-              "shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600",
-              active ? "border-primary-600 text-primary-700 dark:border-primary-400 dark:text-primary-300" : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            ) %>
+<nav aria-label="Activities" class="mb-8">
+  <div class="<%= yass(nav_tabs: :list) %>">
+    <% @secondary_navigation.each do |item| %>
+      <%= link_to item[:label], item[:path],
+            aria: (item[:active] ? { current: "page" } : {}),
+            class: yass(nav_tabs: :tab) %>
     <% end %>
   </div>
 </nav>
