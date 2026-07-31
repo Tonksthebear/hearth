@@ -28,6 +28,22 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to workout_template_path(template)
     assert_equal [ 1 ], template.workout_blocks.pluck(:position)
     assert_equal [ 1 ], template.workout_blocks.first.exercise_prescriptions.pluck(:position)
+    prescription = template.workout_blocks.first.exercise_prescriptions.first
+    assert_predicate prescription, :per_side?
+    assert_equal "3 sec lowering", prescription.tempo_cue
+    assert_equal "bpm", prescription.target_heart_rate_unit
+  end
+
+  test "new renders one live selector and inert native templates for every performance kind" do
+    sign_in_as users(:one)
+
+    get new_workout_template_path
+
+    assert_response :success
+    assert_select "el-select[name$='[performance_kind]'][value='reps']", count: 1
+    assert_select "template[data-performance-fields-target='template']", count: 5
+    assert_select "el-select[name$='[target_distance_unit]']"
+    assert_select "el-select[name$='[target_count_unit]']"
   end
 
   test "an untouched required exercise renders the validation alert and blank choice" do
@@ -151,10 +167,15 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
             exercise_prescriptions_attributes: {
               "0" => {
                 exercise_id: exercises(:squat).id,
-                entry_kind: "set",
+                performance_kind: "reps",
                 sets_count: "2",
                 rep_min: "8",
                 rep_max: "10",
+                per_side: "1",
+                tempo_cue: "3 sec lowering",
+                target_heart_rate_min: "120",
+                target_heart_rate_max: "150",
+                target_heart_rate_unit: "bpm",
                 dose_class: "strength"
               }
             }
@@ -189,7 +210,7 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
                   {
                     id: prescription.id,
                     exercise_id: prescription.exercise_id,
-                    entry_kind: prescription.entry_kind,
+                    performance_kind: prescription.performance_kind,
                     sets_count: prescription.sets_count,
                     rep_min: prescription.rep_min,
                     rep_max: prescription.rep_max,

@@ -44,13 +44,15 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       set_and_wait loads[1], "35"
       choose_elements_option load_units[0], "lb"
       choose_elements_option load_units[1], "lb"
-      set_and_wait durations[2], "1800"
+      set_and_wait durations.first, "1800"
       completed.each { |field| check_and_wait field }
 
       click_button_and_wait_for_text "Complete workout", "Workout completed."
       assert_text(/completed workout/i)
       assert_text "Goblet squat"
       assert_text "Stationary bike"
+      assert_text "per side"
+      assert_text "3 sec lowering"
 
       click_link_and_wait_for_path "History", activity_history_path
       assert_text "Balanced training day"
@@ -79,13 +81,24 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       fill_in_and_wait_for_value "Exercise name", "Neighborhood walk"
       select_and_wait "Cardio", from: "Modality"
       select_and_wait "Locomotion cardio", from: "Movement pattern"
-      exercise_entry_kind = all("el-select[name*='training_session_exercises_attributes'][name$='[snapshot_entry_kind]']").first
-      choose_elements_option exercise_entry_kind, "Interval"
+      set_and_wait all("input[name*='training_sets_attributes'][name$='[reps]']").first, "12"
+      exercise_performance_kind = all("el-select[name*='training_session_exercises_attributes'][name$='[snapshot_performance_kind]']").first
+      choose_elements_option exercise_performance_kind, "Duration"
       select_and_wait "Zone2", from: "Default dose"
-      select_and_wait "Interval", from: all("el-select[name*='training_sets_attributes'][name$='[entry_kind]']").first[:id]
       select_and_wait "Zone2", from: all("el-select[name*='training_sets_attributes'][name$='[dose_class]']").first[:id]
       set_and_wait all("input[name*='training_sets_attributes'][name$='[duration_seconds]']").first, "1800"
+      set_and_wait all("input[name*='training_sets_attributes'][name$='[count]']").first, "6"
+      choose_elements_option all("el-select[name*='training_sets_attributes'][name$='[count_unit]']").first, "Laps"
+      set_and_wait all("input[name*='training_sets_attributes'][name$='[average_heart_rate_bpm]']").first, "135"
+      set_and_wait all("input[name*='training_sets_attributes'][name$='[peak_heart_rate_bpm]']").first, "148"
       check_and_wait all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']").first
+      within "details", text: "Exercise feedback" do
+        find("summary").click
+        select_and_wait "About right", from: "Difficulty"
+        fill_in_and_wait_for_value "Soreness or pain noted", "Mild calf tightness"
+        fill_in_and_wait_for_value "Substitution used", "Outdoor route"
+        fill_in_and_wait_for_value "Adjust next time", "Keep the same pace"
+      end
       click_button_and_wait_for_text "Save progress", "Workout in progress saved."
 
       click_link_and_wait_for_path "Week", activity_week_path, match: :first
@@ -101,6 +114,12 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       assert_equal exercise_count, Exercise.count
       assert_text "Neighborhood walk"
       assert_text(/completed workout/i)
+      assert_text "About right"
+      assert_text "Mild calf tightness"
+      assert_text "Keep the same pace"
+      assert_text "6 laps"
+      assert_text "avg HR 135 bpm"
+      assert_nil session.reload.training_session_blocks.first.training_session_exercises.first.training_sets.first.reps
     end
   end
 
@@ -125,4 +144,50 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       assert_no_field "Structured minutes", with: "123"
     end
   end
+
+  test "records catalog interval rounds with separate work and recovery" do
+    sign_in_via_browser users(:one)
+
+    [ [ 8, 20, 20 ], [ 8, 60, 60 ], [ 4, 240, 180 ] ].each do |rounds, work_seconds, rest_seconds|
+      template = interval_template(rounds:, work_seconds:, rest_seconds:)
+      session = TrainingSession.start_from(template:, person: people(:one), performed_on: WEEK_START)
+      visit_and_wait_for_path edit_training_session_path(session)
+
+      work_fields = all("input[name*='training_sets_attributes'][name$='[duration_seconds]']")
+      recovery_fields = all("input[name*='training_sets_attributes'][name$='[rest_seconds]']")
+      assert_equal rounds, work_fields.size
+      assert_equal rounds, recovery_fields.size
+      work_fields.each { |field| assert_equal work_seconds.to_s, field.value }
+      recovery_fields.each { |field| assert_equal rest_seconds.to_s, field.value }
+      all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']").each { |field| check_and_wait field }
+
+      click_button_and_wait_for_text "Complete workout", "Workout completed."
+      assert_text "#{work_seconds} sec work / #{rest_seconds} sec recovery"
+    end
+  end
+
+  private
+    def interval_template(rounds:, work_seconds:, rest_seconds:)
+      template = households(:home).workout_templates.create!(
+        title: "#{work_seconds}/#{rest_seconds} intervals",
+        provenance_status: :personal
+      )
+      block = template.workout_blocks.create!(
+        position: 1,
+        title: "Intervals",
+        block_kind: :hiit_interval,
+        dose_class: :vigorous,
+        planned_duration_minutes: (rounds * (work_seconds + rest_seconds) / 60.0).ceil
+      )
+      block.exercise_prescriptions.create!(
+        exercise: exercises(:bike),
+        position: 1,
+        performance_kind: :interval,
+        sets_count: rounds,
+        work_seconds: work_seconds,
+        rest_seconds: rest_seconds,
+        dose_class: :vigorous
+      )
+      template
+    end
 end

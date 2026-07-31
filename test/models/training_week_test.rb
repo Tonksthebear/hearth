@@ -52,4 +52,59 @@ class TrainingWeekTest < ActiveSupport::TestCase
     assert_nil metric.percent
     refute_predicate metric, :reached?
   end
+
+  test "classified interval dose counts work and excludes recorded recovery" do
+    session = completed_interval_session(rounds: 8, work_seconds: 20, rest_seconds: 20)
+    week = TrainingWeek.for(household: households(:home), person: people(:one), date: session.performed_on)
+    assert_in_delta 160 / 60.0, week.metrics.index_by(&:key)[:vigorous_minutes].actual
+
+    session.destroy!
+    session = completed_interval_session(rounds: 8, work_seconds: 60, rest_seconds: 60)
+    week = TrainingWeek.for(household: households(:home), person: people(:one), date: session.performed_on)
+    assert_equal 8.0, week.metrics.index_by(&:key)[:vigorous_minutes].actual
+
+    session.destroy!
+    session = completed_interval_session(rounds: 4, work_seconds: 240, rest_seconds: 180)
+    week = TrainingWeek.for(household: households(:home), person: people(:one), date: session.performed_on)
+    assert_equal 16.0, week.metrics.index_by(&:key)[:vigorous_minutes].actual
+  end
+
+  private
+    def completed_interval_session(rounds:, work_seconds:, rest_seconds:)
+      session = people(:one).training_sessions.create!(
+        household: households(:home),
+        snapshot_title: "Interval dose proof",
+        performed_on: Date.new(2026, 7, 29),
+        started_at: Time.zone.local(2026, 7, 29, 8),
+        completed_at: Time.zone.local(2026, 7, 29, 9)
+      )
+      block = session.training_session_blocks.create!(
+        position: 1,
+        snapshot_title: "Intervals",
+        snapshot_block_kind: :hiit_interval,
+        snapshot_dose_class: :vigorous,
+        actual_duration_seconds: rounds * (work_seconds + rest_seconds)
+      )
+      exercise = block.training_session_exercises.create!(
+        position: 1,
+        snapshot_name: "Intervals",
+        snapshot_modality: :cardio,
+        snapshot_movement_pattern: :locomotion_cardio,
+        snapshot_performance_kind: :interval,
+        snapshot_dose_class: :vigorous,
+        snapshot_sets_count: rounds,
+        snapshot_work_seconds: work_seconds,
+        snapshot_rest_seconds: rest_seconds
+      )
+      rounds.times do |index|
+        exercise.training_sets.create!(
+          position: index + 1,
+          dose_class: :vigorous,
+          duration_seconds: work_seconds,
+          rest_seconds: rest_seconds,
+          completed: true
+        )
+      end
+      session
+    end
 end

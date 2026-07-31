@@ -52,7 +52,7 @@ class TrainingSession < ApplicationRecord
               snapshot_movement_pattern: exercise.movement_pattern,
               snapshot_equipment: exercise.equipment,
               snapshot_guidance: exercise.guidance,
-              snapshot_entry_kind: prescription.entry_kind,
+              snapshot_performance_kind: prescription.performance_kind,
               snapshot_dose_class: prescription.effective_dose_class,
               snapshot_sets_count: prescription.sets_count,
               snapshot_rep_min: prescription.rep_min,
@@ -62,14 +62,24 @@ class TrainingSession < ApplicationRecord
               snapshot_target_rpe: prescription.target_rpe,
               snapshot_target_rir: prescription.target_rir,
               snapshot_load_guidance: prescription.load_guidance,
+              snapshot_target_distance_amount: prescription.target_distance_amount,
+              snapshot_target_distance_unit: prescription.target_distance_unit,
+              snapshot_target_count: prescription.target_count,
+              snapshot_target_count_unit: prescription.target_count_unit,
+              snapshot_per_side: prescription.per_side,
+              snapshot_tempo_cue: prescription.tempo_cue,
+              snapshot_target_heart_rate_min: prescription.target_heart_rate_min,
+              snapshot_target_heart_rate_max: prescription.target_heart_rate_max,
+              snapshot_target_heart_rate_unit: prescription.target_heart_rate_unit,
               notes: prescription.notes
             )
 
             prescription.sets_count.times do |index|
               session_exercise.training_sets.build(
                 position: index + 1,
-                entry_kind: prescription.entry_kind,
-                dose_class: prescription.effective_dose_class
+                dose_class: prescription.effective_dose_class,
+                duration_seconds: %w[duration interval].include?(prescription.performance_kind) ? prescription.work_seconds : nil,
+                rest_seconds: prescription.performance_kind_interval? ? prescription.rest_seconds : nil
               )
             end
           end
@@ -95,6 +105,7 @@ class TrainingSession < ApplicationRecord
     raise ActiveRecord::RecordInvalid, self if completed?
 
     transaction do
+      active_blocks.each { |block| block.active_exercises.each(&:sync_completed_at!) }
       validate_completion_graph
       raise ActiveRecord::RecordInvalid, self if errors.any?
 
@@ -213,13 +224,14 @@ class TrainingSession < ApplicationRecord
 
           sets.each do |set|
             errors.add(:base, "#{exercise.snapshot_name} set #{set.position} must be completed.") unless set.completed?
-            unless set.performance_measurement?
-              errors.add(:base, "#{exercise.snapshot_name} set #{set.position} requires reps, duration, or distance.")
-            end
-            if set.interval? && set.duration_seconds.blank?
-              errors.add(:base, "#{exercise.snapshot_name} interval #{set.position} requires a duration.")
+            unless set.valid?
+              set.errors.full_messages.each do |message|
+                errors.add(:base, "#{exercise.snapshot_name} row #{set.position}: #{message}")
+              end
             end
           end
+
+          errors.add(:base, "#{exercise.snapshot_name} is not complete.") unless exercise.completion_ready?
         end
 
         classified_seconds = exercises.sum do |exercise|

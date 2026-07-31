@@ -58,7 +58,10 @@ class WorkoutTemplatesController < ApplicationController
       @provenance_statuses = WorkoutTemplate.provenance_statuses.keys
       @block_kinds = WorkoutBlock::BLOCK_KINDS
       @dose_classes = WorkoutBlock::DOSE_CLASSES
-      @entry_kinds = ExercisePrescription::ENTRY_KINDS
+      @performance_kind_options = ExercisePrescription::PERFORMANCE_KINDS.map { |value| [ value.humanize, value ] }
+      @distance_unit_options = ExercisePrescription::DISTANCE_UNITS.map { |value| [ value, value ] }
+      @count_unit_options = ExercisePrescription::COUNT_UNITS.map { |value| [ value.humanize, value ] }
+      @heart_rate_unit_options = ExercisePrescription::HEART_RATE_UNITS.map { |value| [ value.humanize, value ] }
       @exercises = Current.household.exercises.order(:name)
       @exercise_options = [ [ "Choose exercise", "" ] ] + @exercises.map { |exercise| [ exercise.name, exercise.id ] }
     end
@@ -79,7 +82,9 @@ class WorkoutTemplatesController < ApplicationController
           :notes,
           :_destroy,
           exercise_prescriptions_attributes: %i[
-            id exercise_id entry_kind sets_count rep_min rep_max work_seconds rest_seconds
+            id exercise_id performance_kind sets_count rep_min rep_max work_seconds rest_seconds
+            target_distance_amount target_distance_unit target_count target_count_unit per_side tempo_cue
+            target_heart_rate_min target_heart_rate_max target_heart_rate_unit
             target_rpe target_rir load_guidance dose_class notes _destroy
           ]
         ]
@@ -119,7 +124,10 @@ class WorkoutTemplatesController < ApplicationController
         provenance_statuses: @provenance_statuses,
         block_kinds: @block_kinds,
         dose_classes: @dose_classes,
-        entry_kinds: @entry_kinds,
+        performance_kind_options: @performance_kind_options,
+        distance_unit_options: @distance_unit_options,
+        count_unit_options: @count_unit_options,
+        heart_rate_unit_options: @heart_rate_unit_options,
         exercise_options: @exercise_options
       }
     end

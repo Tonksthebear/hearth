@@ -32,6 +32,12 @@ class TrainingSessionTest < ActiveSupport::TestCase
     assert_equal "Goblet squat", snapshot_exercise.snapshot_name
     assert_equal 8, snapshot_exercise.snapshot_rep_min
     assert_equal 10, snapshot_exercise.snapshot_rep_max
+    assert_equal "reps", snapshot_exercise.snapshot_performance_kind
+    assert_predicate snapshot_exercise, :snapshot_per_side?
+    assert_equal "3 sec lowering", snapshot_exercise.snapshot_tempo_cue
+    assert_equal 120, snapshot_exercise.snapshot_target_heart_rate_min
+    assert_equal 150, snapshot_exercise.snapshot_target_heart_rate_max
+    assert_equal "bpm", snapshot_exercise.snapshot_target_heart_rate_unit
   end
 
   test "inline ad hoc snapshots require taxonomy and do not create catalog records" do
@@ -111,7 +117,9 @@ class TrainingSessionTest < ActiveSupport::TestCase
 
   test "completion rejects classified time beyond the containing block" do
     session = training_sessions(:in_progress)
-    set = session.training_session_blocks.first.training_session_exercises.first.training_sets.first
+    exercise = session.training_session_blocks.first.training_session_exercises.first
+    exercise.update!(snapshot_performance_kind: :duration)
+    set = exercise.training_sets.first
     set.update!(completed: true, duration_seconds: 901, dose_class: :vigorous)
 
     error = assert_raises(ActiveRecord::RecordInvalid) { session.complete! }

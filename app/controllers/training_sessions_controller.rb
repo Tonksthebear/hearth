@@ -103,7 +103,12 @@ class TrainingSessionsController < ApplicationController
       @movement_patterns = Exercise::MOVEMENT_PATTERNS
       @block_kinds = WorkoutBlock::BLOCK_KINDS
       @dose_classes = WorkoutBlock::DOSE_CLASSES
-      @entry_kinds = ExercisePrescription::ENTRY_KINDS
+      @performance_kind_options = ExercisePrescription::PERFORMANCE_KINDS.map { |value| [ value.humanize, value ] }
+      @distance_unit_options = TrainingSet::DISTANCE_UNITS.map { |value| [ value, value ] }
+      @count_unit_options = TrainingSet::COUNT_UNITS.map { |value| [ value.humanize, value ] }
+      @heart_rate_unit_options = ExercisePrescription::HEART_RATE_UNITS.map { |value| [ value.humanize, value ] }
+      @load_unit_options = TrainingSet::LOAD_UNITS.map { |value| [ value, value ] }
+      @difficulty_options = TrainingSessionExercise::DIFFICULTIES.map { |value| [ value.humanize, value ] }
     end
 
     def training_session_params
@@ -127,13 +132,35 @@ class TrainingSessionsController < ApplicationController
             :snapshot_movement_pattern,
             :snapshot_equipment,
             :snapshot_guidance,
-            :snapshot_entry_kind,
+            :snapshot_performance_kind,
             :snapshot_dose_class,
+            :snapshot_sets_count,
+            :snapshot_rep_min,
+            :snapshot_rep_max,
+            :snapshot_work_seconds,
+            :snapshot_rest_seconds,
+            :snapshot_target_distance_amount,
+            :snapshot_target_distance_unit,
+            :snapshot_target_count,
+            :snapshot_target_count_unit,
+            :snapshot_per_side,
+            :snapshot_tempo_cue,
+            :snapshot_target_heart_rate_min,
+            :snapshot_target_heart_rate_max,
+            :snapshot_target_heart_rate_unit,
+            :snapshot_target_rpe,
+            :snapshot_target_rir,
+            :snapshot_load_guidance,
+            :difficulty,
+            :soreness_or_pain,
+            :substitution,
+            :next_time_adjustment,
             :notes,
             :_destroy,
             training_sets_attributes: %i[
-              id entry_kind dose_class reps load_amount load_unit duration_seconds
-              distance_amount distance_unit rpe rir completed notes _destroy
+              id dose_class reps load_amount load_unit duration_seconds rest_seconds
+              distance_amount distance_unit count count_unit average_heart_rate_bpm peak_heart_rate_bpm
+              rpe rir completed notes _destroy
             ]
           ]
         ]
@@ -184,7 +211,12 @@ class TrainingSessionsController < ApplicationController
         movement_patterns: @movement_patterns,
         block_kinds: @block_kinds,
         dose_classes: @dose_classes,
-        entry_kinds: @entry_kinds
+        performance_kind_options: @performance_kind_options,
+        distance_unit_options: @distance_unit_options,
+        count_unit_options: @count_unit_options,
+        heart_rate_unit_options: @heart_rate_unit_options,
+        load_unit_options: @load_unit_options,
+        difficulty_options: @difficulty_options
       }
     end
 end

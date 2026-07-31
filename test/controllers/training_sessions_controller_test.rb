@@ -89,7 +89,23 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
 
     session = people(:one).training_sessions.order(:created_at).last
     assert_redirected_to edit_training_session_path(session)
-    assert_nil session.training_session_blocks.first.training_session_exercises.first.exercise_id
+    exercise = session.training_session_blocks.first.training_session_exercises.first
+    assert_nil exercise.exercise_id
+    assert_equal "about_right", exercise.difficulty
+    assert_equal "Keep the pace", exercise.next_time_adjustment
+  end
+
+  test "new renders live performance controls and native actual templates" do
+    sign_in_as users(:one)
+
+    get new_training_session_path
+
+    assert_response :success
+    assert_select "el-select[name$='[snapshot_performance_kind]'][value='reps']", count: 1
+    assert_select "template[data-kind]", minimum: 10
+    assert_select "el-select[name$='[load_unit]']"
+    assert_select "el-select[name$='[distance_unit]']"
+    assert_select "el-select[name$='[count_unit]']"
   end
 
   test "Turbo structural actions replace the complete in-progress form without persisting" do
@@ -154,10 +170,10 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
       snapshot_name: "Walk",
       snapshot_modality: :cardio,
       snapshot_movement_pattern: :locomotion_cardio,
-      snapshot_entry_kind: :interval,
+      snapshot_performance_kind: :interval,
       snapshot_dose_class: :none
     )
-    second_exercise.training_sets.create!(position: 1, entry_kind: :interval, dose_class: :none)
+    second_exercise.training_sets.create!(position: 1, dose_class: :none)
     params = persisted_session_params(session.reload)
 
     patch training_session_path(session),
@@ -244,13 +260,17 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
                 snapshot_name: "Outdoor walk",
                 snapshot_modality: "cardio",
                 snapshot_movement_pattern: "locomotion_cardio",
-                snapshot_entry_kind: "interval",
+                snapshot_performance_kind: "interval",
+                snapshot_work_seconds: "1800",
+                snapshot_rest_seconds: "0",
                 snapshot_dose_class: "zone2",
+                difficulty: "about_right",
+                next_time_adjustment: "Keep the pace",
                 training_sets_attributes: {
                   "0" => {
-                    entry_kind: "interval",
                     dose_class: "zone2",
                     duration_seconds: "1800",
+                    rest_seconds: "0",
                     completed: "1"
                   }
                 }
@@ -282,12 +302,11 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
                 snapshot_name: exercise.snapshot_name,
                 snapshot_modality: exercise.snapshot_modality,
                 snapshot_movement_pattern: exercise.snapshot_movement_pattern,
-                snapshot_entry_kind: exercise.snapshot_entry_kind,
+                snapshot_performance_kind: exercise.snapshot_performance_kind,
                 snapshot_dose_class: exercise.snapshot_dose_class,
                 training_sets_attributes: {
                   "0" => {
                     id: set.id,
-                    entry_kind: set.entry_kind,
                     dose_class: set.dose_class,
                     reps: "8",
                     load_amount: "35",
@@ -328,14 +347,13 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
                     snapshot_name: exercise.snapshot_name,
                     snapshot_modality: exercise.snapshot_modality,
                     snapshot_movement_pattern: exercise.snapshot_movement_pattern,
-                    snapshot_entry_kind: exercise.snapshot_entry_kind,
+                    snapshot_performance_kind: exercise.snapshot_performance_kind,
                     snapshot_dose_class: exercise.snapshot_dose_class,
                     training_sets_attributes: exercise.training_sets.each_with_index.to_h do |set, set_index|
                       [
                         set_index.to_s,
                         {
                           id: set.id,
-                          entry_kind: set.entry_kind,
                           dose_class: set.dose_class,
                           reps: set.reps,
                           duration_seconds: set.duration_seconds,

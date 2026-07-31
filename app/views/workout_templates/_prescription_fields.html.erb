@@ -5,34 +5,104 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
+  <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-800/50" data-controller="performance-fields">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
-    <div class="flex flex-wrap justify-between gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm font-semibold">Prescription <%= form.object.position %></p>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <% if form.object.position > 1 %>
-          <%= form.button "Up", name: "move_prescription", value: "#{coordinate}:up", formnovalidate: true, class: { btn: [ :base, { xs: :base }, { neutral: :outline } ] } %>
+          <%= form.button "Move up", name: "move_prescription", value: "#{coordinate}:up", formnovalidate: true, class: { btn: [ :base, { xs: :base }, { neutral: :outline } ] } %>
         <% end %>
         <% if form.object.position < prescription_count %>
-          <%= form.button "Down", name: "move_prescription", value: "#{coordinate}:down", formnovalidate: true, class: { btn: [ :base, { xs: :base }, { neutral: :outline } ] } %>
+          <%= form.button "Move down", name: "move_prescription", value: "#{coordinate}:down", formnovalidate: true, class: { btn: [ :base, { xs: :base }, { neutral: :outline } ] } %>
         <% end %>
         <%= form.button "Remove", name: "remove_prescription", value: coordinate, formnovalidate: true, class: { btn: [ :base, { xs: :base }, { danger: :outline } ] } %>
       </div>
     </div>
-    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="sm:col-span-2"><%= form.label :exercise_id, "Catalog exercise", class: :label %><%= form.elements_autocomplete :exercise_id, exercise_options, {}, { placeholder: "Choose exercise", required: true } %></div>
-      <div><%= form.label :entry_kind, class: :label %><%= form.elements_select :entry_kind, entry_kinds.map { |value| [ value.humanize, value ] }, {} %></div>
-      <div><%= form.label :sets_count, "Sets / rounds", class: :label %><%= form.number_field :sets_count, min: 1, class: :text_field %></div>
-      <div><%= form.label :rep_min, "Min reps", class: :label %><%= form.number_field :rep_min, min: 1, class: :text_field %></div>
-      <div><%= form.label :rep_max, "Max reps", class: :label %><%= form.number_field :rep_max, min: 1, class: :text_field %></div>
-      <div><%= form.label :work_seconds, class: :label %><%= form.number_field :work_seconds, min: 1, class: :text_field %></div>
-      <div><%= form.label :rest_seconds, class: :label %><%= form.number_field :rest_seconds, min: 0, class: :text_field %></div>
-      <div><%= form.label :target_rpe, "Target RPE", class: :label %><%= form.number_field :target_rpe, min: 0, max: 10, step: 0.5, class: :text_field %></div>
-      <div><%= form.label :target_rir, "Target RIR", class: :label %><%= form.number_field :target_rir, min: 0, max: 10, step: 0.5, class: :text_field %></div>
-      <div><%= form.label :dose_class, "Dose override", class: :label %><%= form.elements_select :dose_class, dose_classes.map { |value| [ value.humanize, value ] }, { include_blank: "Use block default" } %></div>
-      <div class="sm:col-span-2"><%= form.label :load_guidance, class: :label %><%= form.text_field :load_guidance, class: :text_field %></div>
-      <div class="sm:col-span-2"><%= form.label :notes, class: :label %><%= form.text_field :notes, class: :text_field %></div>
+
+    <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="sm:col-span-2">
+        <%= form.label :exercise_id, "Catalog exercise", class: :label %>
+        <%= form.elements_autocomplete :exercise_id, exercise_options, {}, { placeholder: "Choose exercise", required: true } %>
+      </div>
+      <div>
+        <%= form.label :performance_kind, "Primary performance", class: :label %>
+        <%= form.elements_select :performance_kind, performance_kind_options, {}, { data: { performance_fields_target: "kind", action: "click->performance-fields#change change->performance-fields#change" } } %>
+      </div>
+      <div>
+        <%= form.label :sets_count, "Sets / rounds", class: :label %>
+        <%= form.number_field :sets_count, min: 1, class: :text_field %>
+      </div>
     </div>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-performance-fields-target="fields"></div>
+
+    <template data-performance-fields-target="template" data-kind="reps">
+      <div><%= form.label :rep_min, "Minimum reps", class: :label %><%= form.number_field :rep_min, min: 1, class: :text_field %></div>
+      <div><%= form.label :rep_max, "Maximum reps", class: :label %><%= form.number_field :rep_max, min: 1, class: :text_field %></div>
+    </template>
+    <template data-performance-fields-target="template" data-kind="duration">
+      <div><%= form.label :work_seconds, "Target duration (seconds)", class: :label %><%= form.number_field :work_seconds, min: 1, class: :text_field %></div>
+    </template>
+    <template data-performance-fields-target="template" data-kind="distance">
+      <div><%= form.label :target_distance_amount, "Target distance", class: :label %><%= form.number_field :target_distance_amount, min: 0, step: 0.01, class: :text_field %></div>
+    </template>
+    <template data-performance-fields-target="template" data-kind="count">
+      <div><%= form.label :target_count, "Target count", class: :label %><%= form.number_field :target_count, min: 1, class: :text_field %></div>
+    </template>
+    <template data-performance-fields-target="template" data-kind="interval">
+      <div><%= form.label :work_seconds, "Work (seconds)", class: :label %><%= form.number_field :work_seconds, min: 1, class: :text_field %></div>
+      <div><%= form.label :rest_seconds, "Recovery (seconds)", class: :label %><%= form.number_field :rest_seconds, min: 0, class: :text_field %></div>
+    </template>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration">
+        <%= form.label :target_distance_amount, "Optional distance", class: :label %>
+        <%= form.number_field :target_distance_amount, min: 0, step: 0.01, class: :text_field %>
+      </div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration">
+        <%= form.label :target_distance_unit, "Distance unit", class: :label %>
+        <%= form.elements_select :target_distance_unit, distance_unit_options, { include_blank: true } %>
+      </div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance">
+        <%= form.label :target_count, "Optional count", class: :label %>
+        <%= form.number_field :target_count, min: 1, class: :text_field %>
+      </div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count">
+        <%= form.label :target_count_unit, "Count unit", class: :label %>
+        <%= form.elements_select :target_count_unit, count_unit_options, { include_blank: true } %>
+      </div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="distance">
+        <%= form.label :target_distance_unit, "Distance unit", class: :label %>
+        <%= form.elements_select :target_distance_unit, distance_unit_options, { include_blank: true } %>
+      </div>
+    </div>
+
+    <details class="mt-4 rounded-lg border border-gray-200 p-4 dark:border-white/10">
+      <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">Optional cues and targets</summary>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps duration distance count">
+          <%= form.label :rest_seconds, "Rest between rows (seconds)", class: :label %>
+          <%= form.number_field :rest_seconds, min: 0, class: :text_field %>
+        </div>
+        <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps">
+          <%= form.label :tempo_cue, "Tempo / eccentric cue", class: :label %>
+          <%= form.text_field :tempo_cue, placeholder: "For example: 3 sec lowering", class: :text_field %>
+        </div>
+        <div><%= form.label :target_rpe, "Target RPE", class: :label %><%= form.number_field :target_rpe, min: 0, max: 10, step: 0.5, class: :text_field %></div>
+        <div><%= form.label :target_rir, "Target RIR", class: :label %><%= form.number_field :target_rir, min: 0, max: 10, step: 0.5, class: :text_field %></div>
+        <div><%= form.label :target_heart_rate_min, "Minimum heart rate", class: :label %><%= form.number_field :target_heart_rate_min, min: 1, class: :text_field %></div>
+        <div><%= form.label :target_heart_rate_max, "Maximum heart rate", class: :label %><%= form.number_field :target_heart_rate_max, min: 1, class: :text_field %></div>
+        <div><%= form.label :target_heart_rate_unit, "Heart-rate unit", class: :label %><%= form.elements_select :target_heart_rate_unit, heart_rate_unit_options, { include_blank: true } %></div>
+        <div><%= form.label :dose_class, "Dose override", class: :label %><%= form.elements_select :dose_class, dose_classes.map { |value| [ value.humanize, value ] }, { include_blank: "Use block default" } %></div>
+        <div class="sm:col-span-2"><%= form.label :load_guidance, "Load guidance", class: :label %><%= form.text_field :load_guidance, class: :text_field %></div>
+        <div class="sm:col-span-2"><%= form.label :notes, class: :label %><%= form.text_field :notes, class: :text_field %></div>
+        <div class="flex gap-3 sm:col-span-2">
+          <div class="flex h-6 shrink-0 items-center"><%= form.check_box :per_side, class: "size-4 rounded-sm border-gray-300 text-primary-600 focus:ring-primary-600 dark:border-white/10 dark:bg-white/5" %></div>
+          <div class="text-sm/6"><%= form.label :per_side, "Perform on each side", class: "font-medium text-gray-900 dark:text-white" %><p class="text-gray-500 dark:text-gray-400">One entered value applies independently to each arm or leg.</p></div>
+        </div>
+      </div>
+    </details>
   </div>
 <% end %>
