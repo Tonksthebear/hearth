@@ -13,4 +13,15 @@ class ActivityOverviewTest < ActiveSupport::TestCase
       assert overview.sections.all? { |section| section.records.frozen? }
     end
   end
+
+  test "fully materialized query count is bounded" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      assert_queries_count(21) do
+        ActivityOverview.current(household: households(:home), person: people(:one))
+          .sections
+          .flat_map(&:records)
+          .each { |item| [ item.title, item.record ] }
+      end
+    end
+  end
 end
