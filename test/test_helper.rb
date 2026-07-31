@@ -14,6 +14,16 @@ module ActiveSupport
 
     private
       def clear_installation
+        Agent::AuditEvent.delete_all
+        Agent::PermissionDecision.delete_all
+        Agent::PermissionRequest.delete_all
+        Agent::ToolActivity.delete_all
+        Agent::Message.delete_all
+        Agent::Grant.delete_all
+        Agent::Session.delete_all
+        Agent::Conversation.delete_all
+        Agent::Installation.delete_all
+        Agent::Profile.delete_all
         Session.delete_all
         User.delete_all
         MealLog.delete_all

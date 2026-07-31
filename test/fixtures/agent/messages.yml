@@ -1,0 +1,9 @@
+prompt:
+  household: home
+  person: two
+  conversation: active
+  agent_session: connected
+  external_id: message-opaque-1
+  role: user
+  body: Help me plan this week.
+  body_digest: 40e9b426c215d361e871c90d30d4fce255dea91bedb50e0f740e96d3cb9774b3

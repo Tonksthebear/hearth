@@ -1,0 +1,9 @@
+hearth:
+  household: home
+  name: Test ACP agent
+  executable_path: test-agent
+  arguments: []
+  update_policy: manual
+  environment_keys:
+    - TEST_AGENT_HOME
+  enabled: true

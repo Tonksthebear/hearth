@@ -1,0 +1,163 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "optparse"
+require "pathname"
+
+options = {
+  authentication_method: nil,
+  conversation_id: nil,
+  evidence: nil,
+  hold: 0,
+  hold_until: nil,
+  once: false,
+  prompt: nil,
+  root: Dir.pwd,
+  session_id: nil
+}
+
+parser = OptionParser.new do |arguments|
+  arguments.banner = "Usage: bin/hearth-acp-runtime [options]"
+  arguments.on("--root PATH", "Previously initialized Hearth instance root") { |value| options[:root] = value }
+  arguments.on("--conversation ID", Integer, "Create an ACP session for this persisted conversation") { |value| options[:conversation_id] = value }
+  arguments.on("--session ID", Integer, "Recover this persisted Agent::Session") { |value| options[:session_id] = value }
+  arguments.on("--auth-method ID", "Advertised ACP authentication method") { |value| options[:authentication_method] = value }
+  arguments.on("--prompt TEXT", "Send one text prompt after start or recovery") { |value| options[:prompt] = value }
+  arguments.on("--hold SECONDS", Float, "Keep the child alive before prompting (boundary proof)") { |value| options[:hold] = value }
+  arguments.on("--hold-until PATH", "Wait for this release file before prompting (boundary proof)") { |value| options[:hold_until] = value }
+  arguments.on("--evidence PATH", "Append one sanitized ACP-only runtime JSONL row") { |value| options[:evidence] = value }
+  arguments.on("--once", "Perform due recovery or the selected operation, then stop") { options[:once] = true }
+end
+parser.parse!(ARGV)
+abort parser.to_s unless ARGV.empty?
+abort "Choose either --conversation or --session, not both" if
+  options.values_at(:conversation_id, :session_id).compact.length > 1
+
+instance_root = Pathname.new(options[:root]).expand_path
+instance_marker = instance_root.join(".hearth/instance.yml")
+abort "Hearth instance is not initialized at #{instance_root}; expected #{instance_marker}. No files were written." unless instance_marker.file?
+
+ENV["RAILS_ENV"] ||= "production"
+if ENV["RAILS_ENV"] == "production"
+  storage = instance_root.join(".hearth/storage")
+  {
+    "DATABASE_URL" => "production.sqlite3",
+    "CACHE_DATABASE_URL" => "production_cache.sqlite3",
+    "QUEUE_DATABASE_URL" => "production_queue.sqlite3",
+    "CABLE_DATABASE_URL" => "production_cable.sqlite3"
+  }.each do |name, filename|
+    ENV[name] ||= "sqlite3:#{storage.join(filename)}"
+  end
+end
+
+require_relative "../config/environment"
+
+stop_requested = false
+fatal_error = nil
+%w[ INT TERM ].each { |signal| Signal.trap(signal) { stop_requested = true } }
+
+supervisor = Acp::Supervisor.new(
+  instance_root: instance_root,
+  on_fatal: ->(_agent_session, error) {
+    fatal_error ||= error
+    stop_requested = true
+  }
+).start!
+
+agent_session = nil
+operation = "recover_due"
+operation_error = nil
+begin
+  if options[:conversation_id]
+    conversation = Agent::Conversation.find(options[:conversation_id])
+    agent_session = supervisor.start_session(
+      conversation: conversation,
+      authentication_method: options[:authentication_method]
+    )
+    operation = "new"
+  elsif options[:session_id]
+    agent_session = supervisor.recover_session(
+      Agent::Session.find(options[:session_id]),
+      authentication_method: options[:authentication_method]
+    )
+    operation = "recover"
+  else
+    supervisor.tick
+  end
+
+  sleep(options[:hold]) if options[:hold].positive?
+  while options[:hold_until] && !File.exist?(options[:hold_until]) && !stop_requested
+    sleep 0.05
+  end
+  turn = if options[:prompt] && agent_session&.status == "connected"
+    supervisor.prompt(agent_session, [ { type: "text", text: options[:prompt] } ])
+  end
+  operation_error = agent_session&.recovery_error unless agent_session&.status.in?([ nil, "connected" ])
+
+  if options[:evidence]
+    connection = supervisor.connection_for(agent_session) if agent_session&.status == "connected"
+    updates = connection ? connection.drain_events : []
+    storage = instance_root.join(".hearth/storage").expand_path
+    database_targets = if Rails.env.production?
+      ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).to_h do |configuration|
+        database = Pathname.new(configuration.database).expand_path
+        relative = if database.to_s.start_with?("#{storage}#{File::SEPARATOR}")
+          database.relative_path_from(storage).to_s
+        else
+          "[outside-instance]"
+        end
+        [ configuration.name, relative ]
+      end
+    end
+    evidence = {
+      evidence_schema: "hearth_acp_runtime/v1",
+      observed_at: Time.current.iso8601,
+      outcome: fatal_error || operation_error ? "failed" : "observed",
+      operation: operation,
+      protocol_version: agent_session&.installation&.protocol_version,
+      agent: agent_session && {
+        name: File.basename(agent_session.installation.external_id),
+        version: agent_session.installation.agent_version
+      },
+      capabilities: agent_session && {
+        load_session: !!agent_session.advertised_capabilities["loadSession"],
+        session: %w[ list resume close ].select do |name|
+          agent_session.advertised_capabilities.dig("sessionCapabilities", name)
+        end
+      },
+      session_persisted: agent_session&.persisted? || false,
+      stop_reason: turn&.fetch("stopReason", nil),
+      update_types: updates.filter_map { |entry| entry.dig("params", "update", "sessionUpdate") }.uniq,
+      update_count: updates.length + (connection&.dropped_event_count || 0),
+      retained_update_count: updates.length,
+      dropped_update_count: connection&.dropped_event_count || 0,
+      lifecycle: {
+        list_observed: supervisor.session_list_observations.key?(agent_session&.id),
+        recovery_method: supervisor.recovery_methods[agent_session&.id],
+        transport_status: agent_session&.status,
+        mcp_authorization_status: agent_session&.mcp_authorization_status,
+        recovery_error: agent_session&.recovery_error
+      },
+      database_targets: database_targets,
+      mcp_servers: [],
+      proof_scope: "ACP-only",
+      supervisor_pid: Process.pid,
+      agent_pid: connection&.pid,
+      stderr_present: connection ? connection.stderr.present? : false
+    }
+    File.open(options[:evidence], "a", 0o600) { |file| file.puts(JSON.generate(evidence)) }
+    puts JSON.generate(evidence)
+  end
+
+  unless options[:once]
+    until stop_requested
+      supervisor.tick
+      sleep 0.1
+    end
+  end
+ensure
+  supervisor.shutdown!
+end
+
+abort "ACP runtime stopped after recovery exhaustion: #{fatal_error.message}" if fatal_error
+abort "ACP runtime operation failed: #{operation_error}" if options[:once] && operation_error
