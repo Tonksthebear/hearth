@@ -2,9 +2,19 @@ require "test_helper"
 
 module SeleniumPointerActions
   def click(keys = [], **options)
-    # An explicit zero delay selects Capybara's W3C pointer-actions path instead of Chrome's lossy element-click endpoint.
-    options = { delay: 0 } if keys.empty? && options.empty?
-    super(keys, **options)
+    return super unless keys.empty? && options.empty?
+    return super if native.tag_name == "option"
+
+    # Encode the physical click explicitly: Selenium's element-click endpoint and
+    # action.click(target) convenience have both returned without emitting events.
+    browser = driver.browser
+    browser.action
+      .move_to(native)
+      .pointer_down(:left)
+      .pointer_up(:left)
+      .perform
+  ensure
+    browser&.action&.release_actions
   end
 end
 
