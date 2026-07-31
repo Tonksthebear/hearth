@@ -141,11 +141,10 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         zone2.exercise_prescriptions.build(
           exercise: walk,
           position: 1,
-          performance_kind: "interval",
+          performance_kind: "duration",
           dose_class: "zone2",
           sets_count: 1,
-          work_seconds: 1_800,
-          rest_seconds: 0
+          work_seconds: 1_800
         )
       end
       workout.save!
@@ -159,8 +158,8 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
       session.training_session_blocks.each do |block|
         block.training_session_exercises.each do |session_exercise|
           session_exercise.training_sets.each do |set|
-            if session_exercise.snapshot_performance_kind_interval?
-              set.update!(completed: true, duration_seconds: 1_800, rest_seconds: 0)
+            if session_exercise.snapshot_performance_kind_duration?
+              set.update!(completed: true, duration_seconds: 1_800)
             else
               set.update!(completed: true, reps: 8, load_amount: 20, load_unit: "kg", rpe: 7)
             end

@@ -1,4 +1,5 @@
 <% coordinate = "#{block_index}:#{form.index}" %>
+<% performance_kind = form.object.snapshot_performance_kind %>
 <% if form.object.marked_for_destruction? %>
   <div hidden>
     <%= form.hidden_field :id if form.object.persisted? %>
@@ -31,29 +32,31 @@
       <div><%= form.label :snapshot_rep_max, "Maximum reps", class: :label %><%= form.number_field :snapshot_rep_max, min: 1, class: :text_field %></div>
     </template>
     <template data-performance-fields-target="template" data-kind="duration">
-      <div><%= form.label :snapshot_work_seconds, "Target duration (seconds)", class: :label %><%= form.number_field :snapshot_work_seconds, min: 1, class: :text_field %></div>
     </template>
     <template data-performance-fields-target="template" data-kind="distance">
-      <div><%= form.label :snapshot_target_distance_amount, "Target distance", class: :label %><%= form.number_field :snapshot_target_distance_amount, min: 0, step: 0.01, class: :text_field %></div>
     </template>
     <template data-performance-fields-target="template" data-kind="count">
-      <div><%= form.label :snapshot_target_count, "Target count", class: :label %><%= form.number_field :snapshot_target_count, min: 1, class: :text_field %></div>
     </template>
     <template data-performance-fields-target="template" data-kind="interval">
-      <div><%= form.label :snapshot_work_seconds, "Work (seconds)", class: :label %><%= form.number_field :snapshot_work_seconds, min: 1, class: :text_field %></div>
-      <div><%= form.label :snapshot_rest_seconds, "Recovery (seconds)", class: :label %><%= form.number_field :snapshot_rest_seconds, min: 0, class: :text_field %></div>
     </template>
 
     <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="distance"><%= form.label :snapshot_target_distance_unit, "Distance unit", class: :label %><%= form.elements_select :snapshot_target_distance_unit, distance_unit_options, { include_blank: true } %></div>
-      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="count"><%= form.label :snapshot_target_count_unit, "Count unit", class: :label %><%= form.elements_select :snapshot_target_count_unit, count_unit_options, { include_blank: true } %></div>
+      <% work_active = %w[duration distance count interval].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count interval"<%= " data-hidden" unless work_active %>><%= form.label :snapshot_work_seconds, "Work duration (seconds)", class: :label %><%= form.number_field :snapshot_work_seconds, min: 1, class: :text_field, disabled: !work_active %></div>
+      <% distance_active = %w[duration distance].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance"<%= " data-hidden" unless distance_active %>><%= form.label :snapshot_target_distance_amount, "Distance", class: :label %><%= form.number_field :snapshot_target_distance_amount, min: 0, step: 0.01, class: :text_field, disabled: !distance_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance"<%= " data-hidden" unless distance_active %>><%= form.label :snapshot_target_distance_unit, "Distance unit", class: :label %><%= form.elements_select :snapshot_target_distance_unit, distance_unit_options, { include_blank: true }, { disabled: !distance_active } %></div>
+      <% count_active = %w[duration distance count].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count"<%= " data-hidden" unless count_active %>><%= form.label :snapshot_target_count, "Count", class: :label %><%= form.number_field :snapshot_target_count, min: 1, class: :text_field, disabled: !count_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count"<%= " data-hidden" unless count_active %>><%= form.label :snapshot_target_count_unit, "Count unit", class: :label %><%= form.elements_select :snapshot_target_count_unit, count_unit_options, { include_blank: true }, { disabled: !count_active } %></div>
+      <div><%= form.label :snapshot_rest_seconds, "Recovery / rest (seconds)", class: :label %><%= form.number_field :snapshot_rest_seconds, min: 0, class: :text_field %></div>
     </div>
 
     <details class="mt-4 rounded-lg border border-gray-200 p-4 dark:border-white/10">
       <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">Prescription cues and targets</summary>
       <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps duration distance count"><%= form.label :snapshot_rest_seconds, "Rest between rows (seconds)", class: :label %><%= form.number_field :snapshot_rest_seconds, min: 0, class: :text_field %></div>
-        <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps"><%= form.label :snapshot_tempo_cue, "Tempo / eccentric cue", class: :label %><%= form.text_field :snapshot_tempo_cue, class: :text_field %></div>
+        <% tempo_active = performance_kind == "reps" %>
+        <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps"<%= " data-hidden" unless tempo_active %>><%= form.label :snapshot_tempo_cue, "Tempo / eccentric cue", class: :label %><%= form.text_field :snapshot_tempo_cue, class: :text_field, disabled: !tempo_active %></div>
         <div><%= form.label :snapshot_target_rpe, "Target RPE", class: :label %><%= form.number_field :snapshot_target_rpe, min: 0, max: 10, step: 0.5, class: :text_field %></div>
         <div><%= form.label :snapshot_target_rir, "Target RIR", class: :label %><%= form.number_field :snapshot_target_rir, min: 0, max: 10, step: 0.5, class: :text_field %></div>
         <div><%= form.label :snapshot_target_heart_rate_min, "Minimum heart rate", class: :label %><%= form.number_field :snapshot_target_heart_rate_min, min: 1, class: :text_field %></div>

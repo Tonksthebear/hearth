@@ -78,7 +78,7 @@ class TrainingSession < ApplicationRecord
               session_exercise.training_sets.build(
                 position: index + 1,
                 dose_class: prescription.effective_dose_class,
-                duration_seconds: %w[duration interval].include?(prescription.performance_kind) ? prescription.work_seconds : nil,
+                duration_seconds: %w[duration distance count interval].include?(prescription.performance_kind) ? prescription.work_seconds : nil,
                 rest_seconds: prescription.performance_kind_interval? ? prescription.rest_seconds : nil
               )
             end

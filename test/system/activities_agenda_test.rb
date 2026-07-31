@@ -78,11 +78,4 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       assert_no_text training_sessions(:in_progress).snapshot_title
     end
   end
-
-  private
-    def ensure_person_via_browser(person)
-      return if find_button("Open person menu").has_text?(person.name)
-
-      switch_person_via_browser person
-    end
 end

@@ -6,6 +6,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
   test "requires confirmation before deleting an in-progress workout" do
     training_session = training_sessions(:in_progress)
     sign_in_via_browser users(:one)
+    ensure_person_via_browser people(:one)
     visit_and_wait_for_path training_session_path(training_session)
 
     dismiss_confirm("Delete this in-progress workout?") { click_button "Delete in-progress workout" }
@@ -20,6 +21,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
   test "starts a template snapshot records actual rows completes and updates progress" do
     travel_to WEEK_START do
       sign_in_via_browser users(:one)
+      ensure_person_via_browser people(:one)
       click_link_and_wait_for_path "Activities", activity_week_path
       within "section[aria-labelledby='schedule-workout-heading']" do
         select_and_wait workout_templates(:balanced).title, from: "Workout template"
@@ -67,6 +69,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
     travel_to WEEK_START do
       exercise_count = Exercise.count
       sign_in_via_browser users(:one)
+      ensure_person_via_browser people(:one)
       click_link_and_wait_for_path "Activities", activity_week_path
       click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
       click_link_and_wait_for_path "Log ad hoc workout", new_training_session_path
@@ -84,6 +87,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       set_and_wait all("input[name*='training_sets_attributes'][name$='[reps]']").first, "12"
       exercise_performance_kind = all("el-select[name*='training_session_exercises_attributes'][name$='[snapshot_performance_kind]']").first
       choose_elements_option exercise_performance_kind, "Duration"
+      set_and_wait all("input[name*='training_session_exercises_attributes'][name$='[snapshot_work_seconds]']").first, "1800"
       select_and_wait "Zone2", from: "Default dose"
       select_and_wait "Zone2", from: all("el-select[name*='training_sets_attributes'][name$='[dose_class]']").first[:id]
       set_and_wait all("input[name*='training_sets_attributes'][name$='[duration_seconds]']").first, "1800"
@@ -128,6 +132,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       people(:one).update!(weekly_structured_minutes_target: 123)
       people(:two).update!(weekly_structured_minutes_target: 45)
       sign_in_via_browser users(:one)
+      ensure_person_via_browser people(:one)
 
       click_link_and_wait_for_path "Activities", activity_week_path
       click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
@@ -147,6 +152,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
 
   test "records catalog interval rounds with separate work and recovery" do
     sign_in_via_browser users(:one)
+    ensure_person_via_browser people(:one)
 
     [ [ 8, 20, 20 ], [ 8, 60, 60 ], [ 4, 240, 180 ] ].each do |rounds, work_seconds, rest_seconds|
       template = interval_template(rounds:, work_seconds:, rest_seconds:)

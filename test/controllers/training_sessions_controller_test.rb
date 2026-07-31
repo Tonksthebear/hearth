@@ -106,6 +106,11 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "el-select[name$='[load_unit]']"
     assert_select "el-select[name$='[distance_unit]']"
     assert_select "el-select[name$='[count_unit]']"
+    assert_select "[data-kinds='duration distance count interval'][data-hidden] input[name$='[snapshot_work_seconds]'][disabled]", count: 1
+    assert_select "[data-kinds='duration distance count interval'][data-hidden] input[name$='[duration_seconds]'][disabled]", count: 1
+
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_empty ids.tally.select { |_id, count| count > 1 }
   end
 
   test "Turbo structural actions replace the complete in-progress form without persisting" do
@@ -120,6 +125,16 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "turbo-stream[action='replace'][target='training_session_form']"
     assert_select "input[name*='training_sets_attributes'][name$='[reps]']", count: 2
+  end
+
+  test "edit renders unique ids across live controls and inert templates" do
+    sign_in_as users(:one)
+
+    get edit_training_session_path(training_sessions(:in_progress))
+
+    assert_response :success
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_empty ids.tally.select { |_id, count| count > 1 }
   end
 
   test "completes a saved in-progress workout and then makes it read only" do
@@ -163,7 +178,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
       position: 2,
       snapshot_title: "Second block",
       snapshot_block_kind: :other,
-      snapshot_dose_class: :none
+      snapshot_dose_class: :none,
     )
     second_exercise = second_block.training_session_exercises.create!(
       position: 1,
@@ -171,7 +186,9 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
       snapshot_modality: :cardio,
       snapshot_movement_pattern: :locomotion_cardio,
       snapshot_performance_kind: :interval,
-      snapshot_dose_class: :none
+      snapshot_dose_class: :none,
+      snapshot_work_seconds: 600,
+      snapshot_rest_seconds: 0
     )
     second_exercise.training_sets.create!(position: 1, dose_class: :none)
     params = persisted_session_params(session.reload)

@@ -46,6 +46,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
     exercise.snapshot_name = "Outdoor walk"
     exercise.snapshot_modality = :cardio
     exercise.snapshot_movement_pattern = :locomotion_cardio
+    exercise.snapshot_rep_min = 1
 
     assert_no_difference "Exercise.count" do
       assert session.save
@@ -57,6 +58,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
     session = TrainingSession.build_ad_hoc(person: people(:one))
     exercise = session.training_session_blocks.first.training_session_exercises.first
     exercise.exercise = exercises(:bike)
+    exercise.snapshot_rep_min = 1
 
     assert session.valid?
     assert_equal "Stationary bike", exercise.snapshot_name
@@ -83,6 +85,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
     session = TrainingSession.build_ad_hoc(person: people(:one))
     performed_exercise = session.training_session_blocks.first.training_session_exercises.first
     performed_exercise.exercise = catalog_exercise
+    performed_exercise.snapshot_rep_min = 1
     session.save!
 
     catalog_exercise.destroy!
@@ -90,6 +93,39 @@ class TrainingSessionTest < ActiveSupport::TestCase
     assert_nil performed_exercise.reload.exercise_id
     assert_equal "Temporary walk", performed_exercise.snapshot_name
     assert_equal "cardio", performed_exercise.snapshot_modality
+  end
+
+  test "starting a template prefills secondary duration for distance and count work" do
+    template = households(:home).workout_templates.create!(title: "Measured work", provenance_status: :personal)
+    block = template.workout_blocks.create!(
+      position: 1,
+      title: "Conditioning",
+      block_kind: :zone2,
+      dose_class: :zone2,
+      planned_duration_minutes: 20
+    )
+    block.exercise_prescriptions.create!(
+      exercise: exercises(:bike),
+      position: 1,
+      performance_kind: :distance,
+      sets_count: 1,
+      work_seconds: 600,
+      target_distance_amount: 5,
+      target_distance_unit: :km
+    )
+    block.exercise_prescriptions.create!(
+      exercise: exercises(:squat),
+      position: 2,
+      performance_kind: :count,
+      sets_count: 1,
+      work_seconds: 300,
+      target_count: 40,
+      target_count_unit: :steps
+    )
+
+    session = TrainingSession.start_from(template: template, person: people(:one))
+
+    assert_equal [ 600, 300 ], session.training_session_blocks.first.training_session_exercises.map { |exercise| exercise.training_sets.sole.duration_seconds }
   end
 
   test "completion requires actual block duration and complete structured performance" do
@@ -118,7 +154,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
   test "completion rejects classified time beyond the containing block" do
     session = training_sessions(:in_progress)
     exercise = session.training_session_blocks.first.training_session_exercises.first
-    exercise.update!(snapshot_performance_kind: :duration)
+    exercise.update!(snapshot_performance_kind: :duration, snapshot_work_seconds: 901)
     set = exercise.training_sets.first
     set.update!(completed: true, duration_seconds: 901, dose_class: :vigorous)
 

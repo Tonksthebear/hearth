@@ -33,10 +33,6 @@ class TrainingSet < ApplicationRecord
   validate :heart_rate_is_ordered
   validate :completed_row_has_required_measurement
 
-  def performance_measurement?
-    required_measurement_present?
-  end
-
   def performance_summary
     primary = case training_session_exercise.snapshot_performance_kind
     when "reps" then "#{reps} reps"

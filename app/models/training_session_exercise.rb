@@ -1,4 +1,6 @@
 class TrainingSessionExercise < ApplicationRecord
+  include TargetMeasurements
+
   DIFFICULTIES = %w[too_easy about_right too_hard].freeze
 
   belongs_to :training_session_block
@@ -20,13 +22,43 @@ class TrainingSessionExercise < ApplicationRecord
 
   validates :snapshot_name, presence: true
   validates :position, numericality: { only_integer: true, greater_than: 0 }
+  validates :snapshot_sets_count,
+    numericality: { only_integer: true, greater_than: 0 },
+    allow_nil: true
+  validates :snapshot_rep_min, :snapshot_rep_max, :snapshot_work_seconds, :snapshot_target_count,
+    numericality: { only_integer: true, greater_than: 0 },
+    allow_nil: true
+  validates :snapshot_rest_seconds,
+    numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+    allow_nil: true
+  validates :snapshot_target_distance_amount,
+    numericality: { greater_than: 0 },
+    allow_nil: true
+  validates :snapshot_target_rpe, :snapshot_target_rir, inclusion: { in: 0..10 }, allow_nil: true
+  validates :snapshot_target_heart_rate_min, :snapshot_target_heart_rate_max,
+    numericality: { only_integer: true, greater_than: 0 },
+    allow_nil: true
+  validates_target_measurements(
+    performance_kind: :snapshot_performance_kind,
+    rep_min: :snapshot_rep_min,
+    rep_max: :snapshot_rep_max,
+    work_seconds: :snapshot_work_seconds,
+    rest_seconds: :snapshot_rest_seconds,
+    distance_amount: :snapshot_target_distance_amount,
+    distance_unit: :snapshot_target_distance_unit,
+    count: :snapshot_target_count,
+    count_unit: :snapshot_target_count_unit,
+    heart_rate_min: :snapshot_target_heart_rate_min,
+    heart_rate_max: :snapshot_target_heart_rate_max,
+    heart_rate_unit: :snapshot_target_heart_rate_unit
+  )
   validate :exercise_belongs_to_household
 
   def add_set
     training_sets.build(
       position: active_sets.size + 1,
       dose_class: snapshot_dose_class,
-      duration_seconds: %w[duration interval].include?(snapshot_performance_kind) ? snapshot_work_seconds : nil,
+      duration_seconds: %w[duration distance count interval].include?(snapshot_performance_kind) ? snapshot_work_seconds : nil,
       rest_seconds: snapshot_performance_kind == "interval" ? snapshot_rest_seconds : nil
     )
     normalize_positions
@@ -76,7 +108,9 @@ class TrainingSessionExercise < ApplicationRecord
     when "count" then "#{snapshot_target_count} #{snapshot_target_count_unit}"
     when "interval" then "#{snapshot_work_seconds} sec work / #{snapshot_rest_seconds} sec recovery"
     end
-    "#{snapshot_sets_count || active_sets.size} #{snapshot_performance_kind == "interval" ? "rounds" : "rows"} · #{primary}"
+    count = snapshot_sets_count || active_sets.size
+    row_name = snapshot_performance_kind == "interval" ? "round" : "row"
+    "#{count} #{row_name.pluralize(count)} · #{primary}"
   end
 
   def feedback_summary

@@ -1,4 +1,6 @@
 class ExercisePrescription < ApplicationRecord
+  include TargetMeasurements
+
   PERFORMANCE_KINDS = %w[reps duration distance count interval].freeze
   DISTANCE_UNITS = TrainingSet::DISTANCE_UNITS
   COUNT_UNITS = TrainingSet::COUNT_UNITS
@@ -31,11 +33,20 @@ class ExercisePrescription < ApplicationRecord
   validates :target_heart_rate_min, :target_heart_rate_max,
     numericality: { only_integer: true, greater_than: 0 },
     allow_nil: true
-  validate :rep_range_is_ordered
-  validate :primary_target_matches_performance_kind
-  validate :target_distance_unit_matches_amount
-  validate :target_count_unit_matches_count
-  validate :heart_rate_target_is_complete_and_ordered
+  validates_target_measurements(
+    performance_kind: :performance_kind,
+    rep_min: :rep_min,
+    rep_max: :rep_max,
+    work_seconds: :work_seconds,
+    rest_seconds: :rest_seconds,
+    distance_amount: :target_distance_amount,
+    distance_unit: :target_distance_unit,
+    count: :target_count,
+    count_unit: :target_count_unit,
+    heart_rate_min: :target_heart_rate_min,
+    heart_rate_max: :target_heart_rate_max,
+    heart_rate_unit: :target_heart_rate_unit
+  )
   validate :exercise_belongs_to_household
 
   def effective_dose_class
@@ -50,7 +61,8 @@ class ExercisePrescription < ApplicationRecord
     when "count" then "#{target_count} #{target_count_unit}"
     when "interval" then "#{work_seconds} sec work / #{rest_seconds} sec recovery"
     end
-    "#{sets_count} #{performance_kind == "interval" ? "rounds" : "rows"} · #{primary}"
+    row_name = performance_kind == "interval" ? "round" : "row"
+    "#{sets_count} #{row_name.pluralize(sets_count)} · #{primary}"
   end
 
   def cue_summary
@@ -72,45 +84,6 @@ class ExercisePrescription < ApplicationRecord
   end
 
   private
-    def rep_range_is_ordered
-      errors.add(:rep_max, "must be at least the minimum reps") if rep_min && rep_max && rep_max < rep_min
-    end
-
-    def primary_target_matches_performance_kind
-      case performance_kind
-      when "reps"
-        errors.add(:base, "Specify a rep target.") if rep_min.blank? && rep_max.blank?
-      when "duration"
-        errors.add(:work_seconds, "is required for duration work") if work_seconds.blank?
-      when "distance"
-        errors.add(:target_distance_amount, "is required for distance work") if target_distance_amount.blank?
-      when "count"
-        errors.add(:target_count, "is required for count work") if target_count.blank?
-      when "interval"
-        errors.add(:work_seconds, "is required for intervals") if work_seconds.blank?
-        errors.add(:rest_seconds, "is required for intervals") if rest_seconds.blank?
-      end
-    end
-
-    def target_distance_unit_matches_amount
-      return if target_distance_amount.present? == target_distance_unit.present?
-      errors.add(:target_distance_unit, "must be provided with target distance")
-    end
-
-    def target_count_unit_matches_count
-      return if target_count.present? == target_count_unit.present?
-      errors.add(:target_count_unit, "must be provided with target count")
-    end
-
-    def heart_rate_target_is_complete_and_ordered
-      values_present = target_heart_rate_min.present? || target_heart_rate_max.present?
-      errors.add(:target_heart_rate_unit, "must be provided with a heart-rate target") if values_present && target_heart_rate_unit.blank?
-      errors.add(:target_heart_rate_unit, "requires a heart-rate target") if target_heart_rate_unit.present? && !values_present
-      if target_heart_rate_min && target_heart_rate_max && target_heart_rate_max < target_heart_rate_min
-        errors.add(:target_heart_rate_max, "must be at least the minimum heart rate")
-      end
-    end
-
     def exercise_belongs_to_household
       return unless exercise && workout_block&.workout_template
       return if exercise.household_id == workout_block.workout_template.household_id

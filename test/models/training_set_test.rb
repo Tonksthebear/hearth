@@ -12,7 +12,7 @@ class TrainingSetTest < ActiveSupport::TestCase
     set.reps = 8
     assert_predicate set, :valid?
 
-    exercise.update!(snapshot_performance_kind: :count)
+    exercise.update!(snapshot_performance_kind: :count, snapshot_target_count: 12, snapshot_target_count_unit: :steps)
     set.training_session_exercise = exercise
     set.assign_attributes(reps: nil, count: 12, count_unit: :steps)
     assert_predicate set, :valid?
@@ -20,7 +20,7 @@ class TrainingSetTest < ActiveSupport::TestCase
 
   test "interval completion requires work and recorded recovery" do
     exercise = training_session_exercises(:draft_exercise)
-    exercise.update!(snapshot_performance_kind: :interval)
+    exercise.update!(snapshot_performance_kind: :interval, snapshot_work_seconds: 20, snapshot_rest_seconds: 20)
     set = training_sets(:draft_set)
     set.assign_attributes(completed: true, duration_seconds: 20)
 

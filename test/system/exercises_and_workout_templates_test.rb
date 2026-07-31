@@ -48,9 +48,9 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     kind = prescription.find("el-select[name$='[performance_kind]']")
     choose_elements_option kind, "Duration"
     within prescription do
-      assert_field "Target duration (seconds)", wait: 5
+      assert_field "Work duration (seconds)", wait: 5
       assert_no_field "Minimum reps"
-      fill_in_and_wait_for_value "Target duration (seconds)", "45"
+      fill_in_and_wait_for_value "Work duration (seconds)", "45"
     end
 
     click_button_and_wait_for_count(
@@ -64,14 +64,14 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     assert inactive_distance_units.all?(&:disabled?)
     catalog_control = first_prescription.find("[data-elements-autocomplete]", visible: :all)
     within first_prescription do
-      assert_field "Target duration (seconds)", with: "45", wait: 5
+      assert_field "Work duration (seconds)", with: "45", wait: 5
       assert_selector "el-selectedcontent", text: "Duration"
       choose_elements_option find("el-select[name$='[performance_kind]']"), "Distance"
-      assert_field "Target distance", wait: 5
-      assert_no_field "Target duration (seconds)"
+      assert_field "Distance", wait: 5
+      assert_field "Work duration (seconds)", with: "45"
       choose_elements_option find("el-select[name$='[target_distance_unit]']"), "m"
       assert_equal "m", find("el-select[name$='[target_distance_unit]']").value
-      fill_in_and_wait_for_value "Target distance", "400"
+      fill_in_and_wait_for_value "Distance", "400"
     end
     choose_elements_option catalog_control, "Stationary bike"
 
@@ -81,7 +81,7 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     click_button_and_wait_for_text "Create Workout template", "Distance proof"
 
     prescription = WorkoutTemplate.find_by!(title: "Distance proof").workout_blocks.first.exercise_prescriptions.first
-    assert_nil prescription.work_seconds
+    assert_equal 45, prescription.work_seconds
     assert_equal 400, prescription.target_distance_amount
   end
 

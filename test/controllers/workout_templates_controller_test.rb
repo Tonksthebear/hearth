@@ -42,8 +42,13 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "el-select[name$='[performance_kind]'][value='reps']", count: 1
     assert_select "template[data-performance-fields-target='template']", count: 5
-    assert_select "el-select[name$='[target_distance_unit]']"
+    assert_select "el-select[name$='[target_distance_unit]'][disabled]", count: 1
     assert_select "el-select[name$='[target_count_unit]']"
+    assert_select "[data-kinds='duration distance count interval'][data-hidden] input[name$='[work_seconds]'][disabled]", count: 1
+    assert_select "[data-kinds='reps']:not([data-hidden]) input[name$='[tempo_cue]']:not([disabled])", count: 1
+
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_empty ids.tally.select { |_id, count| count > 1 }
   end
 
   test "an untouched required exercise renders the validation alert and blank choice" do
@@ -58,6 +63,16 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "#workout-template-errors", text: /exercise must exist/i
     assert_select "select[name$='[exercise_id]'] option[value='']", text: "Choose exercise"
+  end
+
+  test "edit renders unique ids across live controls and inert templates" do
+    sign_in_as users(:one)
+
+    get edit_workout_template_path(workout_templates(:balanced))
+
+    assert_response :success
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_empty ids.tally.select { |_id, count| count > 1 }
   end
 
   test "Turbo structural actions preserve the full three-level form without persistence" do

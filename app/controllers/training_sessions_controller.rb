@@ -134,7 +134,6 @@ class TrainingSessionsController < ApplicationController
             :snapshot_guidance,
             :snapshot_performance_kind,
             :snapshot_dose_class,
-            :snapshot_sets_count,
             :snapshot_rep_min,
             :snapshot_rep_max,
             :snapshot_work_seconds,

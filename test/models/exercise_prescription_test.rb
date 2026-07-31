@@ -50,4 +50,13 @@ class ExercisePrescriptionTest < ActiveSupport::TestCase
     assert_includes prescription.errors[:rest_seconds], "is required for intervals"
     assert_includes prescription.errors[:target_heart_rate_max], "must be at least the minimum heart rate"
   end
+
+  test "pluralizes single rows and rounds in target summaries" do
+    prescription = exercise_prescriptions(:squat_sets)
+    prescription.sets_count = 1
+    assert_match(/\A1 row ·/, prescription.target_summary)
+
+    prescription.assign_attributes(performance_kind: :interval, rep_min: nil, rep_max: nil, work_seconds: 20, rest_seconds: 20)
+    assert_match(/\A1 round ·/, prescription.target_summary)
+  end
 end
