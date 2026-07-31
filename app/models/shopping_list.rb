@@ -29,17 +29,17 @@ class ShoppingList
     end
 
     def aggregation_key(ingredient)
-      [ ingredient.name.squish.downcase, ingredient.unit.to_s.strip.presence ]
+      [ ingredient.ingredient_id, ingredient.unit.to_s.strip.presence ]
     end
 
     def aggregate(grouped)
-      numeric, faithful = grouped.partition { |ingredient| parse_amount(ingredient.amount) }
+      numeric, faithful = grouped.partition(&:quantity)
       entries = faithful.map { |ingredient| entry_for(ingredient) }
 
       if numeric.any?
-        total = numeric.sum { |ingredient| parse_amount(ingredient.amount) }
+        total = numeric.sum(&:quantity)
         entries << Entry.new(
-          name: numeric.first.name.squish,
+          name: numeric.first.display_name.squish,
           amount: format_amount(total),
           unit: numeric.first.unit.to_s.strip.presence
         )
@@ -50,25 +50,10 @@ class ShoppingList
 
     def entry_for(ingredient)
       Entry.new(
-        name: ingredient.name.squish,
-        amount: ingredient.amount.to_s.strip.presence,
+        name: ingredient.display_name.squish,
+        amount: ingredient.display_quantity.to_s.strip.presence,
         unit: ingredient.unit.to_s.strip.presence
       )
-    end
-
-    def parse_amount(amount)
-      value = amount.to_s.strip
-      return if value.blank?
-
-      if (match = value.match(/\A(\d+)\s+(\d+)\/(\d+)\z/))
-        Rational(match[1].to_i, 1) + Rational(match[2].to_i, match[3].to_i)
-      elsif value.match?(/\A\d+(?:\.\d+)?\z/)
-        value.to_r
-      elsif (match = value.match(/\A(\d+)\/(\d+)\z/))
-        Rational(match[1].to_i, match[2].to_i)
-      end
-    rescue ZeroDivisionError
-      nil
     end
 
     def format_amount(amount)

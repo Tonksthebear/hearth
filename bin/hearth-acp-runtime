@@ -139,8 +139,15 @@ begin
         recovery_error: agent_session&.recovery_error
       },
       database_targets: database_targets,
-      mcp_servers: [],
-      proof_scope: "ACP-only",
+      mcp_servers: (connection&.mcp_servers || []).map do |server|
+        {
+          name: server["name"],
+          transport: server["type"] || "stdio",
+          authenticated: server.key?("headers") || server.fetch("env", []).any? { |entry| entry["name"] == "HEARTH_MCP_BEARER" }
+        }
+      end,
+      mcp_tool_calls: agent_session ? Agent::ToolActivity.where(agent_session: agent_session).order(:id).pluck(:tool_name, :status).map { |name, status| { name: name, status: status } } : [],
+      proof_scope: "ACP runtime and sanitized MCP configuration",
       supervisor_pid: Process.pid,
       agent_pid: connection&.pid,
       stderr_present: connection ? connection.stderr.present? : false

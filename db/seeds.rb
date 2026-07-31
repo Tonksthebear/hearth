@@ -47,14 +47,14 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         provenance_status: "observed"
       )
       oats.recipe_ingredients_attributes = [
-        { position: 1, amount: "1", unit: "cup", name: "rolled oats" },
-        { position: 2, amount: "2", unit: "cups", name: "water" },
-        { position: 3, amount: "1", unit: nil, name: "apple", notes: "diced" },
-        { position: 4, amount: "1", unit: "tbsp", name: "chia seeds" }
+        { position: 1, display_quantity: "1", unit: "cup", display_name: "rolled oats", form_key: "oats" },
+        { position: 2, display_quantity: "2", unit: "cups", display_name: "water", form_key: "water" },
+        { position: 3, display_quantity: "1", unit: nil, display_name: "apple", notes: "diced", form_key: "apple" },
+        { position: 4, display_quantity: "1", unit: "tbsp", display_name: "chia seeds", form_key: "chia" }
       ] if oats.new_record?
       oats.recipe_instructions_attributes = [
-        { position: 1, body: "Simmer the oats and water until tender." },
-        { position: 2, body: "Fold in the apple, cinnamon, and chia seeds." }
+        { position: 1, body: "Simmer the oats and water until tender.", duration_amount: 10, duration_unit: "minutes", ingredient_reference_keys: %w[oats water] },
+        { position: 2, body: "Fold in the apple, cinnamon, and chia seeds.", ingredient_reference_keys: %w[apple chia] }
       ] if oats.new_record?
       oats.save!
 
@@ -66,14 +66,14 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         provenance_status: "observed"
       )
       bowl.recipe_ingredients_attributes = [
-        { position: 1, amount: "2", unit: "cups", name: "cooked brown rice" },
-        { position: 2, amount: "4", unit: "cups", name: "mixed vegetables" },
-        { position: 3, amount: "1", unit: "can", name: "chickpeas", notes: "drained" },
-        { position: 4, amount: "2", unit: "tbsp", name: "olive oil" }
+        { position: 1, display_quantity: "2", unit: "cups", display_name: "cooked brown rice", form_key: "rice" },
+        { position: 2, display_quantity: "4", unit: "cups", display_name: "mixed vegetables", form_key: "vegetables" },
+        { position: 3, display_quantity: "1", unit: "can", display_name: "chickpeas", notes: "drained", form_key: "chickpeas" },
+        { position: 4, display_quantity: "2", unit: "tbsp", display_name: "olive oil", form_key: "oil" }
       ] if bowl.new_record?
       bowl.recipe_instructions_attributes = [
-        { position: 1, body: "Roast the vegetables and chickpeas until browned." },
-        { position: 2, body: "Serve over rice and finish with olive oil." }
+        { position: 1, body: "Roast the vegetables and chickpeas until browned.", duration_amount: 25, duration_unit: "minutes", temperature_amount: 425, temperature_unit: "F", ingredient_reference_keys: %w[vegetables chickpeas] },
+        { position: 2, body: "Serve over rice and finish with olive oil.", ingredient_reference_keys: %w[rice oil] }
       ] if bowl.new_record?
       bowl.save!
 

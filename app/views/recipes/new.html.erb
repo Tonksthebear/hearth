@@ -4,5 +4,9 @@
 <section aria-labelledby="new-recipe-heading">
   <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
   <h1 id="new-recipe-heading" class="mt-2 text-3xl font-semibold tracking-tight">Add recipe</h1>
-  <%= render "form", recipe: @recipe, provenance_statuses: @provenance_statuses %>
+  <%= render "form",
+    recipe: @recipe,
+    provenance_statuses: @provenance_statuses,
+    ingredient_name_options: @ingredient_name_options,
+    ingredient_reference_options: @ingredient_reference_options %>
 </section>

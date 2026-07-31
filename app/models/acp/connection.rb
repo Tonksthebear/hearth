@@ -23,7 +23,7 @@ module Acp
     end
 
     PROTOCOL_VERSION = 1
-    DEFAULT_TIMEOUT = 15
+    DEFAULT_TIMEOUT = 60
     DEFAULT_MAX_LINE_BYTES = 4 * 1024 * 1024
     DEFAULT_QUEUE_SIZE = 128
     DEFAULT_QUEUE_TIMEOUT = 0.25
@@ -133,6 +133,15 @@ module Acp
       @session_id = valid_session_id!(result)
       result
     end
+
+    def configure_mcp_servers!(servers)
+      raise ConfigurationError, "MCP configuration is immutable after session selection" if @session_id
+
+      @mcp_servers = normalize_mcp_servers(servers)
+      self
+    end
+
+    def inspect = "#<#{self.class.name} pid=#{pid.inspect} [MCP CREDENTIALS REDACTED]>"
 
     def resume(session_id)
       require_capability!("resume")
