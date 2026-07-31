@@ -3,16 +3,18 @@ require "net/http"
 require "uri"
 
 module HearthMcp
-  class SpikeStdioProxy
-    DEFAULT_MAX_LINE_BYTES = 4 * 1024 * 1024
+  class StdioProxy
+    DEFAULT_MAX_LINE_BYTES = 256 * 1024
 
-    def initialize(url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"), input: $stdin, output: $stdout, max_line_bytes: DEFAULT_MAX_LINE_BYTES)
+    def initialize(url: ENV.fetch("HEARTH_MCP_URL"), bearer: ENV.fetch("HEARTH_MCP_BEARER"), input: $stdin, output: $stdout, max_line_bytes: DEFAULT_MAX_LINE_BYTES)
       @uri = URI(url)
-      raise ArgumentError, "spike proxy requires a loopback HTTP URL" unless @uri.is_a?(URI::HTTP) && loopback_host?
+      raise ArgumentError, "proxy requires a loopback HTTP URL" unless @uri.is_a?(URI::HTTP) && loopback_host?
+      raise ArgumentError, "proxy bearer is required" if bearer.empty?
 
+      @bearer = bearer
       @input = input
       @output = output
-      @max_line_bytes = max_line_bytes
+      @max_line_bytes = Integer(max_line_bytes)
     end
 
     def run
@@ -30,6 +32,8 @@ module HearthMcp
       relay(JSON.generate(message)).map { |payload| JSON.parse(payload) }
     end
 
+    def inspect = "#<#{self.class.name} [REDACTED]>"
+
     private
       def loopback_host?
         %w[127.0.0.1 ::1 localhost].include?(@uri.host)
@@ -38,6 +42,7 @@ module HearthMcp
       def relay(payload)
         request = Net::HTTP::Post.new(@uri)
         request["Accept"] = "application/json, text/event-stream"
+        request["Authorization"] = "Bearer #{@bearer}"
         request["Content-Type"] = "application/json"
         request.body = payload
 
@@ -50,7 +55,7 @@ module HearthMcp
         ) { |http| http.request(request) }
 
         return [] if response.code == "202"
-        raise "Hearth MCP returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+        raise "Hearth MCP request failed" unless response.is_a?(Net::HTTPSuccess)
 
         if response["content-type"]&.include?("text/event-stream")
           response.body.each_line.filter_map do |line|

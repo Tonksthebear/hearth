@@ -17,13 +17,14 @@ Hearth permits exactly one household. Demo data therefore consumes the installat
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
-The supervised ACP runtime and the still-local MCP conformance surface are documented in
+The supervised ACP runtime and authenticated read-only MCP catalog are documented in
 [docs/acp-supported-agent-contract.md](docs/acp-supported-agent-contract.md).
 `bin/hearth-acp-runtime` is the production-shaped, standalone ACP process host.
 It requires an already initialized directory containing `.hearth/instance.yml`,
-runs separately from Puma, and never injects the unauthenticated spike MCP
-endpoint. The loopback MCP route and stdio proxy remain conformance scaffolding,
-not a production product API.
+runs separately from Puma, and injects a short-lived server-issued `Agent::Grant`
+into the first ACP session request and every recovery. Rails serves the canonical
+stateless MCP endpoint at loopback-only `POST /mcp`; agents without ACP HTTP MCP
+support receive the thin `bin/hearth-mcp-proxy` stdio relay instead.
 
 The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
 not start the ACP runtime. Against an initialized installation, start or recover

@@ -128,7 +128,8 @@ loop do
     write.call(jsonrpc: "2.0", id: message["id"], result: {})
   when "session/new"
     expected_mcp_servers = message.dig("params", "mcpServers")
-    write.call(jsonrpc: "2.0", id: message["id"], result: { sessionId: session_id })
+    result = mode == "missing_session_id" ? {} : { sessionId: session_id }
+    write.call(jsonrpc: "2.0", id: message["id"], result: result)
   when "session/prompt"
     exit 12 if mode == "crash_prompt"
     sleep 60 if mode == "hang_prompt"

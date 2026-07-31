@@ -1,4 +1,5 @@
 class Agent::ToolActivity < ApplicationRecord
+  require "digest"
   include Agent::Contextual
   include Agent::Redactable
 
@@ -16,6 +17,32 @@ class Agent::ToolActivity < ApplicationRecord
   validates :input_digest, presence: true
   validates :output_tokens, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validate :authorization_context_is_active, on: :create
+
+  class << self
+    def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false)
+      input_json = JSON.generate(arguments || {})
+      output_json = JSON.generate(result)
+      now = Time.current
+      create!(
+        household: grant.household,
+        person: grant.person,
+        conversation: grant.conversation,
+        agent_session: grant.agent_session,
+        tool_name: tool_name,
+        capability: "health.read",
+        status: failed ? "failed" : "succeeded",
+        input_body: nil,
+        input_digest: Digest::SHA256.hexdigest(input_json),
+        output_body: nil,
+        output_digest: Digest::SHA256.hexdigest(output_json),
+        output_tokens: (output_json.bytesize / 4.0).ceil,
+        redacted_at: now,
+        redaction_reason: "MCP health data is digest-only",
+        started_at: now,
+        completed_at: now
+      )
+    end
+  end
 
   def start!
     transition_from!("pending", to: "running", started_at: Time.current)

@@ -19,7 +19,12 @@ class Agent::Session < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :agent_session
 
-  validates :external_session_id, presence: true, uniqueness: { scope: :installation_id }
+  validates :external_session_id,
+    presence: true,
+    unless: -> { status.in?(%w[ starting failed ]) }
+  validates :external_session_id,
+    uniqueness: { scope: :installation_id },
+    allow_nil: true
   validates :status, inclusion: { in: STATUSES }
   validates :authentication_status, inclusion: { in: Agent::Installation::AUTHENTICATION_STATUSES }
   validates :mcp_authorization_status, inclusion: { in: MCP_AUTHORIZATION_STATUSES }
@@ -31,8 +36,46 @@ class Agent::Session < ApplicationRecord
 
   scope :recoverable, -> {
     where(status: %w[ starting connected disconnected ])
+      .where.not(external_session_id: nil)
       .where("recovery_next_at IS NULL OR recovery_next_at <= ?", Time.current)
   }
+
+  def bind_external_session!(external_session_id)
+    raise ArgumentError, "ACP session id is required" if external_session_id.blank?
+    raise ActiveRecord::RecordInvalid, self if self.external_session_id.present?
+
+    update!(external_session_id: external_session_id)
+    self
+  end
+
+  def issue_runtime_grant!
+    Agent::Grant.issue_runtime!(agent_session: self)
+  end
+
+  def begin_recovery!
+    update!(status: "starting") if status == "disconnected"
+    self
+  end
+
+  def fail_initialization!(error)
+    transaction do
+      transition_from!(
+        %w[ starting ],
+        to: "failed",
+        disconnected_at: Time.current,
+        recovery_error: sanitized_recovery_error(error),
+        mcp_authorization_status: "reauthorization_required"
+      )
+      revoke_grants!("agent session initialization failed")
+      Agent::AuditEvent.record!(
+        subject: self,
+        event_type: "session.initialization_failed",
+        outcome: "failed",
+        metadata: { "reason" => recovery_error }
+      )
+    end
+    self
+  end
 
   def connect!(recovered: false)
     transition_from!(

@@ -53,6 +53,18 @@ class Agent::GrantTest < ActiveSupport::TestCase
     )
   end
 
+  test "runtime grant authenticates from its bearer without browser context" do
+    session = create_runtime_session
+    credential = session.issue_runtime_grant!
+
+    assert_nil credential.grant.browser_session_id
+    assert_nil credential.grant.issued_by_id
+    assert_equal credential.grant, Agent::Grant.authenticate(bearer: credential.bearer)
+    assert_nil Agent::Grant.authenticate(bearer: "#{credential.grant.token_locator}.wrong")
+    event = Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: credential.grant.id).sole
+    assert_equal "acp_runtime", event.metadata["source"]
+  end
+
   test "denies wrong secret expiry revocation and unknown capability" do
     credential = issue_grant
     args = {

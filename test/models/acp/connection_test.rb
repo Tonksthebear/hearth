@@ -39,13 +39,12 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     end
   end
 
-  test "defaults mcp servers to empty and never introduces the spike endpoint" do
+  test "defaults mcp servers to empty until the supervisor configures authorization" do
     with_connection do |connection|
       connection.initialize_connection
       connection.new_session
 
       assert_equal [], connection.mcp_servers
-      refute_match(/hearth-spike|hearth-mcp-spike-proxy/, connection.mcp_servers.to_json)
     end
   end
 
