@@ -1,0 +1,12 @@
+conversation_started:
+  household: home
+  person: two
+  conversation: active
+  agent_session: connected
+  actor: two
+  subject_type: Agent::Conversation
+  subject_id: <%= ActiveRecord::FixtureSet.identify(:active) %>
+  event_type: conversation.started
+  outcome: active
+  metadata:
+    source: test

@@ -1,0 +1,90 @@
+require "test_helper"
+
+class Agent::ContextTest < ActiveSupport::TestCase
+  test "conversation rejects person and profile from another household" do
+    other_household = Household.new(name: "Other")
+    other_person = other_household.people.build(name: "Other person")
+    other_profile = Agent::Profile.new(
+      household: other_household,
+      name: "Other agent",
+      launch_command: "agent"
+    )
+    conversation = Agent::Conversation.new(
+      household: households(:home),
+      person: other_person,
+      profile: other_profile,
+      title: "Wrong context"
+    )
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:person], "must belong to this household"
+    assert_includes conversation.errors[:profile], "must belong to this household"
+  end
+
+  test "direct foreign key assignment cannot cross conversation context" do
+    message = agent_messages(:prompt)
+    message.person_id = 0
+
+    assert_not message.valid?
+    assert_includes message.errors[:person], "must belong to this household"
+    assert_includes message.errors[:conversation], "must match this household and person"
+  end
+
+  test "validated updates reject stored conversation session and message context changes" do
+    [
+      agent_conversations(:active),
+      agent_sessions(:connected),
+      agent_messages(:prompt)
+    ].each do |record|
+      record.person_id = people(:one).id
+      assert_not record.valid?
+      assert_includes record.errors[:base], "Agent context cannot be changed"
+    end
+  end
+
+  test "validated updates cannot reattach an ACP session to another browser session" do
+    agent_session = agent_sessions(:connected)
+    agent_session.browser_session = users(:two).sessions.create!
+
+    assert_not agent_session.valid?
+    assert_includes agent_session.errors[:base], "Agent context cannot be changed"
+  end
+
+  test "installation stores generic ACP snapshots without authentication secrets" do
+    installation = agent_installations(:local)
+
+    assert_equal 1, installation.protocol_version
+    assert_equal true, installation.advertised_capabilities["mcpCapabilities"]["http"]
+    assert_equal "cached_token", installation.authentication_methods.first["id"]
+    assert installation.valid?
+    assert_not installation.attributes.key?("provider")
+    assert_not installation.attributes.key?("authentication_secret")
+
+    installation.authentication_methods = [ { "access_token" => "secret-value" } ]
+    assert_not installation.valid?
+    assert_includes installation.errors[:base], "Authentication and capability snapshots cannot contain secrets"
+
+    installation.authentication_methods = [ { "credentials" => { "value" => "sk-live-1234" } } ]
+    assert_not installation.valid?
+    assert_includes installation.errors[:authentication_methods], "must contain ACP method metadata only"
+  end
+
+  test "ACP session capability snapshots reject authentication secrets" do
+    agent_session = agent_sessions(:connected)
+    agent_session.advertised_capabilities = {
+      "authentication" => { "credentials" => { "value" => "sk-live-secret" } }
+    }
+
+    assert_not agent_session.valid?
+    assert_includes agent_session.errors[:advertised_capabilities], "cannot contain secrets"
+  end
+
+  test "profile accepts environment names but not environment values" do
+    profile = agent_profiles(:hearth)
+    profile.environment_keys = [ "API_TOKEN" ]
+    assert profile.valid?
+
+    profile.environment_keys = [ { "API_TOKEN" => "secret" } ]
+    assert_not profile.valid?
+  end
+end

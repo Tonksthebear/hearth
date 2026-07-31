@@ -1,0 +1,23 @@
+pending:
+  household: home
+  person: two
+  conversation: active
+  agent_session: connected
+  external_request_id: permission-opaque-1
+  tool_name: health_lookup
+  capability: health.read
+  input_body: '{"date":"2026-07-30"}'
+  input_digest: 0b976234fba4ee6dfd2ed9f7a65a66c604ea0d9c6b9c4f90c6fa0912133e65f7
+  status: pending
+
+decided:
+  household: home
+  person: two
+  conversation: active
+  agent_session: connected
+  external_request_id: permission-opaque-2
+  tool_name: health_update
+  capability: health.write
+  input_body: '{"record":"water"}'
+  input_digest: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  status: approved

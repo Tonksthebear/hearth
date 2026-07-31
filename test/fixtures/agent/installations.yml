@@ -1,0 +1,16 @@
+local:
+  household: home
+  profile: hearth
+  external_id: installation-opaque-1
+  executable_path: /usr/local/bin/test-agent
+  protocol_version: 1
+  status: available
+  advertised_capabilities:
+    loadSession: true
+    mcpCapabilities:
+      http: true
+  authentication_methods:
+    - id: cached_token
+      name: Cached login
+  authentication_status: authenticated
+  last_seen_at: 2026-07-30 12:00:00
