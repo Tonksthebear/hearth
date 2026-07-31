@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_30_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_30_040000) do
   create_table "agent_audit_events", force: :cascade do |t|
     t.integer "actor_id"
     t.integer "agent_session_id"
@@ -455,14 +455,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_020000) do
     t.text "description"
     t.integer "household_id", null: false
     t.string "provenance_status", null: false
-    t.string "source_name", null: false
+    t.string "source_name"
     t.string "source_url"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.string "yield"
     t.index ["household_id", "provenance_status"], name: "index_recipes_on_household_id_and_provenance_status"
     t.index ["household_id"], name: "index_recipes_on_household_id"
-    t.check_constraint "provenance_status IN ('verified', 'adapted', 'observed')", name: "recipes_provenance_status"
+    t.check_constraint "provenance_status IN ('personal', 'verified', 'adapted', 'observed')", name: "recipes_provenance_status"
   end
 
   create_table "sessions", force: :cascade do |t|

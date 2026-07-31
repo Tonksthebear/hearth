@@ -6,6 +6,7 @@ class Recipe < ApplicationRecord
   INGREDIENT_IMPORT_KEYS = %w[amount unit name notes].freeze
   INSTRUCTION_IMPORT_KEYS = %w[body].freeze
   PROVENANCE_DESCRIPTIONS = {
+    "personal" => "Created by your household.",
     "verified" => "Checked against the cited source.",
     "adapted" => "Intentionally changed from the cited source.",
     "observed" => "Recorded from practice without independent source verification."
@@ -21,12 +22,14 @@ class Recipe < ApplicationRecord
   accepts_nested_attributes_for :recipe_instructions, allow_destroy: true, reject_if: :all_blank
 
   enum :provenance_status, {
+    personal: "personal",
     verified: "verified",
     adapted: "adapted",
     observed: "observed"
   }, validate: true
 
-  validates :title, :source_name, presence: true
+  validates :title, presence: true
+  validates :source_name, presence: true, unless: :personal?
   validates :source_url,
     format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) },
     allow_blank: true
@@ -127,6 +130,10 @@ class Recipe < ApplicationRecord
 
   def provenance_description
     PROVENANCE_DESCRIPTIONS.fetch(provenance_status)
+  end
+
+  def source_label
+    source_name.presence || "From your household"
   end
 
   private

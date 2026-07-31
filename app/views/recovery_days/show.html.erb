@@ -1,4 +1,5 @@
 <% content_for :title, "Recovery" %>
+<%= render "layouts/activities_navigation" %>
 
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
@@ -9,12 +10,12 @@
   <%= link_to "Manage habits", habits_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
 </div>
 
-<section aria-labelledby="today-heading" class="mt-10">
-  <h2 id="today-heading" class="text-2xl font-semibold">Today</h2>
+<section aria-labelledby="check-ins-heading" class="mt-10">
+  <h2 id="check-ins-heading" class="text-2xl font-semibold">Check-ins and corrections</h2>
   <div class="mt-5 space-y-5">
     <% @recovery_day.actionable_entries.each do |entry| %>
       <% check_in = @recovery_day.check_in_for(entry) %>
-      <article id="today-person-habit-<%= entry.person_habit.id %>" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+      <article id="recovery-person-habit-<%= entry.person_habit.id %>" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 class="text-xl font-semibold"><%= entry.habit.name %></h3>

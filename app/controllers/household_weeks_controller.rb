@@ -1,4 +1,4 @@
-class DashboardController < ApplicationController
+class HouseholdWeeksController < ApplicationController
   def show
     @household_week = HouseholdWeek.for(
       household: Current.household,

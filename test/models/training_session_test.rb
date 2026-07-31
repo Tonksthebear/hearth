@@ -1,6 +1,12 @@
 require "test_helper"
 
 class TrainingSessionTest < ActiveSupport::TestCase
+  test "uses household-friendly source copy for a personal snapshot" do
+    session = TrainingSession.new(snapshot_source_name: nil)
+
+    assert_equal "From your household", session.snapshot_source_label
+  end
+
   test "starts a persisted draft with immutable template and exercise snapshots" do
     session = TrainingSession.start_from(
       template: workout_templates(:balanced),

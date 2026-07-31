@@ -1,4 +1,5 @@
 <% content_for :title, "Recipes · Hearth" %>
+<%= render "layouts/meals_navigation" %>
 
 <section aria-labelledby="recipes-heading">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -30,8 +31,13 @@
     </div>
   <% end %>
 
-  <div class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
-    <p><strong>About provenance:</strong> Verified means checked against the cited source; adapted means intentionally changed from it; observed means recorded from practice without independent source verification.</p>
+  <div class="mt-8 text-sm text-gray-500 dark:text-gray-400">
+    <p class="font-medium text-gray-700 dark:text-gray-300">About provenance</p>
+    <dl class="mt-2 space-y-1">
+      <% @provenance_statuses.each do |status| %>
+        <div><dt class="inline font-medium"><%= status.humanize %>:</dt> <dd class="inline"><%= Recipe::PROVENANCE_DESCRIPTIONS.fetch(status) %></dd></div>
+      <% end %>
+    </dl>
     <p class="mt-2">These labels are not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
   </div>
 
@@ -46,11 +52,10 @@
                 <p class="mt-2 text-gray-600 dark:text-gray-400"><%= recipe.description %></p>
               <% end %>
             </div>
-            <span class="rounded-full bg-gray-100 dark:bg-white/5 px-3 py-1 text-sm font-semibold"><%= recipe.provenance_status.humanize %></span>
           </div>
           <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
             Source:
-            <span class="font-medium"><%= recipe.source_name %></span>
+            <span class="font-medium"><%= recipe.source_label %></span>
             <% if recipe.source_url.present? %>
               <span class="break-all">(<%= recipe.source_url %>)</span>
             <% end %>

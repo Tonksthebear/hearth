@@ -4,9 +4,8 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
   test "creates a structured exercise and attributed workout template through the real UI" do
     sign_in_via_browser users(:one)
 
-    within "nav[aria-label='Household and person context']" do
-      click_link_and_wait_for_path "Exercises", exercises_path
-    end
+    click_link_and_wait_for_path "Activities", activity_overview_path
+    click_link_and_wait_for_path "Exercises", exercises_path, match: :first
     click_link_and_wait_for_path "Add exercise", new_exercise_path
     fill_in_and_wait_for_value "Name", "Farmer carry"
     select_and_wait "Strength", from: "Modality"
@@ -15,9 +14,7 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     fill_in_and_wait_for_value "Guidance", "Walk tall and brace."
     click_button_and_wait_for_text "Create Exercise", "Farmer carry"
 
-    within "nav[aria-label='Household and person context']" do
-      click_link_and_wait_for_path "Workout templates", workout_templates_path
-    end
+    click_link_and_wait_for_path "Templates", workout_templates_path
     click_link_and_wait_for_path "Add workout template", new_workout_template_path
     fill_in_and_wait_for_value "Title", "Carry practice"
     select_and_wait "Personal", from: "Provenance"

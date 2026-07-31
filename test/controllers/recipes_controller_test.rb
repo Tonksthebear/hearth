@@ -40,8 +40,21 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: recipes(:porridge).title
     assert_select "dd", text: /#{Regexp.escape(recipes(:porridge).source_name)}/
     assert_select "dd", text: /#{Regexp.escape(recipes(:porridge).source_url)}/
-    assert_select "aside", text: /not clinical endorsement/i
-    assert_select "aside", text: /does not provide medical advice/i
+    assert_select "p", text: /not clinical endorsement/i
+    assert_select "p", text: /does not provide medical advice/i
+  end
+
+  test "index explains every available provenance status as secondary details" do
+    sign_in_as users(:one)
+
+    get recipes_path
+
+    assert_response :success
+    Recipe.provenance_statuses.each_key do |status|
+      assert_select "dt", text: "#{status.humanize}:"
+      assert_select "dd", text: Recipe::PROVENANCE_DESCRIPTIONS.fetch(status)
+    end
+    assert_select ".bg-primary-50", text: /About provenance/, count: 0
   end
 
   test "person context does not change the shared catalog" do

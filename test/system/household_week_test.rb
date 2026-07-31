@@ -7,6 +7,8 @@ class HouseholdWeekTest < ApplicationSystemTestCase
     travel_to Time.zone.local(2026, 7, 27, 12) do
       prepare_household_week_habits
       sign_in_via_browser users(:one)
+      assert_selector "h1", text: "Today"
+      visit_and_wait_for_path household_week_path
 
       assert_selector "h1", text: "Household week"
       assert_text "Dinner with friends"
@@ -14,10 +16,10 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       assert_text "Post-meal movement"
       assert_text "Informational tracking only"
 
-      click_link_and_wait_for_path "Next week", root_path(date: "2026-08-03")
+      click_link_and_wait_for_path "Next week", household_week_path(date: "2026-08-03")
       assert_text "Following week"
       assert_no_text "Sunday balanced day"
-      click_link_and_wait_for_path "Previous week", root_path(date: "2026-07-27")
+      click_link_and_wait_for_path "Previous week", household_week_path(date: "2026-07-27")
       assert_text "Sunday balanced day"
       assert_no_text "Following week"
 
@@ -27,12 +29,13 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       click_button_and_wait_for_text "Log meal", "Week-view lunch was logged for #{people(:one).name}."
       click_link_and_wait_for_path "Hearth", root_path
       assert_text "Week-view lunch"
+      visit_and_wait_for_path household_week_path
 
       click_link_and_wait_for_path "Open shopping list", shopping_list_path(date: "2026-07-27")
-      click_link_and_wait_for_path "Hearth", root_path
+      visit_and_wait_for_path household_week_path
       click_link_and_wait_for_path "Log a workout", new_training_session_path(date: "2026-07-27")
       assert_field "Workout date", with: "2026-07-27"
-      click_link_and_wait_for_path "Hearth", root_path
+      visit_and_wait_for_path household_week_path
       click_link_and_wait_for_path "Check in on habits", recovery_day_path
       assert_selector "h1", text: "Recovery"
     end
@@ -50,6 +53,7 @@ class HouseholdWeekTest < ApplicationSystemTestCase
     travel_to Time.zone.local(2026, 7, 27, 12) do
       prepare_household_week_habits
       sign_in_via_browser users(:one)
+      visit_and_wait_for_path household_week_path
 
       assert_equal 390, page.evaluate_script("window.innerWidth")
       assert_selector "h1", text: "Household week"

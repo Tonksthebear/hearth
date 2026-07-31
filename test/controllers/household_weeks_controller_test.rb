@@ -1,33 +1,19 @@
 require "test_helper"
 
-class DashboardControllerTest < ActionDispatch::IntegrationTest
-  test "fresh anonymous root redirects to setup" do
-    clear_installation
-
-    get root_path
-
-    assert_redirected_to new_setup_household_path
-  end
-
-  test "configured anonymous root redirects to sign in" do
-    get root_path
-
-    assert_redirected_to new_session_path
-  end
-
+class HouseholdWeeksControllerTest < ActionDispatch::IntegrationTest
   test "authenticated root renders the selected household week and direct actions" do
     travel_to Time.zone.local(2026, 7, 27, 12) do
       prepare_household_week_habits
       sign_in_as users(:one)
 
-      get root_path(date: "2026-07-29")
+      get household_week_path(date: "2026-07-29")
 
       assert_response :success
       assert_select "h1", "Household week"
       assert_select "p", text: /July 27, 2026/
       assert_select "p", text: /August 02, 2026/
-      assert_select "a[href=?]", root_path(date: "2026-07-20"), text: "Previous week"
-      assert_select "a[href=?]", root_path(date: "2026-08-03"), text: "Next week"
+      assert_select "a[href=?]", household_week_path(date: "2026-07-20"), text: "Previous week"
+      assert_select "a[href=?]", household_week_path(date: "2026-08-03"), text: "Next week"
       assert_select "a[href=?]", meal_week_path(date: "2026-07-27"), text: /Log a meal/
       assert_select "a[href=?]", shopping_list_path(date: "2026-07-27"), text: "Open shopping list"
       assert_select "a[href=?]", new_training_session_path(date: "2026-07-27"), text: "Log a workout"
@@ -46,7 +32,7 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
       prepare_household_week_habits
       sign_in_as users(:one)
 
-      get root_path
+      get household_week_path
 
       assert_response :success
       assert_select "#household-plans li", count: 4
@@ -84,7 +70,7 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
       sign_in_as users(:one)
       patch person_context_path, params: { person_id: people(:two).id }
 
-      get root_path
+      get household_week_path
 
       assert_response :success
       assert_select "article[data-current-person='true'] h3", people(:two).name
@@ -98,7 +84,7 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
       prepare_household_week_habits
       sign_in_as users(:one)
 
-      get root_path(date: "2026-08-12")
+      get household_week_path(date: "2026-08-12")
 
       assert_response :success
       assert_select "a[href=?]", new_training_session_path(date: "2026-08-10"), text: "Log a workout"

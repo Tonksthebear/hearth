@@ -3,10 +3,11 @@ require "test_helper"
 class WorkoutTemplateTest < ActiveSupport::TestCase
   test "uses template-local provenance including personal" do
     assert_equal %w[verified adapted observed personal], WorkoutTemplate.provenance_statuses.keys
-    assert_equal %w[verified adapted observed], Recipe.provenance_statuses.keys
+    assert_equal %w[personal verified adapted observed], Recipe.provenance_statuses.keys
 
     personal = households(:home).workout_templates.build(title: "Mine", provenance_status: :personal)
     assert_predicate personal, :valid?
+    assert_equal "From your household", personal.source_label
   end
 
   test "mutates three-level form rows with safe coordinates and one-based positions" do
