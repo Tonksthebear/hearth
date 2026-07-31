@@ -87,7 +87,6 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       set_and_wait all("input[name*='training_sets_attributes'][name$='[reps]']").first, "12"
       exercise_performance_kind = all("el-select[name*='training_session_exercises_attributes'][name$='[snapshot_performance_kind]']").first
       choose_elements_option exercise_performance_kind, "Duration"
-      set_and_wait all("input[name*='training_session_exercises_attributes'][name$='[snapshot_work_seconds]']").first, "1800"
       select_and_wait "Zone2", from: "Default dose"
       select_and_wait "Zone2", from: all("el-select[name*='training_sets_attributes'][name$='[dose_class]']").first[:id]
       set_and_wait all("input[name*='training_sets_attributes'][name$='[duration_seconds]']").first, "1800"

@@ -102,7 +102,9 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "el-select[name$='[snapshot_performance_kind]'][value='reps']", count: 1
-    assert_select "template[data-kind]", minimum: 10
+    assert_select "template[data-kind='reps']", count: 2
+    assert_select "template[data-kind='interval']", count: 1
+    assert_select "template[data-kind='duration'], template[data-kind='distance'], template[data-kind='count']", count: 0
     assert_select "el-select[name$='[load_unit]']"
     assert_select "el-select[name$='[distance_unit]']"
     assert_select "el-select[name$='[count_unit]']"

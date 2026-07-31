@@ -34,14 +34,15 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "bpm", prescription.target_heart_rate_unit
   end
 
-  test "new renders one live selector and inert native templates for every performance kind" do
+  test "new renders one live selector and only nonempty native templates" do
     sign_in_as users(:one)
 
     get new_workout_template_path
 
     assert_response :success
     assert_select "el-select[name$='[performance_kind]'][value='reps']", count: 1
-    assert_select "template[data-performance-fields-target='template']", count: 5
+    assert_select "template[data-performance-fields-target='template'][data-kind='reps']", count: 1
+    assert_select "template[data-kind='duration'], template[data-kind='distance'], template[data-kind='count'], template[data-kind='interval']", count: 0
     assert_select "el-select[name$='[target_distance_unit]'][disabled]", count: 1
     assert_select "el-select[name$='[target_count_unit]']"
     assert_select "[data-kinds='duration distance count interval'][data-hidden] input[name$='[work_seconds]'][disabled]", count: 1

@@ -22,7 +22,7 @@ class TrainingSessionExerciseTest < ActiveSupport::TestCase
     assert_equal original, exercise.reload.completed_at
   end
 
-  test "validates primary targets paired units and heart-rate order" do
+  test "allows no primary target while validating paired units and heart-rate order" do
     exercise = training_session_exercises(:draft_exercise)
     exercise.assign_attributes(
       snapshot_performance_kind: :distance,
@@ -37,10 +37,33 @@ class TrainingSessionExerciseTest < ActiveSupport::TestCase
     )
 
     assert_not exercise.valid?
-    assert_includes exercise.errors[:snapshot_target_distance_amount], "is required for distance work"
+    assert_not_includes exercise.errors[:snapshot_target_distance_amount], "is required for distance work"
     assert_includes exercise.errors[:snapshot_target_distance_unit], "must be provided with target distance"
     assert_includes exercise.errors[:snapshot_target_count_unit], "must be provided with target count"
     assert_includes exercise.errors[:snapshot_target_heart_rate_max], "must be at least the minimum heart rate"
+  end
+
+  test "edits feedback on a migrated ad hoc exercise without prescription targets" do
+    exercise = training_session_exercises(:draft_exercise)
+    exercise.update_columns(
+      snapshot_rep_min: nil,
+      snapshot_rep_max: nil,
+      snapshot_work_seconds: nil,
+      snapshot_target_distance_amount: nil,
+      snapshot_target_distance_unit: nil,
+      snapshot_target_count: nil,
+      snapshot_target_count_unit: nil
+    )
+
+    assert exercise.update(difficulty: :about_right, next_time_adjustment: "Repeat it")
+    assert_predicate exercise, :about_right?
+  end
+
+  test "summarizes an untargeted ad hoc exercise with only its row count" do
+    exercise = training_session_exercises(:draft_exercise)
+    exercise.assign_attributes(snapshot_sets_count: 1, snapshot_rep_min: nil, snapshot_rep_max: nil)
+
+    assert_equal "1 row", exercise.target_summary
   end
 
   test "prefills secondary work duration for distance and count rows" do

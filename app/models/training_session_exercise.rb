@@ -39,6 +39,7 @@ class TrainingSessionExercise < ApplicationRecord
     numericality: { only_integer: true, greater_than: 0 },
     allow_nil: true
   validates_target_measurements(
+    require_primary: false,
     performance_kind: :snapshot_performance_kind,
     rep_min: :snapshot_rep_min,
     rep_max: :snapshot_rep_max,
@@ -102,15 +103,19 @@ class TrainingSessionExercise < ApplicationRecord
 
   def target_summary
     primary = case snapshot_performance_kind
-    when "reps" then "#{[ snapshot_rep_min, snapshot_rep_max ].compact.join("–")} reps"
-    when "duration" then "#{snapshot_work_seconds} sec"
-    when "distance" then "#{snapshot_target_distance_amount.to_f.to_fs(:delimited)} #{snapshot_target_distance_unit}"
-    when "count" then "#{snapshot_target_count} #{snapshot_target_count_unit}"
-    when "interval" then "#{snapshot_work_seconds} sec work / #{snapshot_rest_seconds} sec recovery"
+    when "reps"
+      range = [ snapshot_rep_min, snapshot_rep_max ].compact.join("–")
+      "#{range} reps" if range.present?
+    when "duration" then "#{snapshot_work_seconds} sec" if snapshot_work_seconds
+    when "distance"
+      "#{snapshot_target_distance_amount.to_f.to_fs(:delimited)} #{snapshot_target_distance_unit}" if snapshot_target_distance_amount && snapshot_target_distance_unit
+    when "count" then "#{snapshot_target_count} #{snapshot_target_count_unit}" if snapshot_target_count && snapshot_target_count_unit
+    when "interval"
+      "#{snapshot_work_seconds} sec work / #{snapshot_rest_seconds} sec recovery" if snapshot_work_seconds && snapshot_rest_seconds
     end
     count = snapshot_sets_count || active_sets.size
     row_name = snapshot_performance_kind == "interval" ? "round" : "row"
-    "#{count} #{row_name.pluralize(count)} · #{primary}"
+    [ "#{count} #{row_name.pluralize(count)}", primary ].compact.join(" · ")
   end
 
   def feedback_summary

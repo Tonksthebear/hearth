@@ -2,11 +2,11 @@ module TargetMeasurements
   extend ActiveSupport::Concern
 
   class_methods do
-    def validates_target_measurements(**attributes)
+    def validates_target_measurements(require_primary: true, **attributes)
       class_attribute :target_measurement_attributes, instance_writer: false, default: attributes
 
       validate :target_rep_range_is_ordered
-      validate :primary_target_matches_performance_kind
+      validate :primary_target_matches_performance_kind if require_primary
       validate :target_distance_unit_matches_amount
       validate :target_count_unit_matches_count
       validate :heart_rate_target_is_complete_and_ordered

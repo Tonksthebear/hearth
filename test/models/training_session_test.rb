@@ -46,7 +46,6 @@ class TrainingSessionTest < ActiveSupport::TestCase
     exercise.snapshot_name = "Outdoor walk"
     exercise.snapshot_modality = :cardio
     exercise.snapshot_movement_pattern = :locomotion_cardio
-    exercise.snapshot_rep_min = 1
 
     assert_no_difference "Exercise.count" do
       assert session.save
@@ -58,7 +57,6 @@ class TrainingSessionTest < ActiveSupport::TestCase
     session = TrainingSession.build_ad_hoc(person: people(:one))
     exercise = session.training_session_blocks.first.training_session_exercises.first
     exercise.exercise = exercises(:bike)
-    exercise.snapshot_rep_min = 1
 
     assert session.valid?
     assert_equal "Stationary bike", exercise.snapshot_name
@@ -85,7 +83,6 @@ class TrainingSessionTest < ActiveSupport::TestCase
     session = TrainingSession.build_ad_hoc(person: people(:one))
     performed_exercise = session.training_session_blocks.first.training_session_exercises.first
     performed_exercise.exercise = catalog_exercise
-    performed_exercise.snapshot_rep_min = 1
     session.save!
 
     catalog_exercise.destroy!

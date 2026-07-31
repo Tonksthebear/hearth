@@ -55,14 +55,17 @@ class ExercisePrescription < ApplicationRecord
 
   def target_summary
     primary = case performance_kind
-    when "reps" then "#{[ rep_min, rep_max ].compact.join("–")} reps"
-    when "duration" then "#{work_seconds} sec"
-    when "distance" then "#{target_distance_amount.to_f.to_fs(:delimited)} #{target_distance_unit}"
-    when "count" then "#{target_count} #{target_count_unit}"
-    when "interval" then "#{work_seconds} sec work / #{rest_seconds} sec recovery"
+    when "reps"
+      range = [ rep_min, rep_max ].compact.join("–")
+      "#{range} reps" if range.present?
+    when "duration" then "#{work_seconds} sec" if work_seconds
+    when "distance"
+      "#{target_distance_amount.to_f.to_fs(:delimited)} #{target_distance_unit}" if target_distance_amount && target_distance_unit
+    when "count" then "#{target_count} #{target_count_unit}" if target_count && target_count_unit
+    when "interval" then "#{work_seconds} sec work / #{rest_seconds} sec recovery" if work_seconds && rest_seconds
     end
     row_name = performance_kind == "interval" ? "round" : "row"
-    "#{sets_count} #{row_name.pluralize(sets_count)} · #{primary}"
+    [ "#{sets_count} #{row_name.pluralize(sets_count)}", primary ].compact.join(" · ")
   end
 
   def cue_summary
