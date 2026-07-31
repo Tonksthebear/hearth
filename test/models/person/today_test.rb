@@ -6,10 +6,10 @@ class Person::TodayTest < ActiveSupport::TestCase
       person_habits(:alex_water).habit_check_ins.destroy_all
       today = Person::Today.current(household: households(:home), person: people(:one))
 
-      assert_equal %i[to_do in_progress complete], today.sections.map(&:key)
+      assert_equal %i[up_next in_progress done], today.sections.map(&:key)
       assert_includes today.sections.first.items.map(&:title), recipes(:observed_soup).title
       assert_includes today.sections.first.items.map(&:title), habits(:water).name
-      assert_includes today.sections.second.items.map(&:title), training_sessions(:draft).snapshot_title
+      assert_includes today.sections.second.items.map(&:title), training_sessions(:in_progress).snapshot_title
       refute today.sections.flat_map(&:items).any? { |item| item.title == training_sessions(:other_person).snapshot_title }
       assert_predicate today.sections, :frozen?
       assert today.sections.all? { |section| section.items.frozen? }
@@ -30,7 +30,7 @@ class Person::TodayTest < ActiveSupport::TestCase
 
   test "fully materialized query count is bounded" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
-      assert_queries_count(15) do
+      assert_queries_count(14) do
         Person::Today.current(household: households(:home), person: people(:one))
           .sections
           .flat_map(&:items)

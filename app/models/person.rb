@@ -4,6 +4,7 @@ class Person < ApplicationRecord
   has_many :planned_meals, dependent: :destroy
   has_many :meal_logs, dependent: :destroy
   has_many :training_sessions, dependent: :destroy
+  has_many :planned_workouts, dependent: :destroy
   has_many :person_habits, dependent: :destroy
   has_many :habit_check_ins, through: :person_habits
   has_many :agent_conversations, class_name: "Agent::Conversation", dependent: :restrict_with_exception

@@ -10,7 +10,7 @@ class PersonContextsController < ApplicationController
     def destination_path
       {
         "meals" => meal_week_path,
-        "activities" => activity_overview_path
+        "activities" => activity_week_path
       }.fetch(params[:destination].to_s, root_path)
     end
 end

@@ -37,7 +37,7 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
 
     get person_path(people(:one))
     assert_select "a[href=?]", meal_week_path, text: /meals/
-    assert_select "a[href=?]", activity_overview_path, text: /activities/
+    assert_select "a[href=?]", activity_week_path, text: /activities/
   end
 
   test "person overview outside the sole household scope is not found" do

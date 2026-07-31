@@ -39,7 +39,27 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
 
     get recovery_day_path
     assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Activities"
-    assert_select "nav[aria-label='Activities'] a[href=?]", exercises_path
+    assert_select "nav[aria-label='Activities'] a[href=?]", activity_week_path
+    assert_select "nav[aria-label='Activities'] a[href=?]", activity_library_path
+    assert_select "nav[aria-label='Activities'] a[href=?]", activity_history_path
+    assert_select "nav[aria-label='Activities'] a", text: "Overview", count: 0
+  end
+
+  test "every Activities destination marks the primary tab and the correct secondary tab" do
+    sign_in_as users(:one)
+
+    {
+      activity_week_path => "Week",
+      training_week_path => "Week",
+      activity_library_path => "Library",
+      activity_history_path => "History"
+    }.each do |path, secondary_label|
+      get path
+
+      assert_response :success
+      assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Activities"
+      assert_select "nav[aria-label='Activities'] a[aria-current='page']", text: secondary_label
+    end
   end
 
   test "administrative pages do not falsely mark a primary destination current" do
@@ -57,7 +77,7 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     get new_training_session_path
 
     assert_response :success
-    assert_select "nav[aria-label='Activities'] a[aria-current='page']", text: "Training"
+    assert_select "nav[aria-label='Activities'] a[aria-current='page']", text: "Week"
 
     get new_recipe_path
 

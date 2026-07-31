@@ -8,7 +8,7 @@ class Person::OverviewTest < ActiveSupport::TestCase
       assert_equal people(:one), overview.person
       assert overview.meal_week.planned_meals.loaded?
       assert overview.meal_week.meal_logs.loaded?
-      assert overview.training_week.draft_sessions.loaded?
+      assert overview.training_week.in_progress_sessions.loaded?
       assert overview.training_week.completed_sessions.loaded?
       refute_includes overview.training_week.completed_sessions, training_sessions(:other_person)
     end

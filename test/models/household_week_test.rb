@@ -51,7 +51,7 @@ class HouseholdWeekTest < ActiveSupport::TestCase
       assert_equal [ meal_logs(:alex_recipe_target_week), meal_logs(:alex_ad_hoc_target_week) ], alex.meal_logs
       assert_equal [ meal_logs(:sam_recipe_target_week) ], sam.meal_logs
       assert_empty jordan.meal_logs
-      assert_equal [ training_sessions(:draft), training_sessions(:completed_sunday) ], alex.training_sessions
+      assert_equal [ training_sessions(:in_progress), training_sessions(:completed_sunday) ], alex.training_sessions
       assert_equal [ training_sessions(:other_person) ], sam.training_sessions
       assert_empty jordan.training_sessions
       assert_not_includes alex.training_sessions, training_sessions(:following_monday)

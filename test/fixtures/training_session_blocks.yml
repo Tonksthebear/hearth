@@ -33,9 +33,9 @@ other_person_block:
   actual_duration_seconds: 1200
 
 draft_block:
-  training_session: draft
+  training_session: in_progress
   position: 1
-  snapshot_title: Draft block
+  snapshot_title: In-progress block
   snapshot_block_kind: strength
   snapshot_dose_class: strength
   actual_duration_seconds: 900
