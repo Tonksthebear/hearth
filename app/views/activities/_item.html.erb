@@ -23,7 +23,11 @@
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
-    <% if item.record.is_a?(PlannedWorkout) && item.status == :planned %>
+    <% if item.record.is_a?(PlannedMeal) && item.status == :planned %>
+      <% if item.record.convertible_by?(Current.person) %>
+        <%= button_to "Log as eaten", planned_meal_meal_path(item.record), class: yass(btn: [ :base, { md: :base }, { primary: :solid } ]) %>
+      <% end %>
+    <% elsif item.record.is_a?(PlannedWorkout) && item.status == :planned %>
       <% if item.record.startable? %>
         <%= button_to "Start", training_sessions_path,
               params: { planned_workout_id: item.record.id, return_to: return_to, date: activity_date },

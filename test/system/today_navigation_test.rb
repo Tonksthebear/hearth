@@ -28,6 +28,27 @@ class TodayNavigationTest < ApplicationSystemTestCase
     end
   end
 
+
+  test "converts a due meal plan and links the completed Today row to the Meal" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_via_browser users(:one)
+      plan = planned_meals(:shared_soup_target_week)
+
+      within "[data-activity-kind='planned_meal']", text: plan.recipe.title do
+        click_button "Log as eaten"
+      end
+      assert_text "was logged for #{people(:one).name}", wait: 5
+      meal = plan.meals.find_by!(person: people(:one))
+      assert_current_path meal_path(meal), wait: 5
+
+      click_link_and_wait_for_path "Hearth", root_path
+      within "[data-activity-kind='meal']", text: meal.description do
+        click_link meal.description
+      end
+      assert_current_path meal_path(meal), wait: 5
+    end
+  end
+
   test "keeps plan corrections on Today and starts a due workout from there" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
       sign_in_via_browser users(:one)

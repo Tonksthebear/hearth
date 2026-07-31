@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -403,19 +403,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
     t.index ["household_id"], name: "index_ingredients_on_household_id"
   end
 
-  create_table "meal_logs", force: :cascade do |t|
-    t.text "ad_hoc_description"
+  create_table "meal_items", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.integer "ingredient_id"
+    t.integer "meal_id", null: false
+    t.text "notes"
+    t.decimal "portion_amount", precision: 10, scale: 3
+    t.string "portion_unit"
+    t.integer "position", null: false
+    t.integer "recipe_id"
+    t.string "snapshot_label", null: false
+    t.string "source_kind", null: false
+    t.text "substitutions"
+    t.datetime "updated_at", null: false
+    t.index ["ingredient_id"], name: "index_meal_items_on_ingredient_id"
+    t.index ["meal_id", "position"], name: "index_meal_items_on_meal_id_and_position", unique: true
+    t.index ["meal_id"], name: "index_meal_items_on_meal_id"
+    t.index ["recipe_id"], name: "index_meal_items_on_recipe_id"
+    t.check_constraint "(source_kind = 'recipe' AND recipe_id IS NOT NULL AND ingredient_id IS NULL) OR (source_kind = 'ingredient' AND recipe_id IS NULL AND ingredient_id IS NOT NULL) OR (source_kind = 'free_text' AND recipe_id IS NULL AND ingredient_id IS NULL)", name: "meal_items_exactly_one_source"
+    t.check_constraint "portion_amount IS NULL OR portion_amount > 0", name: "meal_items_positive_portion_amount"
+    t.check_constraint "position > 0", name: "meal_items_positive_position"
+  end
+
+  create_table "meals", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "eaten_at"
     t.date "eaten_on", null: false
     t.integer "household_id", null: false
+    t.text "notes"
     t.integer "person_id", null: false
-    t.integer "recipe_id"
+    t.integer "planned_meal_id"
     t.datetime "updated_at", null: false
-    t.index ["household_id", "eaten_on"], name: "index_meal_logs_on_household_id_and_eaten_on"
-    t.index ["household_id"], name: "index_meal_logs_on_household_id"
-    t.index ["person_id", "eaten_on"], name: "index_meal_logs_on_person_id_and_eaten_on"
-    t.index ["person_id"], name: "index_meal_logs_on_person_id"
-    t.index ["recipe_id"], name: "index_meal_logs_on_recipe_id"
+    t.index ["household_id", "eaten_on"], name: "index_meals_on_household_id_and_eaten_on"
+    t.index ["household_id"], name: "index_meals_on_household_id"
+    t.index ["person_id", "eaten_on"], name: "index_meals_on_person_id_and_eaten_on"
+    t.index ["person_id"], name: "index_meals_on_person_id"
+    t.index ["planned_meal_id", "person_id"], name: "index_meals_on_planned_meal_and_person", unique: true, where: "planned_meal_id IS NOT NULL"
+    t.index ["planned_meal_id"], name: "index_meals_on_planned_meal_id"
   end
 
   create_table "people", force: :cascade do |t|
@@ -503,6 +527,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
     t.index ["workout_template_id"], name: "index_planned_workouts_on_workout_template_id"
     t.check_constraint "skip_reason IS NULL OR skipped_at IS NOT NULL", name: "planned_workouts_reason_requires_skip"
     t.check_constraint "training_session_id IS NULL OR skipped_at IS NULL", name: "planned_workouts_session_or_skip"
+  end
+
+  create_table "recipe_feedbacks", force: :cascade do |t|
+    t.text "body", null: false
+    t.datetime "created_at", null: false
+    t.integer "meal_item_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["meal_item_id"], name: "index_recipe_feedbacks_on_meal_item_id", unique: true
   end
 
   create_table "recipe_ingredients", force: :cascade do |t|
@@ -794,9 +826,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
   add_foreign_key "habit_metrics", "habits"
   add_foreign_key "habits", "households"
   add_foreign_key "ingredients", "households"
-  add_foreign_key "meal_logs", "households"
-  add_foreign_key "meal_logs", "people"
-  add_foreign_key "meal_logs", "recipes"
+  add_foreign_key "meal_items", "ingredients"
+  add_foreign_key "meal_items", "meals", on_delete: :cascade
+  add_foreign_key "meal_items", "recipes"
+  add_foreign_key "meals", "households"
+  add_foreign_key "meals", "people"
+  add_foreign_key "meals", "planned_meals"
   add_foreign_key "people", "households"
   add_foreign_key "person_habit_metrics", "habit_metrics"
   add_foreign_key "person_habit_metrics", "person_habits"
@@ -809,6 +844,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
   add_foreign_key "planned_workouts", "people"
   add_foreign_key "planned_workouts", "training_sessions", on_delete: :nullify
   add_foreign_key "planned_workouts", "workout_templates"
+  add_foreign_key "recipe_feedbacks", "meal_items", on_delete: :cascade
   add_foreign_key "recipe_ingredients", "ingredients"
   add_foreign_key "recipe_ingredients", "recipes"
   add_foreign_key "recipe_instruction_ingredients", "recipe_ingredients"

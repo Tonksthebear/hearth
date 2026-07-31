@@ -12,7 +12,7 @@
 <div class="mt-8 grid gap-5 sm:grid-cols-2">
   <article class="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50">
     <h2 class="text-xl font-semibold">Meals</h2>
-    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400"><%= pluralize(@person_overview.meal_week.planned_meals.size, "planned meal") %> and <%= pluralize(@person_overview.meal_week.meal_logs.size, "meal log") %> this week.</p>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400"><%= pluralize(@person_overview.meal_week.planned_meals.size, "planned meal") %> and <%= pluralize(@person_overview.meal_week.meals.size, "meal") %> eaten this week.</p>
     <% if @person == @current_person %>
       <%= link_to "Open #{@person.name}'s meals", meal_week_path, class: "mt-4 inline-flex font-semibold text-primary-800 underline dark:text-primary-300" %>
     <% else %>

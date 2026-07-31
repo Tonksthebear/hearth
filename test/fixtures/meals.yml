@@ -1,23 +1,19 @@
 alex_recipe_target_week:
   household: home
   person: one
-  recipe: salad
   eaten_on: 2026-07-27
 
 alex_ad_hoc_target_week:
   household: home
   person: one
-  ad_hoc_description: Dinner with friends
   eaten_on: 2026-07-28
 
 sam_recipe_target_week:
   household: home
   person: two
-  recipe: observed_soup
   eaten_on: 2026-07-29
 
 alex_adjacent_week:
   household: home
   person: one
-  ad_hoc_description: Next week's leftovers
   eaten_on: 2026-08-03

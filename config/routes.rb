@@ -15,8 +15,10 @@ Rails.application.routes.draw do
   resource :training_week, only: :show
   resource :weekly_dose_target, only: :update
   resource :meal_week, only: :show
-  resources :planned_meals, only: %i[ create destroy ]
-  resources :meal_logs, only: %i[ create destroy ]
+  resources :planned_meals, only: %i[ create destroy ] do
+    resource :meal, only: :create, module: :planned_meal
+  end
+  resources :meals, only: %i[ new create show edit update destroy ]
   resource :shopping_list, only: :show
   resource :person_context, only: :update
   resources :habits, only: %i[ index new create edit update ]

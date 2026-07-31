@@ -3,7 +3,7 @@ require "test_helper"
 class HearthMcp::CatalogTest < ActiveSupport::TestCase
   EXPECTED_TOOLS = %w[
     get_current_context list_people get_today get_household_week
-    list_recipes get_recipe get_meal_week list_planned_meals list_meal_logs get_shopping_list
+    list_recipes get_recipe get_meal_week list_planned_meals list_meals get_shopping_list
     get_activity_week list_planned_workouts list_exercises list_workout_templates
     list_training_sessions get_training_week get_weekly_dose_targets
     list_habits list_person_habits list_habit_check_ins get_recovery_day

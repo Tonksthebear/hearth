@@ -89,16 +89,17 @@ class HouseholdTest < ActiveSupport::TestCase
       provenance_status: :observed
     )
     household.planned_meals.create!(recipe: recipe, planned_on: Date.new(2026, 7, 27))
-    household.meal_logs.create!(
+    household.meals.create!(
       person: person,
-      recipe: recipe,
-      eaten_on: Date.new(2026, 7, 27)
+      eaten_on: Date.new(2026, 7, 27),
+      meal_items_attributes: [ { source_kind: :recipe, recipe: recipe } ]
     )
 
     assert_difference({
       "Household.count" => -1,
       "PlannedMeal.count" => -1,
-      "MealLog.count" => -1,
+      "Meal.count" => -1,
+      "MealItem.count" => -1,
       "Recipe.count" => -1
     }) do
       household.destroy!

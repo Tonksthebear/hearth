@@ -18,7 +18,8 @@ class MealWeeksControllerTest < ActionDispatch::IntegrationTest
       text: people(:two).name,
       count: 0
     assert_select "form[action='#{planned_meals_path}']"
-    assert_select "form[action='#{meal_logs_path}']"
+    assert_select "a[href^='#{new_meal_path}?date=']", text: "Log meal"
+    assert_select "section[aria-labelledby='log-meal-heading'] form", count: 0
   end
 
   test "invalid date inputs safely render the current week" do

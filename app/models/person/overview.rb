@@ -20,7 +20,7 @@ class Person::Overview
   private
     def materialize!
       meal_week.planned_meals.to_a
-      meal_week.meal_logs.to_a
+      meal_week.meals.to_a
       training_week.in_progress_sessions.to_a
       training_week.completed_sessions.to_a
       recovery_day.entries

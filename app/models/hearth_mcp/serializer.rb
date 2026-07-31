@@ -65,13 +65,30 @@ module HearthMcp
         }
       end
 
-      def meal_log(record)
+      def meal(record)
         {
           id: record.id,
           eaten_on: record.eaten_on.iso8601,
+          eaten_at: record.eaten_at&.utc&.iso8601,
           person_id: record.person_id,
+          planned_meal_id: record.planned_meal_id,
           description: record.description,
-          recipe: record.recipe && recipe(record.recipe)
+          notes: record.notes,
+          items: record.meal_items.map do |item|
+            {
+              id: item.id,
+              position: item.position,
+              source_kind: item.source_kind,
+              snapshot_label: item.snapshot_label,
+              recipe: item.recipe && recipe(item.recipe),
+              ingredient: item.ingredient && { id: item.ingredient_id, name: item.ingredient.name },
+              portion_amount: item.portion_amount&.to_s,
+              portion_unit: item.portion_unit,
+              substitutions: item.substitutions,
+              notes: item.notes,
+              recipe_feedback: item.recipe_feedback && { id: item.recipe_feedback.id, body: item.recipe_feedback.body }
+            }
+          end
         }
       end
 

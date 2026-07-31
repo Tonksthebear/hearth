@@ -40,7 +40,9 @@ module ActiveSupport
         Agent::Profile.delete_all
         Session.delete_all
         User.delete_all
-        MealLog.delete_all
+        RecipeFeedback.delete_all
+        MealItem.delete_all
+        Meal.delete_all
         PlannedMeal.delete_all
         PlannedWorkout.delete_all
         TrainingSet.delete_all

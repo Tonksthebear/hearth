@@ -26,6 +26,10 @@ class PlannedMealsController < ApplicationController
     redirect_to meal_week_path(date: week_for(params[:date])),
       notice: "#{planned_meal.recipe.title} was removed from the plan.",
       status: :see_other
+  rescue ActiveRecord::DeleteRestrictionError
+    redirect_to meal_week_path(date: week_for(params[:date])),
+      alert: "A plan that has been logged cannot be removed.",
+      status: :see_other
   end
 
   private
@@ -53,7 +57,6 @@ class PlannedMealsController < ApplicationController
     def prepare_options
       recipe_choices = @meal_week.recipes.map { |recipe| [ recipe.title, recipe.id ] }
       @recipe_options = [ [ "Choose a recipe", "" ] ] + recipe_choices
-      @optional_recipe_options = [ [ "No catalog recipe", "" ] ] + recipe_choices
       @person_options = [ [ "Whole household", "" ] ] +
         @meal_week.people.map { |person| [ person.name, person.id ] }
     end

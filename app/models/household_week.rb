@@ -5,7 +5,7 @@ class HouseholdWeek
     delegate :habit, :history_only?, to: :entry
   end
 
-  PersonSummary = Data.define(:person, :meal_logs, :training_sessions, :habits)
+  PersonSummary = Data.define(:person, :meals, :training_sessions, :habits)
 
   attr_reader :household, :person, :start_date, :planned_meals, :people, :person_summaries
 
@@ -68,9 +68,9 @@ class HouseholdWeek
     end
 
     def load_person_summaries
-      meal_logs_by_person = household.meal_logs
+      meals_by_person = household.meals
         .during(date_range)
-        .eager_load(:recipe)
+        .eager_load(meal_items: [ :recipe, :ingredient ])
         .order(:eaten_on, :created_at)
         .to_a
         .group_by(&:person_id)
@@ -84,7 +84,7 @@ class HouseholdWeek
       people.map do |household_person|
         PersonSummary.new(
           person: household_person,
-          meal_logs: meal_logs_by_person.fetch(household_person.id, []).freeze,
+          meals: meals_by_person.fetch(household_person.id, []).freeze,
           training_sessions: sessions_by_person.fetch(household_person.id, []).freeze,
           habits: habits_by_person.fetch(household_person.id, []).freeze
         )

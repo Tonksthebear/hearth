@@ -1,0 +1,28 @@
+alex_salad:
+  meal: alex_recipe_target_week
+  recipe: salad
+  source_kind: recipe
+  snapshot_label: Salad
+  portion_amount: 1.5
+  portion_unit: servings
+  position: 1
+
+alex_dinner_with_friends:
+  meal: alex_ad_hoc_target_week
+  source_kind: free_text
+  snapshot_label: Dinner with friends
+  substitutions: Dressing on the side
+  position: 1
+
+sam_soup:
+  meal: sam_recipe_target_week
+  recipe: observed_soup
+  source_kind: recipe
+  snapshot_label: Observed soup
+  position: 1
+
+alex_next_week_leftovers:
+  meal: alex_adjacent_week
+  source_kind: free_text
+  snapshot_label: Next week's leftovers
+  position: 1

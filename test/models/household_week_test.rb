@@ -48,9 +48,9 @@ class HouseholdWeekTest < ActiveSupport::TestCase
       sam = summary_for(week, people(:two))
       jordan = summary_for(week, people(:without_login))
 
-      assert_equal [ meal_logs(:alex_recipe_target_week), meal_logs(:alex_ad_hoc_target_week) ], alex.meal_logs
-      assert_equal [ meal_logs(:sam_recipe_target_week) ], sam.meal_logs
-      assert_empty jordan.meal_logs
+      assert_equal [ meals(:alex_recipe_target_week), meals(:alex_ad_hoc_target_week) ], alex.meals
+      assert_equal [ meals(:sam_recipe_target_week) ], sam.meals
+      assert_empty jordan.meals
       assert_equal [ training_sessions(:in_progress), training_sessions(:completed_sunday) ], alex.training_sessions
       assert_equal [ training_sessions(:other_person) ], sam.training_sessions
       assert_empty jordan.training_sessions
@@ -83,7 +83,7 @@ class HouseholdWeekTest < ActiveSupport::TestCase
 
       assert_equal Date.new(2026, 8, 31), week.start_date
       assert_empty week.planned_meals
-      assert_empty summary_for(week, people(:one)).meal_logs
+      assert_empty summary_for(week, people(:one)).meals
       assert_empty summary_for(week, people(:one)).training_sessions
     end
   end
@@ -123,7 +123,7 @@ class HouseholdWeekTest < ActiveSupport::TestCase
       week.planned_meals.each { |plan| [ plan.recipe.title, plan.person&.name, plan.planned_on ] }
       week.person_summaries.each do |summary|
         summary.person.name
-        summary.meal_logs.each { |meal_log| [ meal_log.description, meal_log.eaten_on ] }
+        summary.meals.each { |meal| [ meal.description, meal.eaten_on, meal.meal_items.map(&:snapshot_label) ] }
         summary.training_sessions.each { |session| [ session.snapshot_title, session.performed_on, session.completed? ] }
         summary.habits.each do |habit_summary|
           [ habit_summary.habit.name, habit_summary.history_only? ]
