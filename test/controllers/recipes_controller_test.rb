@@ -31,6 +31,31 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: recipes(:porridge).title, count: 0
   end
 
+  test "index leads with recipe cards and show leads with cooking content" do
+    sign_in_as users(:one)
+
+    get recipes_path
+
+    assert_response :success
+    cards_position = response.body.index(%(role="list"))
+    source_details_position = response.body.index("Source details")
+    assert_operator cards_position, :<, source_details_position
+    %w[Personal Verified Adapted Observed].each do |label|
+      assert_operator response.body.index(label), :>, cards_position
+    end
+
+    get recipe_path(recipes(:porridge))
+
+    assert_response :success
+    ingredients_position = response.body.index("Ingredients")
+    instructions_position = response.body.index("Instructions")
+    source_details_position = response.body.index("Source details")
+    assert_operator ingredients_position, :<, source_details_position
+    assert_operator instructions_position, :<, source_details_position
+    assert_select "nav[aria-label='Breadcrumb']", text: /Recipes.*#{Regexp.escape(recipes(:porridge).title)}/
+    assert_select "p", text: "Household recipe", count: 0
+  end
+
   test "shows attribution provenance and medical information disclaimer" do
     sign_in_as users(:one)
 
@@ -93,6 +118,112 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Savory Bowl", recipe.reload.title
   end
 
+  test "creates displays replaces and removes a cover" do
+    sign_in_as users(:one)
+
+    post recipes_path, params: {
+      recipe: valid_recipe_params.merge(
+        cover: fixture_file_upload("recipes/cover.png", "image/png")
+      )
+    }
+
+    recipe = households(:home).recipes.find_by!(title: "Savory Bowl")
+    assert_redirected_to recipe_path(recipe)
+    assert_predicate recipe.cover, :attached?
+
+    get recipes_path
+    assert_response :success
+    assert_select "a[href='#{recipe_path(recipe)}'] img[alt='']"
+
+    get recipe_path(recipe)
+    assert_response :success
+    assert_select "img[alt='Savory Bowl cover'][src*='/rails/active_storage/representations/']"
+
+    original_blob = recipe.cover.blob
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        cover: fixture_file_upload("recipes/replacement-cover.png", "image/png"),
+        remove_cover: "1"
+      )
+    }
+
+    assert_response :see_other
+    assert_not_equal original_blob.id, recipe.reload.cover.blob.id
+    assert_not ActiveStorage::Blob.exists?(original_blob.id)
+
+    current_blob = recipe.cover.blob
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(remove_cover: "1")
+    }
+
+    assert_response :see_other
+    assert_not recipe.reload.cover.attached?
+    assert_not ActiveStorage::Blob.exists?(current_blob.id)
+  end
+
+  test "invalid cover create and replacement fail without losing stored data" do
+    sign_in_as users(:one)
+
+    assert_no_difference "Recipe.count" do
+      post recipes_path, params: {
+        recipe: valid_recipe_params.merge(
+          cover: fixture_file_upload("recipes/not-an-image.txt", "text/plain")
+        )
+      }
+    end
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /Cover must be a JPEG, PNG, or GIF/
+
+    recipe = recipes(:porridge)
+    recipe.cover.attach(fixture_file_upload("recipes/cover.png", "image/png"))
+    original_blob = recipe.cover.blob
+
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        cover: fixture_file_upload("recipes/not-an-image.txt", "text/plain")
+      )
+    }
+
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /Cover must be a JPEG, PNG, or GIF/
+    assert_equal original_blob, recipe.reload.cover.blob
+    assert_select "img[alt='#{recipe.title} cover']"
+    assert_select "label", text: "Remove cover when this recipe is saved"
+  end
+
+  test "malformed cover references render errors without changing stored data" do
+    sign_in_as users(:one)
+
+    assert_no_difference [ "Recipe.count", "ActiveStorage::Blob.count" ] do
+      post recipes_path, params: {
+        recipe: valid_recipe_params.merge(cover: "not-a-signed-id")
+      }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /Cover is invalid/
+
+    recipe = recipes(:porridge)
+    recipe.cover.attach(fixture_file_upload("recipes/cover.png", "image/png"))
+    original_title = recipe.title
+    original_blob = recipe.cover.blob
+
+    assert_no_difference "ActiveStorage::Blob.count" do
+      patch recipe_path(recipe), params: {
+        recipe: persisted_recipe_params(recipe).merge(
+          title: "Must not persist",
+          cover: "not-a-signed-id"
+        )
+      }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /Cover is invalid/
+    assert_select "img[alt='Must not persist cover']"
+    assert_equal original_title, recipe.reload.title
+    assert_equal original_blob, recipe.cover.blob
+  end
+
   test "invalid create and update render their forms" do
     sign_in_as users(:one)
 
@@ -109,6 +240,120 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "#recipe-errors", text: /Title can't be blank/
     assert_equal recipes(:porridge).title, recipe.reload.title
+  end
+
+  test "valid covers survive create and update validation errors" do
+    sign_in_as users(:one)
+
+    assert_no_difference "Recipe.count" do
+      post recipes_path, params: {
+        recipe: valid_recipe_params.merge(
+          title: "",
+          cover: fixture_file_upload("recipes/cover.png", "image/png")
+        )
+      }
+    end
+
+    assert_response :unprocessable_entity
+    create_signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    create_blob = ActiveStorage::Blob.find_signed!(create_signed_id)
+    assert create_blob.service.exist?(create_blob.key)
+
+    post recipes_path, params: {
+      recipe: valid_recipe_params.merge(cover: create_signed_id)
+    }
+
+    created_recipe = households(:home).recipes.find_by!(title: "Savory Bowl")
+    assert_redirected_to recipe_path(created_recipe)
+    assert_equal create_blob, created_recipe.cover.blob
+
+    recipe = recipes(:porridge)
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        title: "",
+        cover: fixture_file_upload("recipes/replacement-cover.png", "image/png")
+      )
+    }
+
+    assert_response :unprocessable_entity
+    update_signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    update_blob = ActiveStorage::Blob.find_signed!(update_signed_id)
+    assert update_blob.service.exist?(update_blob.key)
+
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        title: "Recovered Porridge",
+        cover: update_signed_id
+      )
+    }
+
+    assert_redirected_to recipe_path(recipe)
+    assert_equal "Recovered Porridge", recipe.reload.title
+    assert_equal update_blob, recipe.cover.blob
+  end
+
+  test "removal beats a staged signed cover while a new upload beats removal" do
+    sign_in_as users(:one)
+
+    post recipes_path, params: {
+      recipe: valid_recipe_params.merge(
+        title: "",
+        cover: fixture_file_upload("recipes/cover.png", "image/png")
+      )
+    }
+
+    create_signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    create_blob = ActiveStorage::Blob.find_signed!(create_signed_id)
+
+    post recipes_path, params: {
+      recipe: valid_recipe_params.merge(
+        title: "Removed staged cover",
+        cover: create_signed_id,
+        remove_cover: "1"
+      )
+    }
+
+    created_recipe = households(:home).recipes.find_by!(title: "Removed staged cover")
+    assert_redirected_to recipe_path(created_recipe)
+    assert_not created_recipe.cover.attached?
+    assert_not ActiveStorage::Blob.exists?(create_blob.id)
+
+    recipe = recipes(:porridge)
+    recipe.cover.attach(fixture_file_upload("recipes/cover.png", "image/png"))
+    original_blob = recipe.cover.blob
+
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        title: "",
+        cover: fixture_file_upload("recipes/replacement-cover.png", "image/png")
+      )
+    }
+
+    update_signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    update_blob = ActiveStorage::Blob.find_signed!(update_signed_id)
+
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        title: "Removed replacement",
+        cover: update_signed_id,
+        remove_cover: "1"
+      )
+    }
+
+    assert_redirected_to recipe_path(recipe)
+    assert_not recipe.reload.cover.attached?
+    assert_not ActiveStorage::Blob.exists?(original_blob.id)
+    assert_not ActiveStorage::Blob.exists?(update_blob.id)
+
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        cover: fixture_file_upload("recipes/replacement-cover.png", "image/png"),
+        remove_cover: "1"
+      )
+    }
+
+    assert_redirected_to recipe_path(recipe)
+    assert_predicate recipe.reload.cover, :attached?
   end
 
   test "Turbo structural actions rebuild without persisting" do
@@ -140,6 +385,45 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_predicate ingredient.reload, :persisted?
     assert_select "input[name*='recipe_ingredients_attributes'][name$='[_destroy]'][value='1']"
     assert_select "input[name*='recipe_ingredients_attributes'][name$='[id]'][value='#{ingredient.id}']"
+  end
+
+  test "Turbo structural actions preserve uploaded cover and pending removal" do
+    sign_in_as users(:one)
+
+    assert_difference "ActiveStorage::Blob.count", 1 do
+      post recipes_path,
+        params: {
+          recipe: valid_recipe_params.merge(
+            cover: fixture_file_upload("recipes/cover.png", "image/png")
+          ),
+          add_ingredient: "1"
+        },
+        headers: turbo_stream_headers
+    end
+
+    assert_response :success
+    hidden_cover = css_select("input[type='hidden'][name='recipe[cover]']").sole
+    signed_id = hidden_cover["value"]
+    assert_nil hidden_cover["id"]
+    assert_select "input[type='file']#recipe_cover", count: 1
+    assert_select "[id='recipe_cover']", count: 1
+    assert_select "label[for='recipe_cover']", text: "Cover image"
+    assert ActiveStorage::Blob.find_signed!(signed_id)
+
+    recipe = recipes(:porridge)
+    recipe.cover.attach(fixture_file_upload("recipes/cover.png", "image/png"))
+    cover_blob = recipe.cover.blob
+
+    patch recipe_path(recipe),
+      params: {
+        recipe: persisted_recipe_params(recipe).merge(remove_cover: "1"),
+        add_instruction: "1"
+      },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "input[name='recipe[remove_cover]'][value='1'][checked]"
+    assert_equal cover_blob, recipe.reload.cover.blob
   end
 
   test "final update removes an already persisted child" do

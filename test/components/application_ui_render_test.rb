@@ -35,6 +35,24 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
     assert document.at_css("el-option[value='adapted']")
   end
 
+  test "file fields resolve configured Elements classes and invalid state" do
+    recipe = Recipe.new
+    recipe.errors.add(:cover, "must be a JPEG, PNG, or GIF")
+
+    document = render_inline(<<~ERB, recipe:)
+      <%= form_with model: @recipe, url: "/recipes" do |form| %>
+        <%= form.file_field :cover, class: :file_field %>
+      <% end %>
+    ERB
+
+    input = document.at_css("input[type='file'][name='recipe[cover]']")
+    assert input
+    assert_includes input["class"], "cursor-pointer"
+    assert_includes input["class"], "dark:bg-white/5"
+    assert_equal "true", input["aria-invalid"]
+    assert_includes document.text, "must be a JPEG, PNG, or GIF"
+  end
+
   test "Elements selects preserve and display a false boolean value" do
     document = render_inline(<<~ERB)
       <%= form_with url: "/preferences" do |form| %>
