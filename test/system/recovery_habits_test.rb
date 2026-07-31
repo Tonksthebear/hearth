@@ -12,7 +12,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
 
     sign_in_via_browser users(:one)
     assert_equal 390, page.evaluate_script("window.innerWidth")
-    click_link_and_wait_for_path "Recovery", recovery_day_path
+    visit_and_wait_for_path recovery_day_path
 
     click_link_and_wait_for_path "Manage habits", habits_path
     click_link_and_wait_for_path "New habit", new_habit_path
@@ -45,7 +45,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     select_and_wait "No", from: "Confirmed target"
     click_button_and_wait_for_path "Save configuration", recovery_day_path
 
-    within "#today-person-habit-#{configuration.id}" do
+    within "#recovery-person-habit-#{configuration.id}" do
       assert_text "Your target: 168.0 °F"
       fill_in_and_wait_for_value "Temperature", "165"
       fill_in_and_wait_for_value "Duration", "18"
@@ -57,7 +57,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     assert_text "18 minutes"
     assert_text "No"
 
-    within "#today-person-habit-#{configuration.id}" do
+    within "#recovery-person-habit-#{configuration.id}" do
       fill_in_and_wait_for_value "Temperature", "170"
       fill_in_and_wait_for_value "Duration", "22"
       assert_equal "No", find("el-select[name$='[boolean_value]'] el-selectedcontent").text
@@ -67,28 +67,28 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     assert_text "170.0 °F"
     assert_text "22 minutes"
 
-    within "#today-person-habit-#{person_habits(:alex_water).id}" do
+    within "#recovery-person-habit-#{person_habits(:alex_water).id}" do
       accept_confirm("Clear today's check-in?") { click_button "Clear" }
     end
     assert_current_path recovery_day_path
-    within "#today-person-habit-#{person_habits(:alex_water).id}" do
+    within "#recovery-person-habit-#{person_habits(:alex_water).id}" do
       click_button "Check off"
     end
     assert_current_path recovery_day_path
-    within "#today-person-habit-#{person_habits(:alex_water).id}" do
+    within "#recovery-person-habit-#{person_habits(:alex_water).id}" do
       assert_text "Checked"
     end
 
-    within "#today-person-habit-#{configuration.id}" do
+    within "#recovery-person-habit-#{configuration.id}" do
       click_link "Configure"
     end
     assert_current_path edit_person_habit_path(configuration)
     click_button_and_wait_for_path "Deactivate habit", recovery_day_path
-    assert_no_selector "#today-person-habit-#{configuration.id}"
+    assert_no_selector "#recovery-person-habit-#{configuration.id}"
     assert_selector "article", text: /Evening reset.*History only/im
 
     switch_person_via_browser people(:two)
-    click_link_and_wait_for_path "Recovery", recovery_day_path
+    visit_and_wait_for_path recovery_day_path
     assert_no_text "Evening reset"
     assert_no_text "170.0 °F"
     assert_no_text "Your target: 20 minutes"

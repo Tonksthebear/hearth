@@ -25,6 +25,29 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "owner renders a same-household person overview and context-aware destinations" do
+    sign_in_as users(:one)
+
+    get person_path(people(:two))
+
+    assert_response :success
+    assert_select "h1", people(:two).name
+    assert_select "form[action=?] input[name='destination'][value='meals']", person_context_path
+    assert_select "form[action=?] input[name='destination'][value='activities']", person_context_path
+
+    get person_path(people(:one))
+    assert_select "a[href=?]", meal_week_path, text: /meals/
+    assert_select "a[href=?]", activity_overview_path, text: /activities/
+  end
+
+  test "person overview outside the sole household scope is not found" do
+    sign_in_as users(:one)
+
+    get person_path(0)
+
+    assert_response :not_found
+  end
+
   test "owner creates a person without a login" do
     sign_in_as users(:one)
 
@@ -82,6 +105,9 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
     sign_in_as users(:one)
 
     get edit_person_path(0)
+    assert_response :not_found
+
+    get person_path(0)
     assert_response :not_found
 
     patch person_path(0), params: { person: { name: "Nope" } }

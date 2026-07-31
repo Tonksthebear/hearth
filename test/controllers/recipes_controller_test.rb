@@ -40,8 +40,8 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: recipes(:porridge).title
     assert_select "dd", text: /#{Regexp.escape(recipes(:porridge).source_name)}/
     assert_select "dd", text: /#{Regexp.escape(recipes(:porridge).source_url)}/
-    assert_select "aside", text: /not clinical endorsement/i
-    assert_select "aside", text: /does not provide medical advice/i
+    assert_select "p", text: /not clinical endorsement/i
+    assert_select "p", text: /does not provide medical advice/i
   end
 
   test "person context does not change the shared catalog" do

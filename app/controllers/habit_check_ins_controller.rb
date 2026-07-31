@@ -19,7 +19,7 @@ class HabitCheckInsController < ApplicationController
 
   def destroy
     current_check_ins.find(params[:id]).destroy!
-    redirect_to recovery_day_path, notice: "Today's check-in was cleared.", status: :see_other
+    redirect_to redirect_path, notice: "Today's check-in was cleared.", status: :see_other
   end
 
   private
@@ -45,7 +45,7 @@ class HabitCheckInsController < ApplicationController
 
     def persist_or_render
       if @habit_check_in.save
-        redirect_to recovery_day_path, notice: "Today's check-in was saved.", status: :see_other
+        redirect_to redirect_path, notice: "Today's check-in was saved.", status: :see_other
       else
         @recovery_day = RecoveryDay.current(
           household: Current.household,
@@ -54,5 +54,9 @@ class HabitCheckInsController < ApplicationController
         )
         render "recovery_days/show", status: :unprocessable_entity
       end
+    end
+
+    def redirect_path
+      params[:return_to] == "today" ? root_path : recovery_day_path
     end
 end

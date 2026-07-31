@@ -9,7 +9,38 @@ class RecipeTest < ActiveSupport::TestCase
     assert_includes recipe.errors[:source_name], "can't be blank"
     assert_includes recipe.errors[:provenance_status], "is not included in the list"
 
-    assert_equal %w[verified adapted observed], Recipe.provenance_statuses.keys
+    assert_equal %w[personal verified adapted observed], Recipe.provenance_statuses.keys
+  end
+
+  test "personal recipes persist without a source" do
+    recipe = households(:home).recipes.create!(
+      title: "Household pasta",
+      provenance_status: :personal
+    )
+
+    assert_nil recipe.source_name
+    assert_equal "From your household", recipe.source_label
+  end
+
+  test "imported provenance statuses still require a source" do
+    %i[verified adapted observed].each do |status|
+      recipe = households(:home).recipes.build(title: status.to_s, provenance_status: status)
+
+      assert_not recipe.valid?
+      assert_includes recipe.errors[:source_name], "can't be blank"
+    end
+  end
+
+  test "database rejects unsupported provenance inserted below validations" do
+    assert_raises ActiveRecord::StatementInvalid do
+      Recipe.insert!({
+        household_id: households(:home).id,
+        title: "Unsupported",
+        provenance_status: "unsupported",
+        created_at: Time.current,
+        updated_at: Time.current
+      })
+    end
   end
 
   test "orders nested records and destroys them with the recipe" do

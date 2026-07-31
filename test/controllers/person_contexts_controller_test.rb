@@ -16,13 +16,27 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
     assert_response :see_other
 
     get root_path
-    assert_select "article[data-current-person='true'] h3", people(:two).name
+    assert_select "h1", "Today"
+    assert_select "p", people(:two).name
 
     patch person_context_path, params: { person_id: people(:one).id }
     assert_redirected_to root_path
 
     get root_path
-    assert_select "article[data-current-person='true'] h3", people(:one).name
+    assert_select "p", people(:one).name
+  end
+
+  test "destination keys redirect only to fixed internal routes" do
+    sign_in_as users(:one)
+
+    patch person_context_path, params: { person_id: people(:two).id, destination: "meals" }
+    assert_redirected_to meal_week_path
+
+    patch person_context_path, params: { person_id: people(:one).id, destination: "activities" }
+    assert_redirected_to activity_overview_path
+
+    patch person_context_path, params: { person_id: people(:two).id, destination: "https://example.com" }
+    assert_redirected_to root_path
   end
 
   test "unknown numeric selection returns not found without changing context" do
@@ -33,7 +47,7 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
     get root_path
-    assert_select "article[data-current-person='true'] h3", people(:two).name
+    assert_select "p", people(:two).name
   end
 
   test "garbage selection returns not found without changing context" do
@@ -44,7 +58,7 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
     get root_path
-    assert_select "article[data-current-person='true'] h3", people(:two).name
+    assert_select "p", people(:two).name
   end
 
   test "stale selection falls back to the signed in person" do
@@ -56,10 +70,9 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :success
-    assert_select "article[data-current-person='true']" do
-      assert_select "h3", people(:one).name
-      assert_select "h3", text: selected.name, count: 0
-    end
+    assert_select "h1", "Today"
+    assert_select "p", people(:one).name
+    assert_select "p", text: selected.name, count: 0
   end
 
   test "person switcher marks the selected context on every authenticated person page" do

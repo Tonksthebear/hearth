@@ -1,4 +1,5 @@
 <% content_for :title, "Recipes · Hearth" %>
+<%= render "layouts/meals_navigation" %>
 
 <section aria-labelledby="recipes-heading">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -46,11 +47,10 @@
                 <p class="mt-2 text-gray-600 dark:text-gray-400"><%= recipe.description %></p>
               <% end %>
             </div>
-            <span class="rounded-full bg-gray-100 dark:bg-white/5 px-3 py-1 text-sm font-semibold"><%= recipe.provenance_status.humanize %></span>
           </div>
           <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
             Source:
-            <span class="font-medium"><%= recipe.source_name %></span>
+            <span class="font-medium"><%= recipe.source_label %></span>
             <% if recipe.source_url.present? %>
               <span class="break-all">(<%= recipe.source_url %>)</span>
             <% end %>

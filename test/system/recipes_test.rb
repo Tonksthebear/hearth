@@ -7,6 +7,7 @@ class RecipesTest < ApplicationSystemTestCase
     fill_in "Password", with: "password"
     click_button_and_wait_for_path "Sign in", root_path
 
+    click_link_and_wait_for_path "Meals", meal_week_path
     click_link_and_wait_for_path "Recipes", recipes_path
     assert_selector "section[aria-labelledby='recipes-heading'] h1", text: "Recipes"
     assert_text "does not provide medical advice"

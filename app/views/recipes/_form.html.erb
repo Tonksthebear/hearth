@@ -27,7 +27,8 @@
       </div>
       <div>
         <%= form.label :source_name, "Source name", class: :label %>
-        <%= form.text_field :source_name, required: true, class: :text_field %>
+        <%= form.text_field :source_name, class: :text_field %>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Optional for personal household recipes; required for imported provenance.</p>
       </div>
       <div>
         <%= form.label :source_url, "Source URL", class: :label %>

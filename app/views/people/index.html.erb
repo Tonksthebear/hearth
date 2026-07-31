@@ -11,7 +11,7 @@
   <ul class="mt-8 divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 shadow-sm">
     <% @people.each do |person| %>
       <li class="flex items-center justify-between gap-4 px-5 py-4">
-        <span class="font-medium"><%= person.name %></span>
+        <%= link_to person.name, person_path(person), class: "font-medium text-primary-800 underline hover:no-underline dark:text-primary-300" %>
         <%= link_to "Edit", edit_person_path(person), class: "text-sm font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline", "aria-label": "Edit #{person.name}" %>
       </li>
     <% end %>

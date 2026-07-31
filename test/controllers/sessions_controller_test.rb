@@ -54,9 +54,8 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     }
     get root_path
 
-    assert_select "article[data-current-person='true']" do
-      assert_select "h3", people(:one).name
-      assert_select "h3", text: people(:without_login).name, count: 0
-    end
+    assert_select "h1", "Today"
+    assert_select "p", people(:one).name
+    assert_select "p", text: people(:without_login).name, count: 0
   end
 end
