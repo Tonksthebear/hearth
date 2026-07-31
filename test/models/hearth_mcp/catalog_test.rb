@@ -34,6 +34,9 @@ class HearthMcp::CatalogTest < ActiveSupport::TestCase
     assert_equal ids.uniq, ids
     assert_nil second.next_cursor
     assert_raises(ArgumentError) { HearthMcp::Page.new(Recipe.all, cursor: "hostile") }
+    [ "NQ", "IjUi", "e30", "eyJpZCI6ImFiYyJ9" ].each do |cursor|
+      assert_raises(ArgumentError) { HearthMcp::Page.new(Recipe.all, cursor: cursor) }
+    end
     assert_raises(ArgumentError) { HearthMcp::Page.new(Recipe.all, limit: 51) }
   end
 

@@ -16,14 +16,35 @@ module HearthMcp
         additionalProperties: false
       }.freeze
       DATA_PROPERTIES = {
-        "get_current_context" => { household: RECORD_SCHEMA, person: RECORD_SCHEMA, conversation_id: { type: "integer" }, agent_session_id: { type: "integer" }, capabilities: { type: "array", items: STRING_SCHEMA } },
+        "get_current_context" => {
+          household: RECORD_SCHEMA,
+          person: RECORD_SCHEMA,
+          conversation_id: { type: "integer" },
+          agent_session_id: { type: "integer" },
+          capabilities: { type: "array", items: STRING_SCHEMA }
+        },
         "get_today" => { date: STRING_SCHEMA, sections: RECORDS_SCHEMA },
         "get_household_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, planned_meals: RECORDS_SCHEMA, people: RECORDS_SCHEMA },
-        "get_recipe" => { id: { type: "integer" }, title: STRING_SCHEMA, description: { type: [ "string", "null" ] }, yield: { type: [ "string", "null" ] }, provenance_status: STRING_SCHEMA, source_name: { type: [ "string", "null" ] }, source_url: { type: [ "string", "null" ] }, ingredients: RECORDS_SCHEMA },
+        "get_recipe" => {
+          id: { type: "integer" },
+          title: STRING_SCHEMA,
+          description: { type: [ "string", "null" ] },
+          yield: { type: [ "string", "null" ] },
+          provenance_status: STRING_SCHEMA,
+          source_name: { type: [ "string", "null" ] },
+          source_url: { type: [ "string", "null" ] },
+          ingredients: RECORDS_SCHEMA
+        },
         "get_meal_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, planned_meals: RECORDS_SCHEMA, meal_logs: RECORDS_SCHEMA },
         "get_shopping_list" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, entries: RECORDS_SCHEMA },
         "get_activity_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, days: RECORDS_SCHEMA },
-        "get_training_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, completed_sessions: RECORDS_SCHEMA, in_progress_sessions: RECORDS_SCHEMA, metrics: RECORDS_SCHEMA },
+        "get_training_week" => {
+          start_date: STRING_SCHEMA,
+          end_date: STRING_SCHEMA,
+          completed_sessions: RECORDS_SCHEMA,
+          in_progress_sessions: RECORDS_SCHEMA,
+          metrics: RECORDS_SCHEMA
+        },
         "get_weekly_dose_targets" => { person_id: { type: "integer" }, start_date: STRING_SCHEMA, targets: RECORDS_SCHEMA },
         "get_recovery_day" => { date: STRING_SCHEMA, dates: { type: "array", items: STRING_SCHEMA }, entries: RECORDS_SCHEMA }
       }.freeze
@@ -63,7 +84,10 @@ module HearthMcp
           json = JSON.generate(envelope)
           tokens = (json.bytesize / 4.0).ceil
           grant = server_context.fetch(:grant)
-          return error("Grant usage limit exhausted") unless grant.consume(calls: 1, output_tokens: tokens) == 1
+          return error("Grant call limit exhausted") unless grant.consume(calls: 1) == 1
+          unless grant.consume(calls: 0, output_tokens: tokens) == 1
+            return error("Response exceeds the remaining output budget")
+          end
 
           MCP::Tool::Response.new(
             [ { type: "text", text: json } ],
@@ -71,7 +95,10 @@ module HearthMcp
           )
         end
 
-        def error(message)
+        def error(message, server_context: nil)
+          if server_context && grant(server_context).consume(calls: 1) != 1
+            message = "Grant call limit exhausted"
+          end
           MCP::Tool::Response.new([ { type: "text", text: JSON.generate(error: message) } ], error: true)
         end
 
@@ -90,6 +117,12 @@ module HearthMcp
         def page(scope, limit:, cursor:, &serializer)
           result = Page.new(scope, limit: limit, cursor: cursor)
           { items: result.records.map(&serializer), next_cursor: result.next_cursor }
+        end
+
+        def paginated_response(scope, limit:, cursor:, server_context:, &serializer)
+          response(page(scope, limit: limit, cursor: cursor, &serializer), server_context: server_context)
+        rescue ArgumentError => exception
+          error(exception.message, server_context: server_context)
         end
 
         private
@@ -121,14 +154,24 @@ module HearthMcp
       contract name: "get_current_context", description: "Return the authorized Hearth household, person, conversation, and ACP session context."
       def self.call(server_context:)
         g = grant(server_context)
-        response({ household: { id: g.household_id, name: g.household.name }, person: Serializer.person(g.person), conversation_id: g.conversation_id, agent_session_id: g.agent_session_id, capabilities: g.capability_groups }, server_context: server_context)
+        response(
+          {
+            household: { id: g.household_id, name: g.household.name },
+            person: Serializer.person(g.person),
+            conversation_id: g.conversation_id,
+            agent_session_id: g.agent_session_id,
+            capabilities: g.capability_groups
+          },
+          server_context: server_context
+        )
       end
     end
 
     class ListPeople < Base
       contract name: "list_people", description: "List people visible in the authorized household.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(household(server_context).people, limit: limit, cursor: cursor, &Serializer.method(:person)), server_context: server_context)
+        paginated_response(household(server_context).people, limit: limit, cursor: cursor,
+          server_context: server_context, &Serializer.method(:person))
       end
     end
 
@@ -137,7 +180,15 @@ module HearthMcp
       def self.call(date: nil, server_context:)
         target = date ? self.date(date) : Date.current
         today = Person::Today.new(household: household(server_context), person: person(server_context), date: target)
-        response({ date: target.iso8601, sections: today.sections.map { |section| { key: section.key.to_s, title: section.title, description: section.description, items: section.items.map { |item| Serializer.activity_item(item) } } } }, server_context: server_context)
+        sections = today.sections.map do |section|
+          {
+            key: section.key.to_s,
+            title: section.title,
+            description: section.description,
+            items: section.items.map { |item| Serializer.activity_item(item) }
+          }
+        end
+        response({ date: target.iso8601, sections: sections }, server_context: server_context)
       end
     end
 
@@ -174,15 +225,23 @@ module HearthMcp
     class ListRecipes < Base
       contract name: "list_recipes", description: "List the authorized household recipe catalog with provenance.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(household(server_context).recipes, limit: limit, cursor: cursor) { |row| Serializer.recipe(row) }, server_context: server_context)
+        paginated_response(household(server_context).recipes, limit: limit, cursor: cursor,
+          server_context: server_context) { |row| Serializer.recipe(row) }
       end
     end
 
     class GetRecipe < Base
-      contract name: "get_recipe", description: "Return one authorized household recipe, ingredients, attribution, and provenance status.", properties: { id: { type: "integer", minimum: 1 } }, required: %w[id]
+      contract name: "get_recipe",
+        description: "Return one authorized household recipe, ingredients, attribution, and provenance status.",
+        properties: { id: { type: "integer", minimum: 1 } },
+        required: %w[id]
       def self.call(id:, server_context:)
         record = household(server_context).recipes.includes(:recipe_ingredients).find_by(id: id)
-        record ? response(Serializer.recipe(record, detail: true), server_context: server_context) : error("Recipe not found")
+        if record
+          response(Serializer.recipe(record, detail: true), server_context: server_context)
+        else
+          error("Recipe not found", server_context: server_context)
+        end
       end
     end
 
@@ -190,7 +249,15 @@ module HearthMcp
       contract name: "get_meal_week", description: "Return the selected person's visible meal plans and logs for a Monday-to-Sunday week.", properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = MealWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
-        response({ start_date: week.start_date.iso8601, end_date: week.end_date.iso8601, planned_meals: week.planned_meals.map { |row| Serializer.planned_meal(row) }, meal_logs: week.meal_logs.map { |row| Serializer.meal_log(row) } }, server_context: server_context)
+        response(
+          {
+            start_date: week.start_date.iso8601,
+            end_date: week.end_date.iso8601,
+            planned_meals: week.planned_meals.map { |row| Serializer.planned_meal(row) },
+            meal_logs: week.meal_logs.map { |row| Serializer.meal_log(row) }
+          },
+          server_context: server_context
+        )
       end
     end
 
@@ -198,58 +265,86 @@ module HearthMcp
       contract name: "list_planned_meals", description: "List meal plans visible to the selected person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         scope = household(server_context).planned_meals.visible_to(person(server_context)).includes(:person, :recipe)
-        response(page(scope, limit: limit, cursor: cursor) { |row| Serializer.planned_meal(row) }, server_context: server_context)
+        paginated_response(scope, limit: limit, cursor: cursor, server_context: server_context) do |row|
+          Serializer.planned_meal(row)
+        end
       end
     end
 
     class ListMealLogs < Base
       contract name: "list_meal_logs", description: "List observed meal logs for the selected person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(person(server_context).meal_logs.includes(:recipe), limit: limit, cursor: cursor) { |row| Serializer.meal_log(row) }, server_context: server_context)
+        paginated_response(person(server_context).meal_logs.includes(:recipe), limit: limit, cursor: cursor,
+          server_context: server_context) { |row| Serializer.meal_log(row) }
       end
     end
 
     class GetShoppingList < Base
-      contract name: "get_shopping_list", description: "Return the household shopping projection from all plans, preserving exact unit boundaries and free-text amounts.", properties: WEEK_PROPERTIES
+      contract name: "get_shopping_list",
+        description: "Return the household shopping projection from all plans, preserving exact unit boundaries and free-text amounts.",
+        properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         list = ShoppingList.new(household: household(server_context), date: week_date(date))
-        response({ start_date: list.start_date.iso8601, end_date: list.end_date.iso8601, entries: list.entries.map { |entry| { name: entry.name, amount: entry.amount, unit: entry.unit } } }, server_context: server_context)
+        entries = list.entries.map { |entry| { name: entry.name, amount: entry.amount, unit: entry.unit } }
+        response(
+          { start_date: list.start_date.iso8601, end_date: list.end_date.iso8601, entries: entries },
+          server_context: server_context
+        )
       end
     end
 
     class GetActivityWeek < Base
-      contract name: "get_activity_week", description: "Return the selected person's truthful weekly activity agenda, including scheduled intent and actual execution once.", properties: WEEK_PROPERTIES
+      contract name: "get_activity_week",
+        description: "Return the selected person's truthful weekly activity agenda, including scheduled intent and actual execution once.",
+        properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = ActivityWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
-        response({ start_date: week.start_date.iso8601, end_date: week.end_date.iso8601, days: week.days.map { |day| { date: day.date.iso8601, sections: day.sections.map { |section| { key: section.key.to_s, items: section.items.map { |item| Serializer.activity_item(item) } } } } } }, server_context: server_context)
+        days = week.days.map do |day|
+          {
+            date: day.date.iso8601,
+            sections: day.sections.map do |section|
+              { key: section.key.to_s, items: section.items.map { |item| Serializer.activity_item(item) } }
+            end
+          }
+        end
+        response(
+          { start_date: week.start_date.iso8601, end_date: week.end_date.iso8601, days: days },
+          server_context: server_context
+        )
       end
     end
 
     class ListPlannedWorkouts < Base
       contract name: "list_planned_workouts", description: "List planned workout intent and linked execution without duplicating sessions.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(person(server_context).planned_workouts.includes(:workout_template, :training_session), limit: limit, cursor: cursor) { |row| Serializer.planned_workout(row) }, server_context: server_context)
+        scope = person(server_context).planned_workouts.includes(:workout_template, :training_session)
+        paginated_response(scope, limit: limit, cursor: cursor, server_context: server_context) do |row|
+          Serializer.planned_workout(row)
+        end
       end
     end
 
     class ListExercises < Base
       contract name: "list_exercises", description: "List exercises in the authorized household library.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(household(server_context).exercises, limit: limit, cursor: cursor, &Serializer.method(:exercise)), server_context: server_context)
+        paginated_response(household(server_context).exercises, limit: limit, cursor: cursor,
+          server_context: server_context, &Serializer.method(:exercise))
       end
     end
 
     class ListWorkoutTemplates < Base
       contract name: "list_workout_templates", description: "List workout templates with source and provenance.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(household(server_context).workout_templates, limit: limit, cursor: cursor, &Serializer.method(:workout_template)), server_context: server_context)
+        paginated_response(household(server_context).workout_templates, limit: limit, cursor: cursor,
+          server_context: server_context, &Serializer.method(:workout_template))
       end
     end
 
     class ListTrainingSessions < Base
       contract name: "list_training_sessions", description: "List actual training executions for the selected person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(person(server_context).training_sessions, limit: limit, cursor: cursor, &Serializer.method(:training_session)), server_context: server_context)
+        paginated_response(person(server_context).training_sessions, limit: limit, cursor: cursor,
+          server_context: server_context, &Serializer.method(:training_session))
       end
     end
 
@@ -257,7 +352,16 @@ module HearthMcp
       contract name: "get_training_week", description: "Return selected-person training executions and dose progress for one week.", properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = TrainingWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
-        response({ start_date: week.start_date.iso8601, end_date: week.end_date.iso8601, completed_sessions: week.completed_sessions.map { |row| Serializer.training_session(row) }, in_progress_sessions: week.in_progress_sessions.map { |row| Serializer.training_session(row) }, metrics: week.metrics.map(&:to_h) }, server_context: server_context)
+        response(
+          {
+            start_date: week.start_date.iso8601,
+            end_date: week.end_date.iso8601,
+            completed_sessions: week.completed_sessions.map { |row| Serializer.training_session(row) },
+            in_progress_sessions: week.in_progress_sessions.map { |row| Serializer.training_session(row) },
+            metrics: week.metrics.map(&:to_h)
+          },
+          server_context: server_context
+        )
       end
     end
 
@@ -265,14 +369,26 @@ module HearthMcp
       contract name: "get_weekly_dose_targets", description: "Return configured weekly training targets with explicit units.", properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = TrainingWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
-        response({ person_id: person(server_context).id, start_date: week.start_date.iso8601, targets: week.metrics.map { |metric| metric.to_h.slice(:key, :label, :target, :unit) } }, server_context: server_context)
+        targets = week.metrics.map { |metric| metric.to_h.slice(:key, :label, :target, :unit) }
+        response(
+          { person_id: person(server_context).id, start_date: week.start_date.iso8601, targets: targets },
+          server_context: server_context
+        )
       end
     end
 
     class ListHabits < Base
       contract name: "list_habits", description: "List household habit definitions and typed metric schemas.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        response(page(household(server_context).habits.includes(:habit_metrics), limit: limit, cursor: cursor) { |habit| { id: habit.id, name: habit.name, description: habit.description, metrics: habit.habit_metrics.map { |metric| Serializer.metric(metric) } } }, server_context: server_context)
+        paginated_response(household(server_context).habits.includes(:habit_metrics), limit: limit, cursor: cursor,
+          server_context: server_context) do |habit|
+          {
+            id: habit.id,
+            name: habit.name,
+            description: habit.description,
+            metrics: habit.habit_metrics.map { |metric| Serializer.metric(metric) }
+          }
+        end
       end
     end
 
@@ -280,16 +396,20 @@ module HearthMcp
       contract name: "list_person_habits", description: "List the selected person's habit schedules and typed targets.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         scope = person(server_context).person_habits.includes(habit: :habit_metrics, person_habit_metrics: :habit_metric)
-        response(page(scope, limit: limit, cursor: cursor, &Serializer.method(:person_habit)), server_context: server_context)
+        paginated_response(scope, limit: limit, cursor: cursor,
+          server_context: server_context, &Serializer.method(:person_habit))
       end
     end
 
     class ListHabitCheckIns < Base
-      contract name: "list_habit_check_ins", description: "List selected-person check-ins with boolean, number, duration, or time-of-day measurements and conditional units.", properties: PAGE_PROPERTIES
+      contract name: "list_habit_check_ins",
+        description: "List selected-person check-ins with boolean, number, duration, or time-of-day measurements and conditional units.",
+        properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         ids = person(server_context).person_habit_ids
         scope = HabitCheckIn.where(person_habit_id: ids).includes(person_habit: { habit: :habit_metrics }, habit_check_in_measurements: :habit_metric)
-        response(page(scope, limit: limit, cursor: cursor, &Serializer.method(:habit_check_in)), server_context: server_context)
+        paginated_response(scope, limit: limit, cursor: cursor,
+          server_context: server_context, &Serializer.method(:habit_check_in))
       end
     end
 
@@ -298,7 +418,21 @@ module HearthMcp
       def self.call(date: nil, server_context:)
         target = date ? self.date(date) : Date.current
         day = RecoveryDay.new(household: household(server_context), person: person(server_context), date: target)
-        response({ date: target.iso8601, dates: day.dates.map(&:iso8601), entries: day.entries.map { |entry| { person_habit: Serializer.person_habit(entry.person_habit), statuses: day.dates.map { |item_date| { date: item_date.iso8601, status: entry.status_on(item_date).to_s, check_in: entry.check_in_on(item_date) && Serializer.habit_check_in(entry.check_in_on(item_date)) } } } } }, server_context: server_context)
+        entries = day.entries.map do |entry|
+          statuses = day.dates.map do |item_date|
+            check_in = entry.check_in_on(item_date)
+            {
+              date: item_date.iso8601,
+              status: entry.status_on(item_date).to_s,
+              check_in: check_in && Serializer.habit_check_in(check_in)
+            }
+          end
+          { person_habit: Serializer.person_habit(entry.person_habit), statuses: statuses }
+        end
+        response(
+          { date: target.iso8601, dates: day.dates.map(&:iso8601), entries: entries },
+          server_context: server_context
+        )
       end
     end
 

@@ -42,7 +42,10 @@ class Agent::Session < ApplicationRecord
 
   def bind_external_session!(external_session_id)
     raise ArgumentError, "ACP session id is required" if external_session_id.blank?
-    raise ActiveRecord::RecordInvalid, self if self.external_session_id.present?
+    if self.external_session_id.present?
+      errors.add(:external_session_id, "is already bound")
+      raise ActiveRecord::RecordInvalid, self
+    end
 
     update!(external_session_id: external_session_id)
     self

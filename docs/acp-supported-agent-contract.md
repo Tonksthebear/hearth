@@ -132,6 +132,12 @@ dispatch, uses the official SDK's Host/Origin DNS-rebinding checks, and requires
 valid bearer on every independent POST. It constructs a fresh stateless server,
 transport, and grant-filtered registry per request. `health_read` exposes the exact
 catalog; grants without `health.read` expose no tools and cannot dispatch one.
+The injected runtime grant expires after 15 minutes or 200 calls and carries a
+200,000-token output budget. The first request after expiry or exhaustion changes the
+persisted session to `reauthorization_required`; the operator recovers or restarts
+that session to inject a fresh credential. The current ACP v1 configuration is
+immutable after session selection, so an attached connection is not silently rotated
+in place.
 
 All tools publish strict input schemas, output schemas, descriptions, and read-only
 annotations. Results contain structured content plus JSON text fallback, stable IDs,
@@ -152,7 +158,7 @@ plaintext, evidence, or object inspection.
 | Agent path | Install/auth | Session + stream | Session list | Permission | MCP HTTP | MCP stdio | Text resource | Image | Cancel/failure | Close | Load/resume |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Fake ACP peer | observed | observed | observed | deny observed | observed config | observed config and proxy E2E | observed | observed | observed | observed | observed |
-| Grok Build 0.2.117 native | installed; `cached_token` authenticate observed | production runtime new + recovered prompt observed | observed | no live request; deny policy active | implementation ready; live cross-domain proof required | implementation ready; fallback proof required | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed; fresh MCP config implemented; resume unsupported |
+| Grok Build 0.2.117 native | installed; `cached_token` authenticate observed | production runtime new + recovered prompt observed | observed | no live request; deny policy active | first-turn live proof observed: 8 read tools across meals/activity/training/habits/recovery, no DB/filesystem access | configuration + proxy E2E observed; live fallback not induced | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed; fresh MCP config implemented; resume unsupported |
 | Codex ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 | Claude ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 
@@ -173,7 +179,9 @@ PIDs were absent after both runs. The older `live-agents.jsonl` and
 `8f3e9d6e9f5844c18c6a92f524491634df695e0a` and its ancestors. Their MCP
 tool-call evidence is historical and is not attributed to the authenticated catalog.
 New evidence reports only MCP server name, transport, and authenticated status—never
-URLs, headers, environment values, raw tool arguments, or results.
+URLs, headers, environment values, raw tool arguments, or results. The ticket-04
+Project Pipelines artifact additionally records Grok 0.2.117 pass/fail and sanitized
+MCP tool names/statuses; fixture bodies and credentials were not committed.
 
 `bin/hearth-acp-runtime` writes the same sanitized result to stdout and to the
 optional JSONL evidence path. Its result narrows agent identity and negotiated

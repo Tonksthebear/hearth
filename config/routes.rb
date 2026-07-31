@@ -1,5 +1,5 @@
 Rails.application.routes.draw do
-  resource :mcp, only: :create
+  resource :mcp, only: %i[ show create destroy ]
 
   namespace :setup do
     resource :household, only: %i[ new create ]

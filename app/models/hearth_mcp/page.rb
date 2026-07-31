@@ -16,8 +16,10 @@ module HearthMcp
       rows = scope.reorder(:id).where("id > ?", after_id).limit(limit + 1).to_a
       @records = rows.first(limit)
       @next_cursor = encode(@records.last.id) if rows.length > limit
-    rescue JSON::ParserError, ArgumentError => error
+    rescue ArgumentError => error
       raise ArgumentError, error.message.start_with?("limit") ? error.message : "cursor is invalid"
+    rescue JSON::ParserError, KeyError, TypeError, RangeError
+      raise ArgumentError, "cursor is invalid"
     end
 
     private
@@ -29,7 +31,9 @@ module HearthMcp
         return 0 if cursor.blank?
 
         value = JSON.parse(Base64.urlsafe_decode64(cursor.to_s))
-        Integer(value.fetch("id"), exception: true).tap { |id| raise ArgumentError if id.negative? }
+        raise ArgumentError unless value.is_a?(Hash) && value["id"].is_a?(Integer)
+
+        value.fetch("id").tap { |id| raise ArgumentError if id.negative? }
       end
   end
 end

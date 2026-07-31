@@ -65,6 +65,64 @@ class Agent::GrantTest < ActiveSupport::TestCase
     assert_equal "acp_runtime", event.metadata["source"]
   end
 
+  test "runtime bearer authentication rejects every inactive or mismatched context" do
+    assert_nil Agent::Grant.authenticate(bearer: "malformed")
+
+    credential = runtime_credential
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer, at: credential.grant.expires_at)
+    assert_equal "reauthorization_required", credential.grant.agent_session.reload.mcp_authorization_status
+
+    credential = runtime_credential
+    credential.grant.revoke!(reason: "test")
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = runtime_credential
+    credential.grant.update_column(:capability_groups, [ "retired_group" ])
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = runtime_credential
+    credential.grant.conversation.update_column(:status, "closed")
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+    credential.grant.conversation.update_column(:status, "active")
+
+    credential = runtime_credential
+    credential.grant.agent_session.update_column(:status, "closed")
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = runtime_credential
+    credential.grant.update_column(:person_id, people(:one).id)
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = runtime_credential
+    other_conversation = Agent::Conversation.create!(
+      household: households(:home),
+      person: people(:two),
+      profile: agent_profiles(:hearth),
+      title: "Authentication mismatch"
+    )
+    credential.grant.update_column(:conversation_id, other_conversation.id)
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = runtime_credential
+    credential.grant.agent_session.update_column(:person_id, people(:one).id)
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = issue_grant
+    other_browser_session = users(:two).sessions.create!
+    credential.grant.update_column(:browser_session_id, other_browser_session.id)
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+
+    credential = runtime_credential
+    credential.grant.update_column(:calls_used, credential.grant.calls_limit)
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+    assert_equal "reauthorization_required", credential.grant.agent_session.reload.mcp_authorization_status
+
+    credential = runtime_credential
+    credential.grant.update_column(:output_tokens_used, credential.grant.output_tokens_limit)
+    assert_nil Agent::Grant.authenticate(bearer: credential.bearer)
+    assert_equal "reauthorization_required", credential.grant.agent_session.reload.mcp_authorization_status
+  end
+
   test "denies wrong secret expiry revocation and unknown capability" do
     credential = issue_grant
     args = {
@@ -215,6 +273,10 @@ class Agent::GrantTest < ActiveSupport::TestCase
   end
 
   private
+    def runtime_credential
+      create_runtime_session.issue_runtime_grant!
+    end
+
     def issue_grant
       Agent::Grant.issue!(
         conversation: agent_conversations(:active),

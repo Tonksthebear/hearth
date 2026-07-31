@@ -25,6 +25,10 @@ runs separately from Puma, and injects a short-lived server-issued `Agent::Grant
 into the first ACP session request and every recovery. Rails serves the canonical
 stateless MCP endpoint at loopback-only `POST /mcp`; agents without ACP HTTP MCP
 support receive the thin `bin/hearth-mcp-proxy` stdio relay instead.
+Runtime grants expire after 15 minutes or 200 tool calls, with a 200,000-token
+output budget. The first request after expiry or exhaustion marks the persisted
+session as requiring MCP reauthorization; recovering or restarting it injects a fresh
+credential because ACP MCP configuration is immutable after session selection.
 
 The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
 not start the ACP runtime. Against an initialized installation, start or recover

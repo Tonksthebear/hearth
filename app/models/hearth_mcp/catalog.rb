@@ -43,8 +43,7 @@ module HearthMcp
                 tool_name: data[:tool_name],
                 arguments: data[:tool_arguments],
                 result: result.to_h,
-                failed: data[:error].present? || result[:error].present? || result["error"].present? ||
-                  result.dig(:result, :isError) || result.dig("result", "isError")
+                failed: data[:error].present? || result[:isError] || result["isError"]
               )
             end
             result

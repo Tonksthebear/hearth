@@ -130,8 +130,12 @@ class Agent::Grant < ApplicationRecord
       locator, secret = bearer.to_s.split(".", 2)
       return unless locator.present? && secret.present?
 
-      grant = active_at(at).includes(:conversation, :agent_session, :browser_session).find_by(token_locator: locator)
+      grant = includes(:conversation, :agent_session, :browser_session).find_by(token_locator: locator)
       return unless grant&.secret_matches?(secret)
+      unless grant.revoked_at.nil? && grant.expires_at > at
+        grant.agent_session&.require_mcp_reauthorization!
+        return
+      end
       return unless grant.capability_groups.all? { |group| capability_groups.key?(group) }
       return unless grant.conversation&.status == "active"
       return unless grant.agent_session&.status.in?(%w[ starting connected ])
@@ -141,8 +145,11 @@ class Agent::Grant < ApplicationRecord
       return unless grant.agent_session.household_id == grant.household_id
       return unless grant.agent_session.person_id == grant.person_id
       return unless grant.browser_context_active?
-      return if grant.calls_limit && grant.calls_used >= grant.calls_limit
-      return if grant.output_tokens_limit && grant.output_tokens_used >= grant.output_tokens_limit
+      if grant.calls_limit && grant.calls_used >= grant.calls_limit ||
+          grant.output_tokens_limit && grant.output_tokens_used >= grant.output_tokens_limit
+        grant.agent_session.require_mcp_reauthorization!
+        return
+      end
 
       grant
     end

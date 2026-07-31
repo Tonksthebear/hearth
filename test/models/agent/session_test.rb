@@ -11,7 +11,8 @@ class Agent::SessionTest < ActiveSupport::TestCase
 
     session.bind_external_session!("bound-once")
     assert Agent::Session.recoverable.exists?(session.id)
-    assert_raises(ActiveRecord::RecordInvalid) { session.bind_external_session!("twice") }
+    error = assert_raises(ActiveRecord::RecordInvalid) { session.bind_external_session!("twice") }
+    assert_includes error.message, "External session is already bound"
   end
 
   test "connected and closed sessions require an external id" do
