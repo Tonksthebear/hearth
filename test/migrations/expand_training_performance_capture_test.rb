@@ -1,5 +1,5 @@
 require "test_helper"
-require Rails.root.join("db/migrate/20260731120000_expand_training_performance_capture")
+require Rails.root.join("db/migrate/20260731120001_expand_training_performance_capture")
 
 class ExpandTrainingPerformanceCaptureTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
