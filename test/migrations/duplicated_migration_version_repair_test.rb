@@ -25,6 +25,9 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
 
   test "migration versions have one owner" do
     versions = Dir[Rails.root.join("db/migrate/*.rb")].map { |path| File.basename(path, ".rb").split("_", 2).first }
+    duplicates = versions.tally.select { |_version, count| count > 1 }
+
+    assert_empty duplicates, "migration versions must have exactly one owner, found duplicates: #{duplicates.inspect}"
 
     [ RUNTIME_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION ].each do |version|
       assert_equal 1, versions.count(version.to_s), "expected migration version #{version} to have exactly one owner"
@@ -127,15 +130,17 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
   end
 
   test "repair migrations document irreversible rollback boundaries" do
-    recipe_error = assert_raises(ActiveRecord::IrreversibleMigration) do
-      NormalizeRecipeIngredientsAndEnrichRecipeInstructions.new.migrate(:down)
-    end
-    reconciliation_error = assert_raises(ActiveRecord::IrreversibleMigration) do
-      ReconcileRuntimeAgentSessionAndGrantNullability.new.migrate(:down)
-    end
+    with_isolated_database do
+      recipe_error = assert_raises(ActiveRecord::IrreversibleMigration) do
+        NormalizeRecipeIngredientsAndEnrichRecipeInstructions.new.migrate(:down)
+      end
+      reconciliation_error = assert_raises(ActiveRecord::IrreversibleMigration) do
+        ReconcileRuntimeAgentSessionAndGrantNullability.new.migrate(:down)
+      end
 
-    assert_match(/canonical ingredient merges/i, recipe_error.message)
-    assert_match(/NULL session identifiers or grant issuers/i, reconciliation_error.message)
+      assert_match(/canonical ingredient merges/i, recipe_error.message)
+      assert_match(/NULL session identifiers or grant issuers/i, reconciliation_error.message)
+    end
   end
 
   private
@@ -145,16 +150,21 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       result = Dir.mktmpdir([ "hearth-migration-#{Process.pid}-", "" ]) do |directory|
         database = File.join(directory, "repair.sqlite3")
         original_migration_verbosity = ActiveRecord::Migration.verbose
-        ActiveRecord::Migration.verbose = false
-        IsolatedMigrationBase.establish_connection(adapter: "sqlite3", database: database)
-        isolated_pool = IsolatedMigrationBase.connection_pool
-        database_tasks = ActiveRecord::Tasks::DatabaseTasks
-        singleton = database_tasks.singleton_class
+        isolated_pool = nil
+        singleton = nil
         original_method = :migration_class_before_duplicated_version_repair
-        singleton.alias_method original_method, :migration_class
-        singleton.define_method(:migration_class) { IsolatedMigrationBase }
+        migration_class_redirected = false
 
         begin
+          ActiveRecord::Migration.verbose = false
+          IsolatedMigrationBase.establish_connection(adapter: "sqlite3", database: database)
+          isolated_pool = IsolatedMigrationBase.connection_pool
+          database_tasks = ActiveRecord::Tasks::DatabaseTasks
+          singleton = database_tasks.singleton_class
+          singleton.alias_method original_method, :migration_class
+          singleton.define_method(:migration_class) { IsolatedMigrationBase }
+          migration_class_redirected = true
+
           migration_pool = database_tasks.migration_connection_pool
           resolved_database = File.join(File.realpath(File.dirname(database)), File.basename(database))
           assert_same isolated_pool, migration_pool
@@ -175,10 +185,12 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
             yield connection, context, isolated_pool
           end
         ensure
-          singleton.alias_method :migration_class, original_method
-          singleton.remove_method original_method
-          isolated_pool.disconnect!
-          IsolatedMigrationBase.remove_connection
+          if migration_class_redirected
+            singleton.alias_method :migration_class, original_method
+            singleton.remove_method original_method
+          end
+          isolated_pool&.disconnect!
+          IsolatedMigrationBase.remove_connection if IsolatedMigrationBase.connected?
           ActiveRecord::Migration.verbose = original_migration_verbosity
         end
       end
