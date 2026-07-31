@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_043719) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -381,6 +381,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_043719) do
     t.check_constraint "installation_key = 1", name: "households_single_installation"
   end
 
+  create_table "ingredients", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.string "name", null: false
+    t.string "normalized_name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "normalized_name"], name: "index_ingredients_on_household_id_and_normalized_name", unique: true
+    t.index ["household_id"], name: "index_ingredients_on_household_id"
+  end
+
   create_table "meal_logs", force: :cascade do |t|
     t.text "ad_hoc_description"
     t.datetime "created_at", null: false
@@ -484,40 +494,74 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_043719) do
   end
 
   create_table "recipe_ingredients", force: :cascade do |t|
-    t.text "amount"
     t.datetime "created_at", null: false
-    t.string "name", null: false
+    t.string "display_name", null: false
+    t.text "display_quantity"
+    t.integer "ingredient_id", null: false
     t.text "notes"
     t.integer "position", null: false
+    t.integer "quantity_denominator"
+    t.integer "quantity_numerator"
     t.integer "recipe_id", null: false
     t.string "unit"
     t.datetime "updated_at", null: false
+    t.index ["id", "recipe_id"], name: "index_recipe_ingredients_on_id_and_recipe_id", unique: true
+    t.index ["ingredient_id"], name: "index_recipe_ingredients_on_ingredient_id"
     t.index ["recipe_id", "position"], name: "index_recipe_ingredients_on_recipe_id_and_position", unique: true
     t.index ["recipe_id"], name: "index_recipe_ingredients_on_recipe_id"
+    t.check_constraint "(quantity_numerator IS NULL AND quantity_denominator IS NULL) OR (quantity_numerator IS NOT NULL AND quantity_denominator IS NOT NULL)", name: "recipe_ingredients_quantity_pair"
     t.check_constraint "position > 0", name: "recipe_ingredients_positive_position"
+    t.check_constraint "quantity_denominator IS NULL OR quantity_denominator > 0", name: "recipe_ingredients_positive_quantity_denominator"
+  end
+
+  create_table "recipe_instruction_ingredients", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "position", null: false
+    t.integer "recipe_id", null: false
+    t.integer "recipe_ingredient_id", null: false
+    t.integer "recipe_instruction_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["recipe_id"], name: "index_recipe_instruction_ingredients_on_recipe_id"
+    t.index ["recipe_ingredient_id"], name: "index_recipe_instruction_ingredients_on_recipe_ingredient_id"
+    t.index ["recipe_instruction_id", "position"], name: "index_instruction_ingredients_on_instruction_and_position", unique: true
+    t.index ["recipe_instruction_id", "recipe_ingredient_id"], name: "index_instruction_ingredients_on_instruction_and_ingredient", unique: true
+    t.index ["recipe_instruction_id"], name: "index_recipe_instruction_ingredients_on_recipe_instruction_id"
+    t.check_constraint "position > 0", name: "recipe_instruction_ingredients_positive_position"
   end
 
   create_table "recipe_instructions", force: :cascade do |t|
     t.text "body", null: false
     t.datetime "created_at", null: false
+    t.decimal "duration_amount", precision: 10, scale: 2
+    t.string "duration_unit"
     t.integer "position", null: false
     t.integer "recipe_id", null: false
+    t.decimal "temperature_amount", precision: 10, scale: 2
+    t.string "temperature_unit"
     t.datetime "updated_at", null: false
+    t.index ["id", "recipe_id"], name: "index_recipe_instructions_on_id_and_recipe_id", unique: true
     t.index ["recipe_id", "position"], name: "index_recipe_instructions_on_recipe_id_and_position", unique: true
     t.index ["recipe_id"], name: "index_recipe_instructions_on_recipe_id"
+    t.check_constraint "(duration_amount IS NULL AND duration_unit IS NULL) OR (duration_amount IS NOT NULL AND duration_unit IS NOT NULL)", name: "recipe_instructions_duration_pair"
+    t.check_constraint "(temperature_amount IS NULL AND temperature_unit IS NULL) OR (temperature_amount IS NOT NULL AND temperature_unit IS NOT NULL)", name: "recipe_instructions_temperature_pair"
+    t.check_constraint "duration_amount IS NULL OR duration_amount > 0", name: "recipe_instructions_positive_duration"
+    t.check_constraint "duration_unit IS NULL OR duration_unit IN ('seconds', 'minutes', 'hours')", name: "recipe_instructions_duration_unit"
     t.check_constraint "position > 0", name: "recipe_instructions_positive_position"
+    t.check_constraint "temperature_unit IS NULL OR temperature_unit IN ('F', 'C')", name: "recipe_instructions_temperature_unit"
   end
 
   create_table "recipes", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "household_id", null: false
+    t.string "import_key"
     t.string "provenance_status", null: false
     t.string "source_name"
     t.string "source_url"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.string "yield"
+    t.index ["household_id", "import_key"], name: "index_recipes_on_household_and_import_key", unique: true, where: "import_key IS NOT NULL"
     t.index ["household_id", "provenance_status"], name: "index_recipes_on_household_id_and_provenance_status"
     t.index ["household_id"], name: "index_recipes_on_household_id"
     t.check_constraint "provenance_status IN ('personal', 'verified', 'adapted', 'observed')", name: "recipes_provenance_status"
@@ -714,6 +758,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_043719) do
   add_foreign_key "habit_check_ins", "person_habits"
   add_foreign_key "habit_metrics", "habits"
   add_foreign_key "habits", "households"
+  add_foreign_key "ingredients", "households"
   add_foreign_key "meal_logs", "households"
   add_foreign_key "meal_logs", "people"
   add_foreign_key "meal_logs", "recipes"
@@ -729,7 +774,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_043719) do
   add_foreign_key "planned_workouts", "people"
   add_foreign_key "planned_workouts", "training_sessions", on_delete: :nullify
   add_foreign_key "planned_workouts", "workout_templates"
+  add_foreign_key "recipe_ingredients", "ingredients"
   add_foreign_key "recipe_ingredients", "recipes"
+  add_foreign_key "recipe_instruction_ingredients", "recipe_ingredients"
+  add_foreign_key "recipe_instruction_ingredients", "recipe_ingredients", column: ["recipe_ingredient_id", "recipe_id"], primary_key: ["id", "recipe_id"]
+  add_foreign_key "recipe_instruction_ingredients", "recipe_instructions"
+  add_foreign_key "recipe_instruction_ingredients", "recipe_instructions", column: ["recipe_instruction_id", "recipe_id"], primary_key: ["id", "recipe_id"]
+  add_foreign_key "recipe_instruction_ingredients", "recipes"
   add_foreign_key "recipe_instructions", "recipes"
   add_foreign_key "recipes", "households"
   add_foreign_key "sessions", "users"

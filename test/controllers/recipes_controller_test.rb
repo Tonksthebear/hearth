@@ -118,6 +118,72 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Savory Bowl", recipe.reload.title
   end
 
+  test "creates unsaved ingredient references and cues from string form keys" do
+    sign_in_as users(:one)
+
+    post recipes_path, params: {
+      recipe: valid_recipe_params.deep_merge(
+        recipe_ingredients_attributes: {
+          "0" => { display_quantity: "1", display_name: "Carrots", form_key: "carrots-key", position: "9" },
+          "1" => { display_quantity: "2", display_name: "Salt", form_key: "salt-key", position: "9" }
+        },
+        recipe_instructions_attributes: {
+          "0" => {
+            body: "Combine.",
+            duration_amount: "1.5",
+            duration_unit: "hours",
+            temperature_amount: "350",
+            temperature_unit: "F",
+            ingredient_reference_keys: %w[salt-key carrots-key],
+            position: "9"
+          }
+        }
+      )
+    }
+
+    recipe = Recipe.find_by!(title: "Savory Bowl")
+    assert_redirected_to recipe_path(recipe)
+    assert_equal [ 1, 2 ], recipe.recipe_ingredients.pluck(:position)
+    instruction = recipe.recipe_instructions.sole
+    assert_equal 1, instruction.position
+    assert_equal BigDecimal("1.5"), instruction.duration_amount
+    assert_equal %w[Carrots Salt], instruction.referenced_recipe_ingredients.pluck(:display_name)
+  end
+
+  test "Turbo replacement preserves form keys references cues and staged cover" do
+    sign_in_as users(:one)
+
+    post recipes_path,
+      params: {
+        recipe: valid_recipe_params.deep_merge(
+          title: "",
+          cover: fixture_file_upload("recipes/cover.png", "image/png"),
+          recipe_ingredients_attributes: {
+            "0" => { display_name: "Carrots", form_key: "carrots-key" },
+            "1" => { display_name: "Salt", form_key: "salt-key" }
+          },
+          recipe_instructions_attributes: {
+            "0" => {
+              body: "Combine.",
+              duration_amount: "5",
+              duration_unit: "minutes",
+              ingredient_reference_keys: %w[salt-key carrots-key]
+            }
+          }
+        ),
+        add_instruction: "1"
+      },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "input[name*='recipe_ingredients_attributes'][name$='[form_key]'][value='carrots-key']"
+    assert_select "input[name*='recipe_ingredients_attributes'][name$='[form_key]'][value='salt-key']"
+    assert_select "select[multiple][name*='recipe_instructions_attributes'] option[value='carrots-key'][selected]"
+    assert_select "select[multiple][name*='recipe_instructions_attributes'] option[value='salt-key'][selected]"
+    assert_select "input[name*='recipe_instructions_attributes'][name$='[duration_amount]'][value='5']"
+    assert_select "input[type='hidden'][name='recipe[cover]']", visible: false
+  end
+
   test "creates displays replaces and removes a cover" do
     sign_in_as users(:one)
 
@@ -367,7 +433,7 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "turbo-stream[action='replace'][target='recipe_form']"
-    assert_select "input[name*='recipe_ingredients_attributes'][name$='[name]']", count: 2
+    assert_select "select[name*='recipe_ingredients_attributes'][name$='[display_name]']", count: 2
 
     recipe = recipes(:porridge)
     ingredient = recipe.recipe_ingredients.first
@@ -435,8 +501,8 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
       patch recipe_path(recipe), params: {
         recipe: persisted_recipe_params(recipe).deep_merge(
           recipe_ingredients_attributes: {
-            "0" => ingredient.attributes.slice("id", "amount", "unit", "name", "notes", "position").merge("_destroy" => "1"),
-            "1" => recipe.recipe_ingredients.second.attributes.slice("id", "amount", "unit", "name", "notes", "position")
+            "0" => ingredient.attributes.slice("id", "display_quantity", "unit", "display_name", "notes", "position").merge("_destroy" => "1"),
+            "1" => recipe.recipe_ingredients.second.attributes.slice("id", "display_quantity", "unit", "display_name", "notes", "position")
           }
         )
       }
@@ -460,8 +526,8 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     edited_params = persisted_recipe_params(recipe).deep_merge(
       recipe_ingredients_attributes: {
-        "0" => removed_ingredient.attributes.slice("id", "amount", "unit", "name", "notes").merge("_destroy" => "1"),
-        "1" => survivor.attributes.slice("id", "amount", "unit", "name", "notes")
+        "0" => removed_ingredient.attributes.slice("id", "display_quantity", "unit", "display_name", "notes").merge("_destroy" => "1"),
+        "1" => survivor.attributes.slice("id", "display_quantity", "unit", "display_name", "notes")
       }
     )
     patch recipe_path(recipe),
@@ -471,14 +537,14 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     final_params = edited_params.deep_merge(
       recipe_ingredients_attributes: {
-        "2" => { amount: "1", unit: "pinch", name: "Salt", notes: "" }
+        "2" => { display_quantity: "1", unit: "pinch", display_name: "Salt", notes: "" }
       }
     )
     patch recipe_path(recipe), params: { recipe: final_params }
 
     assert_response :see_other
     assert_equal [ 1, 2 ], recipe.reload.recipe_ingredients.pluck(:position)
-    assert_equal [ survivor.id ], recipe.recipe_ingredients.where(name: "Blueberries").pluck(:id)
+    assert_equal [ survivor.id ], recipe.recipe_ingredients.where(display_name: "Blueberries").pluck(:id)
   end
 
   test "remove ingredient then add instruction saves both collections contiguously" do
@@ -489,8 +555,8 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     edited_params = persisted_recipe_params(recipe).deep_merge(
       recipe_ingredients_attributes: {
-        "0" => removed_ingredient.attributes.slice("id", "amount", "unit", "name", "notes").merge("_destroy" => "1"),
-        "1" => survivor.attributes.slice("id", "amount", "unit", "name", "notes")
+        "0" => removed_ingredient.attributes.slice("id", "display_quantity", "unit", "display_name", "notes").merge("_destroy" => "1"),
+        "1" => survivor.attributes.slice("id", "display_quantity", "unit", "display_name", "notes")
       }
     )
     patch recipe_path(recipe),
@@ -533,8 +599,8 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as users(:one)
     params = valid_recipe_params.deep_merge(
       recipe_ingredients_attributes: {
-        "0" => { name: "First", position: "7" },
-        "1" => { name: "Second", position: "7" }
+        "0" => { display_name: "First", position: "7" },
+        "1" => { display_name: "Second", position: "7" }
       }
     )
 
@@ -565,7 +631,7 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
         source_url: "https://example.com/savory-bowl",
         provenance_status: "observed",
         recipe_ingredients_attributes: {
-          "0" => { amount: "1", unit: "cup", name: "Lentils", notes: "", position: "1" }
+          "0" => { display_quantity: "1", unit: "cup", display_name: "Lentils", notes: "", position: "1" }
         },
         recipe_instructions_attributes: {
           "0" => { body: "Combine and serve.", position: "1" }
@@ -582,7 +648,7 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
         source_url: recipe.source_url,
         provenance_status: recipe.provenance_status,
         recipe_ingredients_attributes: recipe.recipe_ingredients.each_with_index.to_h { |ingredient, index|
-          [ index.to_s, ingredient.attributes.slice("id", "amount", "unit", "name", "notes", "position") ]
+          [ index.to_s, ingredient.attributes.slice("id", "display_quantity", "unit", "display_name", "notes", "position").merge("form_key" => ingredient.form_key) ]
         },
         recipe_instructions_attributes: recipe.recipe_instructions.each_with_index.to_h { |instruction, index|
           [ index.to_s, instruction.attributes.slice("id", "body", "position") ]

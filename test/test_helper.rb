@@ -44,8 +44,10 @@ module ActiveSupport
         WorkoutBlock.delete_all
         WorkoutTemplate.delete_all
         Exercise.delete_all
+        RecipeInstructionIngredient.delete_all
         RecipeInstruction.delete_all
         RecipeIngredient.delete_all
+        Ingredient.delete_all
         Recipe.delete_all
         Household.delete_all
       end

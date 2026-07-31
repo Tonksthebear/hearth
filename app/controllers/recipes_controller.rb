@@ -19,6 +19,7 @@ class RecipesController < ApplicationController
     @recipe = Current.household.recipes.build(provenance_status: :personal)
     @recipe.add_ingredient
     @recipe.add_instruction
+    prepare_ingredient_reference_options
   end
 
   def create
@@ -26,6 +27,7 @@ class RecipesController < ApplicationController
     @recipe = Current.household.recipes.build(attributes)
     @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
+    prepare_ingredient_reference_options
 
     if structural_action?
       @recipe.preserve_cover_for_form
@@ -40,6 +42,7 @@ class RecipesController < ApplicationController
   end
 
   def edit
+    prepare_ingredient_reference_options
   end
 
   def update
@@ -47,6 +50,7 @@ class RecipesController < ApplicationController
     @recipe.assign_attributes(attributes)
     @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
+    prepare_ingredient_reference_options
 
     if structural_action?
       @recipe.preserve_cover_for_form
@@ -67,6 +71,16 @@ class RecipesController < ApplicationController
 
     def prepare_form
       @provenance_statuses = Recipe.provenance_statuses.keys
+      @ingredient_name_options = [ [ "", "" ], *Current.household.ingredients.order(:name).pluck(:name, :name) ]
+    end
+
+    def prepare_ingredient_reference_options
+      current_names = @recipe.recipe_ingredients
+        .reject(&:marked_for_destruction?)
+        .filter_map { |ingredient| ingredient.display_name.presence }
+        .map { |name| [ name, name ] }
+      @ingredient_name_options = [ *@ingredient_name_options, *current_names ].uniq { |_, value| value }
+      @ingredient_reference_options = @recipe.ingredient_reference_options
     end
 
     def recipe_params
@@ -79,8 +93,17 @@ class RecipesController < ApplicationController
         :source_name,
         :source_url,
         :provenance_status,
-        recipe_ingredients_attributes: %i[ id amount unit name notes _destroy ],
-        recipe_instructions_attributes: %i[ id body _destroy ]
+        recipe_ingredients_attributes: %i[ id display_quantity unit display_name notes form_key _destroy ],
+        recipe_instructions_attributes: [
+          :id,
+          :body,
+          :duration_amount,
+          :duration_unit,
+          :temperature_amount,
+          :temperature_unit,
+          :_destroy,
+          { ingredient_reference_keys: [] }
+        ]
       )
     end
 
@@ -108,10 +131,16 @@ class RecipesController < ApplicationController
     end
 
     def render_form_update
+      prepare_ingredient_reference_options
       render turbo_stream: turbo_stream.replace(
         "recipe_form",
         partial: "recipes/form",
-        locals: { recipe: @recipe, provenance_statuses: @provenance_statuses }
+        locals: {
+          recipe: @recipe,
+          provenance_statuses: @provenance_statuses,
+          ingredient_name_options: @ingredient_name_options,
+          ingredient_reference_options: @ingredient_reference_options
+        }
       )
     end
 end

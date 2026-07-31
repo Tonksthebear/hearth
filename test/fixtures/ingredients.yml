@@ -1,0 +1,19 @@
+rolled_oats:
+  household: home
+  name: Rolled oats
+  normalized_name: rolled oats
+
+blueberries:
+  household: home
+  name: Blueberries
+  normalized_name: blueberries
+
+lettuce:
+  household: home
+  name: Lettuce
+  normalized_name: lettuce
+
+carrots:
+  household: home
+  name: Carrots
+  normalized_name: carrots
