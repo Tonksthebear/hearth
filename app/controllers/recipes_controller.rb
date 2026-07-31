@@ -32,6 +32,7 @@ class RecipesController < ApplicationController
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was created.", status: :see_other
     else
+      @recipe.preserve_cover_for_form
       render :new, status: :unprocessable_entity
     end
   end
@@ -50,6 +51,7 @@ class RecipesController < ApplicationController
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was updated.", status: :see_other
     else
+      @recipe.preserve_cover_for_form
       render :edit, status: :unprocessable_entity
     end
   end

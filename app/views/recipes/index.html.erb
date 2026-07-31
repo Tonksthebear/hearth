@@ -37,7 +37,7 @@
             <div class="overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
               <% if recipe.cover.attached? %>
                 <%= image_tag recipe.cover.variant(:card),
-                  alt: "#{recipe.title} cover",
+                  alt: "",
                   class: "pointer-events-none aspect-10/7 w-full rounded-lg object-cover outline -outline-offset-1 outline-black/5 group-hover:opacity-75 dark:outline-white/10" %>
               <% else %>
                 <div role="img" aria-label="No cover image for <%= recipe.title %>" class="flex aspect-10/7 items-center justify-center rounded-lg bg-gray-100 text-gray-400 outline -outline-offset-1 outline-black/5 group-hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:outline-white/10 dark:group-hover:bg-gray-700">

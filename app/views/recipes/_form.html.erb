@@ -50,7 +50,7 @@
           <% end %>
 
           <% if recipe.cover_signed_id.present? %>
-            <%= form.hidden_field :cover, value: recipe.cover_signed_id %>
+            <%= form.hidden_field :cover, value: recipe.cover_signed_id, id: nil %>
           <% end %>
           <div class="mt-3">
             <%= form.file_field :cover,

@@ -52,6 +52,8 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     source_details_position = response.body.index("Source details")
     assert_operator ingredients_position, :<, source_details_position
     assert_operator instructions_position, :<, source_details_position
+    assert_select "nav[aria-label='Breadcrumb']", text: /Recipes.*#{Regexp.escape(recipes(:porridge).title)}/
+    assert_select "p", text: "Household recipe", count: 0
   end
 
   test "shows attribution provenance and medical information disclaimer" do
@@ -129,6 +131,10 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to recipe_path(recipe)
     assert_predicate recipe.cover, :attached?
 
+    get recipes_path
+    assert_response :success
+    assert_select "a[href='#{recipe_path(recipe)}'] img[alt='']"
+
     get recipe_path(recipe)
     assert_response :success
     assert_select "img[alt='Savory Bowl cover'][src*='/rails/active_storage/representations/']"
@@ -201,6 +207,56 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_equal recipes(:porridge).title, recipe.reload.title
   end
 
+  test "valid covers survive create and update validation errors" do
+    sign_in_as users(:one)
+
+    assert_no_difference "Recipe.count" do
+      post recipes_path, params: {
+        recipe: valid_recipe_params.merge(
+          title: "",
+          cover: fixture_file_upload("recipes/cover.png", "image/png")
+        )
+      }
+    end
+
+    assert_response :unprocessable_entity
+    create_signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    create_blob = ActiveStorage::Blob.find_signed!(create_signed_id)
+    assert create_blob.service.exist?(create_blob.key)
+
+    post recipes_path, params: {
+      recipe: valid_recipe_params.merge(cover: create_signed_id)
+    }
+
+    created_recipe = households(:home).recipes.find_by!(title: "Savory Bowl")
+    assert_redirected_to recipe_path(created_recipe)
+    assert_equal create_blob, created_recipe.cover.blob
+
+    recipe = recipes(:porridge)
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        title: "",
+        cover: fixture_file_upload("recipes/replacement-cover.png", "image/png")
+      )
+    }
+
+    assert_response :unprocessable_entity
+    update_signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    update_blob = ActiveStorage::Blob.find_signed!(update_signed_id)
+    assert update_blob.service.exist?(update_blob.key)
+
+    patch recipe_path(recipe), params: {
+      recipe: persisted_recipe_params(recipe).merge(
+        title: "Recovered Porridge",
+        cover: update_signed_id
+      )
+    }
+
+    assert_redirected_to recipe_path(recipe)
+    assert_equal "Recovered Porridge", recipe.reload.title
+    assert_equal update_blob, recipe.cover.blob
+  end
+
   test "Turbo structural actions rebuild without persisting" do
     sign_in_as users(:one)
 
@@ -247,7 +303,12 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    signed_id = css_select("input[type='hidden'][name='recipe[cover]']").sole["value"]
+    hidden_cover = css_select("input[type='hidden'][name='recipe[cover]']").sole
+    signed_id = hidden_cover["value"]
+    assert_nil hidden_cover["id"]
+    assert_select "input[type='file']#recipe_cover", count: 1
+    assert_select "[id='recipe_cover']", count: 1
+    assert_select "label[for='recipe_cover']", text: "Cover image"
     assert ActiveStorage::Blob.find_signed!(signed_id)
 
     recipe = recipes(:porridge)

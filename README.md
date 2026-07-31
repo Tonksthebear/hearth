@@ -174,6 +174,13 @@ The single `/rails/storage` mount contains:
 
 Keep the whole directory together when backing up or restoring.
 
+Abandoned recipe form uploads can leave unattached blobs. Periodically purge unattached blobs older than one day; the running Solid Queue supervisor removes their stored files asynchronously:
+
+```bash
+docker exec hearth bin/rails runner \
+  'ActiveStorage::Blob.unattached.where(created_at: ..1.day.ago).find_each(&:purge_later)'
+```
+
 `DATABASE_URL` overrides the primary database. `CACHE_DATABASE_URL`, `QUEUE_DATABASE_URL`, and `CABLE_DATABASE_URL` independently override the three Solid databases while preserving their migration paths. If you relocate storage with URLs, set all four explicitly and keep them distinct. The supported alpha topology remains SQLite on one host with one web container and one shared storage mount.
 
 ## Backup and restore

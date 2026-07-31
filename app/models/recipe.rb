@@ -156,7 +156,7 @@ class Recipe < ApplicationRecord
     self.cover = change.blob
     self
   rescue
-    change.blob.destroy! if change&.blob&.persisted? && change.blob.attachments.none?
+    change.blob.purge if change&.blob&.persisted? && change.blob.attachments.none?
     raise
   end
 
@@ -178,12 +178,14 @@ class Recipe < ApplicationRecord
       acceptable = true
 
       unless COVER_CONTENT_TYPES.include?(blob.content_type)
-        errors.add(:cover, "must be a JPEG, PNG, or GIF")
+        message = "must be a JPEG, PNG, or GIF"
+        errors.add(:cover, message) unless errors.added?(:cover, message)
         acceptable = false
       end
 
       if blob.byte_size > COVER_MAX_BYTES
-        errors.add(:cover, "must be 10 MB or smaller")
+        message = "must be 10 MB or smaller"
+        errors.add(:cover, message) unless errors.added?(:cover, message)
         acceptable = false
       end
 
