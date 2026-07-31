@@ -31,12 +31,16 @@ parser.order!(ARGV)
 ARGV.shift if ARGV.first == "--"
 abort parser.to_s if ARGV.empty?
 
-listed_tools = HearthMcp::SpikeStdioProxy.new(url: options[:mcp_url]).call(
-  jsonrpc: "2.0",
-  id: "hearth-preflight",
-  method: "tools/list",
-  params: {}
-)
+begin
+  listed_tools = HearthMcp::SpikeStdioProxy.new(url: options[:mcp_url]).call(
+    jsonrpc: "2.0",
+    id: "hearth-preflight",
+    method: "tools/list",
+    params: {}
+  )
+rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::EPERM, SocketError, Timeout::Error => error
+  abort "Hearth MCP preflight failed for #{options[:mcp_url]}: #{error.message}. Start the local Rails server and try again."
+end
 unless listed_tools.any? { |message| message.dig("result", "tools")&.any? { |tool| tool["name"] == "spike_status_tool" } }
   abort "Hearth MCP preflight failed: spike_status_tool was not listed by #{options[:mcp_url]}"
 end

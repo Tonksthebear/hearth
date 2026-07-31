@@ -23,6 +23,7 @@ In another terminal, reproduce the live Grok row and write the runner's sanitize
 bin/hearth-acp-spike \
   --mcp-url http://127.0.0.1:3411/mcp \
   --auth-method cached_token \
+  --prompt 'Call the hearth-spike MCP tool spike_status_tool with no arguments, then reply HEARTH_ACP_OK.' \
   --resource test/fixtures/files/acp/attachment.txt \
   --evidence /tmp/hearth-acp-live.jsonl \
   -- grok agent stdio
@@ -128,7 +129,7 @@ HTTP and stdio are separate columns intentionally: an agent advertising HTTP doe
 
 ## Evidence and privacy
 
-Machine-readable summaries live in `docs/acp-evidence/*.jsonl`. The Grok row in `live-agents.jsonl` is emitted directly by `bin/hearth-acp-spike --evidence`; deferred adapter rows and the process-boundary row are explicitly dated hand summaries of the reproduction procedures above.
+Machine-readable summaries live in `docs/acp-evidence/*.jsonl`. The Grok row in `live-agents.jsonl` is emitted directly by `bin/hearth-acp-spike --evidence`; deferred adapter rows and the process-boundary row are explicitly dated hand summaries of the reproduction procedures above. The Grok MCP tool-call matrix cell is server-side evidence: during the documented tool-invoking run, the Rails log records `HearthMcp::SpikeStatusTool.call` and its `SELECT 1`. The emitted `tool_call` update corroborates agent activity but is not treated as sufficient identification because agents use the same update type for built-in tools.
 
 The spike writes the same result to stdout and to the optional JSONL evidence path. Its result narrows agent identity and negotiated capabilities to the fields consumed by this contract; it contains no credentials, authorization headers, raw prompts, raw tool payloads, session IDs, household data, developer home paths, or agent-controlled `_meta`. Stderr is diagnostic only and must not be copied wholesale.
 
