@@ -8,6 +8,7 @@ class RecipesController < ApplicationController
     @recipes = Current.household.recipes
       .matching(@query)
       .with_provenance_status(@status)
+      .with_attached_cover
       .order(:title)
   end
 
@@ -21,15 +22,19 @@ class RecipesController < ApplicationController
   end
 
   def create
-    @recipe = Current.household.recipes.build(recipe_params)
+    attributes = recipe_attributes
+    @recipe = Current.household.recipes.build(attributes)
+    @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
 
     if structural_action?
+      @recipe.preserve_cover_for_form
       @recipe.ensure_form_rows
       render_form_update
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was created.", status: :see_other
     else
+      @recipe.preserve_cover_for_form
       render :new, status: :unprocessable_entity
     end
   end
@@ -38,15 +43,19 @@ class RecipesController < ApplicationController
   end
 
   def update
-    @recipe.assign_attributes(recipe_params)
+    attributes = recipe_attributes
+    @recipe.assign_attributes(attributes)
+    @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
 
     if structural_action?
+      @recipe.preserve_cover_for_form
       @recipe.ensure_form_rows
       render_form_update
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was updated.", status: :see_other
     else
+      @recipe.preserve_cover_for_form
       render :edit, status: :unprocessable_entity
     end
   end
@@ -64,6 +73,8 @@ class RecipesController < ApplicationController
       params.fetch(:recipe).permit(
         :title,
         :description,
+        :cover,
+        :remove_cover,
         :yield,
         :source_name,
         :source_url,
@@ -71,6 +82,17 @@ class RecipesController < ApplicationController
         recipe_ingredients_attributes: %i[ id amount unit name notes _destroy ],
         recipe_instructions_attributes: %i[ id body _destroy ]
       )
+    end
+
+    def recipe_attributes
+      recipe_params.tap do |attributes|
+        cover = attributes[:cover]
+        next unless cover.is_a?(String) && cover.present?
+        next if ActiveStorage::Blob.find_signed(cover)
+
+        attributes.delete(:cover)
+        attributes[:cover_reference_invalid] = true
+      end
     end
 
     def structural_action?
