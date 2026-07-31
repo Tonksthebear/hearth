@@ -19,12 +19,12 @@ class ShoppingListTest < ActiveSupport::TestCase
       source_name: "Test",
       provenance_status: :observed,
       recipe_ingredients_attributes: [
-        { amount: "2", unit: nil, name: "Carrots", position: 1 },
-        { amount: "3", unit: "", name: " carrots ", position: 2 },
-        { amount: "1/2", unit: "cup", name: "CARROTS", position: 3 },
-        { amount: "1", unit: "cup", name: "Carrots", position: 4 },
-        { amount: "to taste", unit: "pinch", name: "Salt", position: 5 },
-        { amount: "as needed", unit: "pinch", name: "salt", position: 6 }
+        { display_quantity: "2", unit: nil, display_name: "Carrots", position: 1 },
+        { display_quantity: "3", unit: "", display_name: " carrots ", position: 2 },
+        { display_quantity: "1/2", unit: "cup", display_name: "CARROTS", position: 3 },
+        { display_quantity: "1", unit: "cup", display_name: "Carrots", position: 4 },
+        { display_quantity: "to taste", unit: "pinch", display_name: "Salt", position: 5 },
+        { display_quantity: "as needed", unit: "pinch", display_name: "salt", position: 6 }
       ]
     )
     households(:home).planned_meals.create!(recipe: recipe, planned_on: Date.new(2026, 7, 30))
