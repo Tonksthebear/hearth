@@ -58,6 +58,7 @@ class Agent::TableBindingTest < ActiveSupport::TestCase
 
     check_names = tables.flat_map { |table| connection.check_constraints(table).map(&:name) }
     assert_includes check_names, "agent_sessions_status"
+    assert_includes check_names, "agent_sessions_authentication_status"
     assert_includes check_names, "agent_permission_requests_status"
     assert_includes check_names, "agent_tool_activities_status"
   end

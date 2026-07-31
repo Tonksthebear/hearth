@@ -5,6 +5,7 @@ module Agent::Redactable
 
   included do
     before_validation :capture_sensitive_body_digests
+    validate :redaction_is_terminal, on: :update
   end
 
   def redact!(by:, reason:)
@@ -42,4 +43,19 @@ module Agent::Redactable
     end
 
     def digest_column_for(column) = column.to_s.sub(/_body\z/, "") + "_digest"
+
+    def redaction_is_terminal
+      return unless attribute_in_database("redacted_at").present?
+
+      protected_columns = [
+        *sensitive_body_columns,
+        *sensitive_body_columns.map { |column| digest_column_for(column) },
+        :redacted_at,
+        :redaction_reason,
+        :redacted_by_id
+      ]
+      return unless protected_columns.any? { |column| will_save_change_to_attribute?(column) }
+
+      errors.add(:base, "Redaction cannot be reversed or altered")
+    end
 end

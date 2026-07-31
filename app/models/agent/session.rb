@@ -18,6 +18,7 @@ class Agent::Session < ApplicationRecord
 
   validates :external_session_id, presence: true, uniqueness: { scope: :installation_id }
   validates :status, inclusion: { in: STATUSES }
+  validates :authentication_status, inclusion: { in: Agent::Installation::AUTHENTICATION_STATUSES }
   validate :installation_matches_household
   validate :browser_session_matches_household
 
@@ -26,20 +27,26 @@ class Agent::Session < ApplicationRecord
   end
 
   def disconnect!
-    transition_from!(%w[ starting connected ], to: "disconnected", disconnected_at: Time.current)
-    revoke_grants!("agent disconnected")
+    transaction do
+      transition_from!(%w[ starting connected ], to: "disconnected", disconnected_at: Time.current)
+      revoke_grants!("agent disconnected")
+    end
     self
   end
 
   def close!
-    transition_from!(%w[ starting connected disconnected ], to: "closed", closed_at: Time.current)
-    revoke_grants!("agent session closed")
+    transaction do
+      transition_from!(%w[ starting connected disconnected ], to: "closed", closed_at: Time.current)
+      revoke_grants!("agent session closed")
+    end
     self
   end
 
   def fail!
-    transition_from!(%w[ starting connected disconnected ], to: "failed", disconnected_at: Time.current)
-    revoke_grants!("agent session failed")
+    transaction do
+      transition_from!(%w[ starting connected disconnected ], to: "failed", disconnected_at: Time.current)
+      revoke_grants!("agent session failed")
+    end
     self
   end
 
@@ -54,11 +61,7 @@ class Agent::Session < ApplicationRecord
     end
 
     def revoke_grants!(reason)
-      grants.where(revoked_at: nil).update_all(
-        revoked_at: Time.current,
-        revocation_reason: reason,
-        updated_at: Time.current
-      )
+      grants.where(revoked_at: nil).find_each { |grant| grant.revoke!(reason: reason) }
     end
 
     def installation_matches_household

@@ -19,7 +19,10 @@ class Agent::Conversation < ApplicationRecord
     return self if status == "closed"
     raise ActiveRecord::RecordInvalid, self unless status == "active"
 
-    update!(status: "closed", closed_at: Time.current)
+    transaction do
+      sessions.where(status: %w[ starting connected disconnected ]).find_each(&:close!)
+      update!(status: "closed", closed_at: Time.current)
+    end
     self
   end
 

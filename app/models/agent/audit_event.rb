@@ -18,12 +18,11 @@ class Agent::AuditEvent < ApplicationRecord
 
   class << self
     def record!(subject:, event_type:, actor: nil, outcome: nil, body_digest: nil, metadata: {})
-      context = subject.respond_to?(:permission_request) ? subject.permission_request : subject
       create!(
-        household: context.household,
-        person: context.person,
-        conversation: context.conversation,
-        agent_session: context.try(:agent_session),
+        household: subject.household,
+        person: subject.person,
+        conversation: subject.conversation,
+        agent_session: subject.try(:agent_session),
         actor: actor,
         subject_type: subject.class.name,
         subject_id: subject.id,

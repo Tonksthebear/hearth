@@ -19,6 +19,9 @@ class Agent::GrantTest < ActiveSupport::TestCase
     refute_includes grant.attributes.values, credential.bearer.split(".", 2).last
     assert_equal "#<Agent::Grant::Credential [REDACTED]>", credential.inspect
     assert_raises(TypeError) { credential.as_json }
+    event = Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).sole
+    assert_equal "grant.issued", event.event_type
+    assert_equal [ "health_read" ], event.metadata["capability"]
   end
 
   test "verifies exact persisted context without consulting mutable current person" do
@@ -79,6 +82,18 @@ class Agent::GrantTest < ActiveSupport::TestCase
     assert_nil Agent::Grant.verify(bearer: credential.bearer, capability: "health.read", **args)
   end
 
+  test "denies a valid bearer when authenticated browser context is missing" do
+    credential = issue_grant
+
+    assert_nil Agent::Grant.verify(
+      bearer: credential.bearer,
+      browser_session: nil,
+      conversation: agent_conversations(:active),
+      agent_session: agent_sessions(:connected),
+      capability: "health.read"
+    )
+  end
+
   test "denies unknown capability groups at issuance" do
     assert_raises(ActiveRecord::RecordInvalid) do
       Agent::Grant.issue!(
@@ -118,6 +133,15 @@ class Agent::GrantTest < ActiveSupport::TestCase
     assert_equal [ 2, 10 ], grant.reload.values_at(:calls_used, :output_tokens_used)
   end
 
+  test "guarded update rejects revoked and expired grants" do
+    revoked = agent_grants(:active)
+    revoked.revoke!(reason: "Test")
+    assert_equal 0, revoked.consume
+
+    expired = issue_grant.grant
+    assert_equal 0, expired.consume(at: expired.expires_at)
+  end
+
   test "ACP disconnect revokes grants without deleting transcript or audit history" do
     grant = agent_grants(:active)
     message = agent_messages(:prompt)
@@ -126,8 +150,19 @@ class Agent::GrantTest < ActiveSupport::TestCase
     agent_sessions(:connected).disconnect!
 
     assert_predicate grant.reload, :revoked_at?
+    event = Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).order(:id).last
+    assert_equal "grant.revoked", event.event_type
+    assert_equal "agent disconnected", event.metadata["reason"]
     assert Agent::Message.exists?(message.id)
     assert Agent::AuditEvent.exists?(audit_event.id)
+  end
+
+  test "closed conversations and terminal sessions reject new grants" do
+    agent_conversations(:active).close!
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { issue_grant }
+    assert_includes error.record.errors[:conversation], "must be active"
+    assert_includes error.record.errors[:agent_session], "must be starting or connected"
   end
 
   private

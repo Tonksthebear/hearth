@@ -1,6 +1,7 @@
 class Agent::Installation < ApplicationRecord
   STATUSES = %w[ observed available unavailable ].freeze
   AUTHENTICATION_STATUSES = %w[ unknown required authenticated failed ].freeze
+  AUTHENTICATION_METHOD_KEYS = %w[ id name description ].freeze
 
   belongs_to :household
   belongs_to :profile, class_name: "Agent::Profile"
@@ -14,6 +15,7 @@ class Agent::Installation < ApplicationRecord
   validates :authentication_status, inclusion: { in: AUTHENTICATION_STATUSES }
   validate :profile_matches_household
   validate :authentication_snapshot_is_secret_free
+  validate :authentication_methods_are_metadata_only
 
   private
     def profile_matches_household
@@ -27,6 +29,15 @@ class Agent::Installation < ApplicationRecord
       return unless contains_secret_key?(authentication_methods) || contains_secret_key?(advertised_capabilities)
 
       errors.add(:base, "Authentication and capability snapshots cannot contain secrets")
+    end
+
+    def authentication_methods_are_metadata_only
+      valid = authentication_methods.is_a?(Array) && authentication_methods.all? do |method|
+        method.is_a?(Hash) &&
+          (method.keys.map(&:to_s) - AUTHENTICATION_METHOD_KEYS).empty? &&
+          method.values.all? { |value| value.nil? || value.is_a?(String) }
+      end
+      errors.add(:authentication_methods, "must contain ACP method metadata only") unless valid
     end
 
     def contains_secret_key?(value)

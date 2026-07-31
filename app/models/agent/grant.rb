@@ -27,6 +27,7 @@ class Agent::Grant < ApplicationRecord
   validate :expires_in_future, on: :create
   validate :capability_groups_are_known
   validate :session_context_matches
+  validate :authorization_context_is_active, on: :create
   validates :browser_session, presence: true, on: :create
 
   scope :active_at, ->(time = Time.current) { where(revoked_at: nil).where("expires_at > ?", time) }
@@ -44,27 +45,37 @@ class Agent::Grant < ApplicationRecord
 
       locator = SecureRandom.hex(16)
       secret = SecureRandom.urlsafe_base64(32)
-      grant = create!(
-        household: household,
-        person: person,
-        conversation: conversation,
-        agent_session: agent_session,
-        browser_session: browser_session,
-        issued_by: browser_session.user,
-        token_locator: locator,
-        token_digest: Digest::SHA256.hexdigest(secret),
-        capability_groups: capability_groups,
-        expires_at: expires_at,
-        calls_limit: calls_limit,
-        output_tokens_limit: output_tokens_limit
-      )
+      transaction do
+        grant = create!(
+          household: household,
+          person: person,
+          conversation: conversation,
+          agent_session: agent_session,
+          browser_session: browser_session,
+          issued_by: browser_session.user,
+          token_locator: locator,
+          token_digest: Digest::SHA256.hexdigest(secret),
+          capability_groups: capability_groups,
+          expires_at: expires_at,
+          calls_limit: calls_limit,
+          output_tokens_limit: output_tokens_limit
+        )
+        Agent::AuditEvent.record!(
+          subject: grant,
+          event_type: "grant.issued",
+          actor: grant.issued_by,
+          outcome: "active",
+          metadata: { "capability" => grant.capability_groups }
+        )
 
-      Agent::Grant::Credential.new(grant: grant, bearer: "#{locator}.#{secret}")
+        Agent::Grant::Credential.new(grant: grant, bearer: "#{locator}.#{secret}")
+      end
     end
 
     def verify(bearer:, browser_session:, conversation:, agent_session:, capability:, at: Time.current)
       locator, secret = bearer.to_s.split(".", 2)
       return unless locator.present? && secret.present?
+      return unless browser_session && conversation && agent_session
 
       grant = active_at(at).find_by(token_locator: locator)
       return unless grant&.secret_matches?(secret)
@@ -88,6 +99,7 @@ class Agent::Grant < ApplicationRecord
     output_tokens = Integer(output_tokens)
     raise ArgumentError, "Usage increments must be nonnegative" if calls.negative? || output_tokens.negative?
 
+    # Returns the guarded UPDATE's affected-row count and does not refresh this instance.
     self.class.active_at(at)
       .where(id: id)
       .where("calls_limit IS NULL OR calls_used + ? <= calls_limit", calls)
@@ -104,14 +116,16 @@ class Agent::Grant < ApplicationRecord
     raise ArgumentError, "reason is required" if reason.blank?
     return self if revoked_at?
 
-    update!(revoked_at: Time.current, revocation_reason: reason)
-    Agent::AuditEvent.record!(
-      subject: self,
-      event_type: "grant.revoked",
-      actor: by,
-      outcome: "revoked",
-      metadata: { "reason" => reason }
-    )
+    transaction do
+      update!(revoked_at: Time.current, revocation_reason: reason)
+      Agent::AuditEvent.record!(
+        subject: self,
+        event_type: "grant.revoked",
+        actor: by,
+        outcome: "revoked",
+        metadata: { "reason" => reason }
+      )
+    end
     self
   end
 
@@ -134,6 +148,13 @@ class Agent::Grant < ApplicationRecord
       return if agent_session.blank?
       unless agent_session.browser_session_id == browser_session_id
         errors.add(:browser_session, "must match the ACP session")
+      end
+    end
+
+    def authorization_context_is_active
+      errors.add(:conversation, "must be active") unless conversation&.status == "active"
+      unless agent_session&.status.in?(%w[ starting connected ])
+        errors.add(:agent_session, "must be starting or connected")
       end
     end
 end

@@ -30,7 +30,7 @@ class Agent::ContextTest < ActiveSupport::TestCase
     assert_includes message.errors[:conversation], "must match this household and person"
   end
 
-  test "stored conversation session and message context is immutable" do
+  test "validated updates reject stored conversation session and message context changes" do
     [
       agent_conversations(:active),
       agent_sessions(:connected),
@@ -55,6 +55,10 @@ class Agent::ContextTest < ActiveSupport::TestCase
     installation.authentication_methods = [ { "access_token" => "secret-value" } ]
     assert_not installation.valid?
     assert_includes installation.errors[:base], "Authentication and capability snapshots cannot contain secrets"
+
+    installation.authentication_methods = [ { "credentials" => { "value" => "sk-live-1234" } } ]
+    assert_not installation.valid?
+    assert_includes installation.errors[:authentication_methods], "must contain ACP method metadata only"
   end
 
   test "profile accepts environment names but not environment values" do

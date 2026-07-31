@@ -10,10 +10,8 @@ class Session < ApplicationRecord
 
   private
     def revoke_agent_grants
-      agent_grants.where(revoked_at: nil).update_all(
-        revoked_at: Time.current,
-        revocation_reason: "browser session ended",
-        updated_at: Time.current
-      )
+      agent_grants.where(revoked_at: nil).find_each do |grant|
+        grant.revoke!(reason: "browser session ended")
+      end
     end
 end

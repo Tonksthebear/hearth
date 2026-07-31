@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_30_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_30_020000) do
   create_table "agent_audit_events", force: :cascade do |t|
     t.integer "actor_id"
     t.integer "agent_session_id"
@@ -204,6 +204,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_010000) do
     t.index ["installation_id", "external_session_id"], name: "index_agent_sessions_on_installation_and_external_id", unique: true
     t.index ["installation_id"], name: "index_agent_sessions_on_installation_id"
     t.index ["person_id"], name: "index_agent_sessions_on_person_id"
+    t.check_constraint "authentication_status IN ('unknown', 'required', 'authenticated', 'failed')", name: "agent_sessions_authentication_status"
     t.check_constraint "status IN ('starting', 'connected', 'disconnected', 'closed', 'failed')", name: "agent_sessions_status"
   end
 
