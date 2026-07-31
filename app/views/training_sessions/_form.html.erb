@@ -40,7 +40,7 @@
     </fieldset>
 
     <div class="flex flex-wrap items-center gap-4">
-      <%= form.submit "Save draft", class: { btn: [ :base, { lg: :base }, { neutral: :outline } ] } %>
+      <%= form.submit "Save progress", class: { btn: [ :base, { lg: :base }, { neutral: :outline } ] } %>
       <% if training_session.persisted? %>
         <%= form.submit "Complete workout", name: "complete", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
       <% end %>

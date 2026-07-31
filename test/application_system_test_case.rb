@@ -12,6 +12,16 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       fill_in_and_wait_for_value "Email address", user.email_address
       fill_in_and_wait_for_value "Password", "password"
       click_button_and_wait_for_path "Sign in", root_path
+      ensure_person_via_browser(user.person)
+    end
+
+    def ensure_person_via_browser(person)
+      find_button("Open person menu").click
+      if page.has_button?("Switch to #{person.name}", wait: 1)
+        click_button_and_wait_for_path "Switch to #{person.name}", root_path
+      else
+        find_button("Open person menu").click
+      end
     end
 
     def switch_person_via_browser(person)
@@ -88,6 +98,16 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def fill_in_and_wait_for_value(label, value)
       set_and_wait find_field(label), value
+    end
+
+    def set_date_and_wait(label, value)
+      field = find_field(label)
+      page.execute_script(<<~JAVASCRIPT, field, value)
+        arguments[0].value = arguments[1];
+        arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
+        arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
+      JAVASCRIPT
+      assert_field field[:id], with: value, wait: 5
     end
 
     def select_and_wait(option, from:)

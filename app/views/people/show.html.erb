@@ -21,9 +21,9 @@
   </article>
   <article class="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50">
     <h2 class="text-xl font-semibold">Activities</h2>
-    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400"><%= pluralize(@person_overview.training_week.draft_sessions.size, "workout in progress") %>, <%= pluralize(@person_overview.training_week.completed_sessions.size, "completed workout") %>, and <%= pluralize(@person_overview.recovery_day.actionable_entries.size, "scheduled habit") %>.</p>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400"><%= pluralize(@person_overview.training_week.in_progress_sessions.size, "workout in progress") %>, <%= pluralize(@person_overview.training_week.completed_sessions.size, "completed workout") %>, and <%= pluralize(@person_overview.recovery_day.actionable_entries.size, "scheduled habit") %>.</p>
     <% if @person == @current_person %>
-      <%= link_to "Open #{@person.name}'s activities", activity_overview_path, class: "mt-4 inline-flex font-semibold text-primary-800 underline dark:text-primary-300" %>
+      <%= link_to "Open #{@person.name}'s activities", activity_week_path, class: "mt-4 inline-flex font-semibold text-primary-800 underline dark:text-primary-300" %>
     <% else %>
       <%= button_to "Switch to #{@person.name}'s activities", person_context_path, method: :patch, params: { person_id: @person.id, destination: :activities }, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]), form_class: "mt-4" %>
     <% end %>

@@ -23,7 +23,7 @@ class MobilePrimaryNavigationTest < ApplicationSystemTestCase
     end
 
     click_link_and_wait_for_path "Meals", meal_week_path
-    click_link_and_wait_for_path "Activities", activity_overview_path
+    click_link_and_wait_for_path "Activities", activity_week_path
     click_link_and_wait_for_path "Today", root_path
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")

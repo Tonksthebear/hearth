@@ -1,0 +1,80 @@
+<% content_for :title, "Activities week · Hearth" %>
+<%= render "layouts/activities_navigation" %>
+
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @activity_week.person.name %>'s activities</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">Week agenda</h1>
+    <p class="mt-2 text-sm/6 text-gray-600 dark:text-gray-400"><%= @activity_week.start_date.to_fs(:long) %>–<%= @activity_week.end_date.to_fs(:long) %></p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <%= link_to "Previous", activity_week_path(date: @activity_week.previous_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+    <%= link_to "Current week", activity_week_path, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+    <%= link_to "Next", activity_week_path(date: @activity_week.next_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+  </div>
+</div>
+
+<section class="mt-8 rounded-xl border border-gray-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-gray-800/50" aria-labelledby="schedule-workout-heading">
+  <h2 id="schedule-workout-heading" class="text-base font-semibold text-gray-900 dark:text-white">Schedule a workout</h2>
+  <p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400">Choose a reusable template and the day you intend to train.</p>
+  <%= form_with model: @planned_workout, class: "mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end" do |form| %>
+    <% if @planned_workout.errors.any? %>
+      <div class="sm:col-span-3 rounded-md bg-red-50 p-4 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300"><%= @planned_workout.errors.full_messages.to_sentence %></div>
+    <% end %>
+    <div>
+      <%= form.label :workout_template_id, "Workout template", class: :label %>
+      <%= form.elements_select :workout_template_id, @workout_template_options, { prompt: "Choose a template" }, required: true %>
+    </div>
+    <div>
+      <%= form.label :scheduled_on, "Scheduled date", class: :label %>
+      <%= form.date_field :scheduled_on, class: :text_field, required: true %>
+    </div>
+    <%= form.submit "Add to agenda", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+  <% end %>
+</section>
+
+<section class="mt-8" aria-labelledby="weekly-dose-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 id="weekly-dose-heading" class="text-lg font-semibold text-gray-900 dark:text-white">Weekly dose</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Only completed workouts contribute.</p>
+    </div>
+    <%= link_to "Open training details", training_week_path(date: @activity_week.start_date), class: "text-sm font-semibold text-primary-700 hover:text-primary-600 dark:text-primary-300" %>
+  </div>
+  <dl class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <% @activity_week.training_week.metrics.each do |metric| %>
+      <div class="rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-gray-800/50">
+        <dt class="text-sm text-gray-500 dark:text-gray-400"><%= metric.label %></dt>
+        <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white"><%= number_with_precision(metric.actual, precision: 1, strip_insignificant_zeros: true) %> <%= metric.unit %></dd>
+      </div>
+    <% end %>
+  </dl>
+</section>
+
+<div class="mt-8 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+  <% @activity_week.days.each do |day| %>
+    <section class="overflow-hidden rounded-xl border <%= day.today? ? "border-primary-500 ring-1 ring-primary-500" : "border-gray-200 dark:border-white/10" %> bg-white shadow-xs dark:bg-gray-800/50"
+             data-activity-date="<%= day.date.iso8601 %>"
+             aria-labelledby="activity-day-<%= day.date.iso8601 %>">
+      <div class="border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"><%= day.date.strftime("%A") %></p>
+        <h2 id="activity-day-<%= day.date.iso8601 %>" class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+          <%= day.date.to_fs(:long) %><%= " · Today" if day.today? %>
+        </h2>
+      </div>
+      <% day.sections.each do |section| %>
+        <div class="border-b border-gray-100 last:border-b-0 dark:border-white/5">
+          <div class="px-4 pt-4">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white"><%= section.title %></h3>
+          </div>
+          <ul role="list" class="divide-y divide-gray-100 dark:divide-white/5">
+            <%= render partial: "activities/item", collection: section.items, as: :item, locals: { return_to: "activity_week", activity_date: day.date, actionable: day.today? } %>
+            <% if section.items.empty? %>
+              <li class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">Nothing here.</li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+    </section>
+  <% end %>
+</div>

@@ -13,7 +13,7 @@ class TrainingWeekTest < ActiveSupport::TestCase
     assert_includes week.completed_sessions, training_sessions(:completed_sunday)
     refute_includes week.completed_sessions, training_sessions(:following_monday)
     refute_includes week.completed_sessions, training_sessions(:other_person)
-    assert_includes week.draft_sessions, training_sessions(:draft)
+    assert_includes week.in_progress_sessions, training_sessions(:in_progress)
   end
 
   test "derives all four metrics from completed structured rows" do

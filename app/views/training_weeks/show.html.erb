@@ -54,13 +54,13 @@
   <section aria-labelledby="drafts-heading" class="mt-8">
     <h2 id="drafts-heading" class="text-xl font-semibold">In-progress workouts</h2>
     <div class="mt-4 grid gap-3">
-      <% @training_week.draft_sessions.each do |session| %>
+      <% @training_week.in_progress_sessions.each do |session| %>
         <article class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-500/20 dark:bg-primary-500/10">
           <div><p class="font-semibold"><%= session.snapshot_title %></p><p class="text-sm text-gray-600 dark:text-gray-400"><%= session.performed_on.to_fs(:long) %> · excluded from progress until completed</p></div>
           <%= link_to "Resume workout", edit_training_session_path(session), class: yass(btn: [ :base, { md: :base }, { primary: :solid } ]) %>
         </article>
       <% end %>
-      <% if @training_week.draft_sessions.empty? %><p class="text-sm text-gray-500 dark:text-gray-400">No workout drafts this week.</p><% end %>
+      <% if @training_week.in_progress_sessions.empty? %><p class="text-sm text-gray-500 dark:text-gray-400">No workouts in progress this week.</p><% end %>
     </div>
   </section>
 

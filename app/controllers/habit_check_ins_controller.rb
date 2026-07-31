@@ -57,6 +57,13 @@ class HabitCheckInsController < ApplicationController
     end
 
     def redirect_path
-      params[:return_to] == "today" ? root_path : recovery_day_path
+      case params[:return_to]
+      when "today"
+        root_path
+      when "activity_week"
+        activity_week_path(date: params[:date])
+      else
+        recovery_day_path
+      end
     end
 end

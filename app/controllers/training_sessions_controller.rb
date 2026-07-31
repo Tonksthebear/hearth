@@ -7,10 +7,15 @@ class TrainingSessionsController < ApplicationController
   end
 
   def create
-    if params[:template_id].present?
+    if params[:planned_workout_id].present?
+      planned_workout = Current.person.planned_workouts.find(params[:planned_workout_id])
+      session = planned_workout.start!
+      redirect_to edit_training_session_path(session), notice: "Workout started.", status: :see_other
+      return
+    elsif params[:template_id].present?
       template = Current.household.workout_templates.find(params[:template_id])
       session = TrainingSession.start_from(template: template, person: Current.person)
-      redirect_to edit_training_session_path(session), notice: "Workout draft started.", status: :see_other
+      redirect_to edit_training_session_path(session), notice: "Workout started.", status: :see_other
       return
     end
 
@@ -23,7 +28,7 @@ class TrainingSessionsController < ApplicationController
       @training_session.ensure_form_rows
       render_form_update
     elsif @training_session.save
-      redirect_to edit_training_session_path(@training_session), notice: "Workout draft saved.", status: :see_other
+      redirect_to edit_training_session_path(@training_session), notice: "Workout in progress saved.", status: :see_other
     else
       @training_session.ensure_form_rows
       render :new, status: :unprocessable_entity
@@ -52,7 +57,7 @@ class TrainingSessionsController < ApplicationController
     elsif params[:complete]
       complete_training_session
     elsif @training_session.save
-      redirect_to edit_training_session_path(@training_session), notice: "Workout draft saved.", status: :see_other
+      redirect_to edit_training_session_path(@training_session), notice: "Workout in progress saved.", status: :see_other
     else
       @training_session.ensure_form_rows
       render :edit, status: :unprocessable_entity
@@ -64,7 +69,7 @@ class TrainingSessionsController < ApplicationController
       redirect_to @training_session, alert: "Completed workouts cannot be deleted.", status: :see_other
     else
       @training_session.destroy!
-      redirect_to training_week_path(date: @training_session.performed_on), notice: "Workout draft deleted.", status: :see_other
+      redirect_to training_week_path(date: @training_session.performed_on), notice: "Workout in progress deleted.", status: :see_other
     end
   end
 

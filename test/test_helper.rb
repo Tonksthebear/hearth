@@ -18,6 +18,7 @@ module ActiveSupport
         User.delete_all
         MealLog.delete_all
         PlannedMeal.delete_all
+        PlannedWorkout.delete_all
         TrainingSet.delete_all
         TrainingSessionExercise.delete_all
         TrainingSessionBlock.delete_all

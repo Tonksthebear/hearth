@@ -2,13 +2,14 @@ class TrainingSession < ApplicationRecord
   belongs_to :household
   belongs_to :person
   belongs_to :workout_template, optional: true
+  has_one :planned_workout, dependent: :nullify
   has_many :training_session_blocks, -> { order(:position) }, dependent: :destroy
 
   accepts_nested_attributes_for :training_session_blocks, allow_destroy: true, reject_if: :all_blank
 
   scope :during, ->(date_range) { where(performed_on: date_range) }
   scope :completed, -> { where.not(completed_at: nil) }
-  scope :draft, -> { where(completed_at: nil) }
+  scope :in_progress, -> { where(completed_at: nil) }
 
   validates :snapshot_title, :performed_on, :started_at, presence: true
   validate :person_belongs_to_household

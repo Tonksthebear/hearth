@@ -26,7 +26,7 @@ class TodaysControllerTest < ActionDispatch::IntegrationTest
       assert_select "h1", "Today"
       assert_select "h1", text: "Household week", count: 0
       assert_select "[data-today-kind='planned_meal']", text: /#{Regexp.escape(recipes(:observed_soup).title)}/
-      assert_select "[data-today-kind='training_session']", text: /#{Regexp.escape(training_sessions(:draft).snapshot_title)}/
+      assert_select "[data-today-kind='workout']", text: /#{Regexp.escape(training_sessions(:in_progress).snapshot_title)}/
       assert_select "[data-today-kind='simple_habit'] form[action=?]", habit_check_ins_path
       assert_select "a[href=?]", household_week_path, text: "Household overview"
       assert_select "body", text: training_sessions(:other_person).snapshot_title, count: 0

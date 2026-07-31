@@ -8,7 +8,7 @@ class TodayNavigationTest < ApplicationSystemTestCase
 
       assert_selector "h1", text: "Today"
       assert_selector "[data-today-kind='planned_meal']", text: recipes(:observed_soup).title
-      assert_selector "[data-today-kind='training_session']", text: training_sessions(:draft).snapshot_title
+      assert_selector "[data-today-kind='workout']", text: training_sessions(:in_progress).snapshot_title
 
       within "[data-today-kind='simple_habit']", text: "Water" do
         click_button "Check off"
@@ -17,7 +17,7 @@ class TodayNavigationTest < ApplicationSystemTestCase
       assert_selector "[data-today-kind='habit_check_in']", text: "Water"
 
       click_link_and_wait_for_path "Meals", meal_week_path
-      click_link_and_wait_for_path "Activities", activity_overview_path
+      click_link_and_wait_for_path "Activities", activity_week_path
 
       click_link_and_wait_for_path people(:one).name, person_path(people(:one)), match: :first
       assert_link "Open #{people(:one).name}'s meals"

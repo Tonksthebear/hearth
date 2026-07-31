@@ -9,6 +9,7 @@ class WorkoutTemplate < ApplicationRecord
   belongs_to :household
   has_many :workout_blocks, -> { order(:position) }, dependent: :destroy
   has_many :training_sessions, dependent: :nullify
+  has_many :planned_workouts, dependent: :restrict_with_exception
 
   accepts_nested_attributes_for :workout_blocks, allow_destroy: true, reject_if: :all_blank
   before_save :park_changed_block_positions

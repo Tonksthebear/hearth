@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_30_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_30_223000) do
   create_table "exercise_prescriptions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "dose_class"
@@ -193,6 +193,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_010000) do
     t.index ["person_id", "planned_on"], name: "index_planned_meals_on_person_id_and_planned_on"
     t.index ["person_id"], name: "index_planned_meals_on_person_id"
     t.index ["recipe_id"], name: "index_planned_meals_on_recipe_id"
+  end
+
+  create_table "planned_workouts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.integer "person_id", null: false
+    t.date "scheduled_on", null: false
+    t.string "skip_reason"
+    t.datetime "skipped_at"
+    t.integer "training_session_id"
+    t.datetime "updated_at", null: false
+    t.integer "workout_template_id", null: false
+    t.index ["household_id", "scheduled_on"], name: "index_planned_workouts_on_household_id_and_scheduled_on"
+    t.index ["household_id"], name: "index_planned_workouts_on_household_id"
+    t.index ["person_id", "scheduled_on"], name: "index_planned_workouts_on_person_id_and_scheduled_on"
+    t.index ["person_id"], name: "index_planned_workouts_on_person_id"
+    t.index ["training_session_id"], name: "index_planned_workouts_on_training_session_id", unique: true
+    t.index ["workout_template_id"], name: "index_planned_workouts_on_workout_template_id"
+    t.check_constraint "skip_reason IS NULL OR skipped_at IS NOT NULL", name: "planned_workouts_reason_requires_skip"
+    t.check_constraint "training_session_id IS NULL OR skipped_at IS NULL", name: "planned_workouts_session_or_skip"
   end
 
   create_table "recipe_ingredients", force: :cascade do |t|
@@ -396,6 +416,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_010000) do
   add_foreign_key "planned_meals", "households"
   add_foreign_key "planned_meals", "people"
   add_foreign_key "planned_meals", "recipes"
+  add_foreign_key "planned_workouts", "households"
+  add_foreign_key "planned_workouts", "people"
+  add_foreign_key "planned_workouts", "training_sessions", on_delete: :nullify
+  add_foreign_key "planned_workouts", "workout_templates"
   add_foreign_key "recipe_ingredients", "recipes"
   add_foreign_key "recipe_instructions", "recipes"
   add_foreign_key "recipes", "households"

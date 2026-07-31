@@ -21,7 +21,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "starts a template snapshot draft for Current person" do
+  test "starts a template snapshot for Current person" do
     sign_in_as users(:one)
 
     assert_difference "TrainingSession.count", 1 do
@@ -34,7 +34,31 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, session.training_session_blocks.size
   end
 
-  test "creates a structured inline ad hoc draft without changing the catalog" do
+  test "starts and links a planned workout for Current person" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_as users(:one)
+      plan = planned_workouts(:planned_balanced)
+
+      assert_difference "TrainingSession.count", 1 do
+        post training_sessions_path, params: { planned_workout_id: plan.id }
+      end
+
+      assert_redirected_to edit_training_session_path(plan.reload.training_session)
+      assert_equal :in_progress, plan.status
+    end
+  end
+
+  test "does not start another person's planned workout" do
+    sign_in_as users(:one)
+
+    assert_no_difference "TrainingSession.count" do
+      post training_sessions_path, params: { planned_workout_id: planned_workouts(:sam_balanced).id }
+    end
+
+    assert_response :not_found
+  end
+
+  test "creates a structured inline ad hoc workout without changing the catalog" do
     sign_in_as users(:one)
 
     assert_difference "TrainingSession.count", 1 do
@@ -48,7 +72,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_nil session.training_session_blocks.first.training_session_exercises.first.exercise_id
   end
 
-  test "Turbo structural actions replace the complete draft form without persisting" do
+  test "Turbo structural actions replace the complete in-progress form without persisting" do
     sign_in_as users(:one)
 
     assert_no_difference [ "TrainingSession.count", "TrainingSessionBlock.count", "TrainingSet.count" ] do
@@ -62,9 +86,9 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name*='training_sets_attributes'][name$='[reps]']", count: 2
   end
 
-  test "completes a saved draft and then makes it read only" do
+  test "completes a saved in-progress workout and then makes it read only" do
     sign_in_as users(:one)
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
 
     patch training_session_path(session), params: {
       complete: "1",
@@ -83,7 +107,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
 
   test "invalid completion rerenders every structured row with model errors" do
     sign_in_as users(:one)
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
     params = persisted_draft_params(session)
     params[:training_session_blocks_attributes]["0"][:actual_duration_seconds] = ""
     params[:training_session_blocks_attributes]["0"][:training_session_exercises_attributes]["0"][:training_sets_attributes]["0"][:completed] = "0"
@@ -98,7 +122,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
 
   test "structural coordinates still target the rendered block after a persisted removal" do
     sign_in_as users(:one)
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
     second_block = session.training_session_blocks.create!(
       position: 2,
       snapshot_title: "Second block",
@@ -135,9 +159,9 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "deletes a draft and redirects to its training week" do
+  test "deletes an in-progress workout and redirects to its training week" do
     sign_in_as users(:one)
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
 
     assert_difference "TrainingSession.count", -1 do
       delete training_session_path(session)
