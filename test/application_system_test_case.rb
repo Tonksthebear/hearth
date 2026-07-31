@@ -54,22 +54,17 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def click_button_and_wait_for_path(label, path)
       button = find_button(label)
-      webdriver_click(button)
-      unless page.has_current_path?(path, wait: 5)
-        javascript_click(button)
-      end
+      button.click
+      page.has_current_path?(path, wait: 5)
       assert_current_path path
       assert_no_selector "html[aria-busy='true']"
       assert page.document.has_css?("html[data-elements-ready='true']", visible: :all, wait: 5)
     end
 
     def click_button_and_wait_for_text(label, value)
-      click_element_and_wait_for_text find_button(label), value
-    end
-
-    def click_element_and_wait_for_text(element, value)
-      webdriver_click(element)
-      javascript_click(element) unless page.has_text?(value, wait: 5)
+      button = find_button(label)
+      button.click
+      page.has_text?(value, wait: 5)
       assert_text value
       assert_no_selector "html[aria-busy='true']"
     end
@@ -79,10 +74,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     end
 
     def click_element_and_wait_for_count(element, selector, count)
-      webdriver_click(element)
-      unless page.has_selector?(selector, count: count, wait: 5)
-        javascript_click(element)
-      end
+      element.click
       assert_selector selector, count: count, wait: 5
       assert_no_selector "html[aria-busy='true']"
     end
@@ -117,12 +109,8 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
         within control do
           button = find("button")
           button.click
-          if page.has_selector?("el-option", text: option, exact_text: true, visible: :visible, wait: 5)
-            find("el-option", text: option, exact_text: true, visible: :visible).click
-          else
-            selected_option = find("el-option", text: option, exact_text: true, visible: :all)
-            page.execute_script("arguments[0].click()", selected_option.native)
-          end
+          selected_option = find("el-option", text: option, exact_text: true, visible: :visible, wait: 5)
+          selected_option.click
         end
         assert_text option, wait: 5
         assert_equal option, control.find("el-selectedcontent").text
@@ -162,30 +150,9 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
         break if page.has_field?(field_id, with: value, wait: 1)
       end
 
-      unless page.has_field?(field_id, with: value, wait: 0)
-        current_field = find_by_id(field_id)
-        page.execute_script(
-          "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('change', { bubbles: true }))",
-          current_field.native,
-          value
-        )
-      end
-
       assert_field field_id, with: value, wait: 5
       assert_equal value, find_by_id(field_id).value
       assert_no_selector "html[aria-busy='true']"
-    end
-
-    def javascript_click(element)
-      page.execute_script("arguments[0].click()", element.native)
-    rescue Selenium::WebDriver::Error::StaleElementReferenceError
-      # The original interaction completed while its expected page state was still rendering.
-    end
-
-    def webdriver_click(element)
-      element.click
-    rescue Selenium::WebDriver::Error::StaleElementReferenceError
-      # Turbo replaced the clicked element while WebDriver was returning from the interaction.
     end
 
     def check_and_wait(field)

@@ -24,11 +24,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     click_button_and_wait_for_count "Add metric", "input[name$='[key]']", 2
     fill_metric(1, key: "temperature", label: "Temperature", type: "Number", unit: "°F")
 
-    move_metric = first("button[name='move_metric'][value='0:down']")
-    move_metric.click
-    unless page.has_field?("habit_habit_metrics_attributes_0_key", with: "temperature", wait: 5)
-      page.execute_script("arguments[0].click()", move_metric.native)
-    end
+    first("button[name='move_metric'][value='0:down']").click
     assert_field "habit_habit_metrics_attributes_0_key", with: "temperature", wait: 5
     assert_equal %w[temperature duration], all("input[name$='[key]']").map(&:value)
 
@@ -36,8 +32,9 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     fill_metric(2, key: "confirmed", label: "Confirmed", type: "Boolean", unit: "")
 
     click_button_and_wait_for_path "Create Habit", habits_path
-    activate_button = find("article", text: "Evening reset").find_button("Activate for Alex")
-    click_element_and_wait_for_text activate_button, "Configure Evening reset"
+    within find("article", text: "Evening reset") do
+      click_button "Activate for Alex"
+    end
     activated_habit = Habit.find_by!(name: "Evening reset")
     assert_text "Configure Evening reset", wait: 5
     configuration = people(:one).person_habits.find_by!(habit: activated_habit)
@@ -48,50 +45,43 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     select_and_wait "No", from: "Confirmed target"
     click_button_and_wait_for_path "Save configuration", recovery_day_path
 
-    record_button = within "#recovery-person-habit-#{configuration.id}" do
+    within "#recovery-person-habit-#{configuration.id}" do
       assert_text "Your target: 168.0 °F"
       fill_in_and_wait_for_value "Temperature", "165"
       fill_in_and_wait_for_value "Duration", "18"
       select_and_wait "No", from: "Confirmed"
-      find_button("Record today's check-in")
+      click_button "Record today's check-in"
     end
-    click_element_and_wait_for_text record_button, "165.0 °F"
     assert_current_path recovery_day_path
     assert_text "165.0 °F"
     assert_text "18 minutes"
     assert_text "No"
 
-    correction_button = within "#recovery-person-habit-#{configuration.id}" do
+    within "#recovery-person-habit-#{configuration.id}" do
       fill_in_and_wait_for_value "Temperature", "170"
       fill_in_and_wait_for_value "Duration", "22"
       assert_equal "No", find("el-select[name$='[boolean_value]'] el-selectedcontent").text
-      find_button("Correct today's check-in")
+      click_button "Correct today's check-in"
     end
-    click_element_and_wait_for_text correction_button, "170.0 °F"
     assert_current_path recovery_day_path
     assert_text "170.0 °F"
     assert_text "22 minutes"
 
     within "#recovery-person-habit-#{person_habits(:alex_water).id}" do
-      clear_button = find_button("Clear")
-      begin
-        accept_confirm("Clear today's check-in?", wait: 1) { clear_button.click }
-      rescue Capybara::ModalNotFound
-        accept_confirm("Clear today's check-in?") do
-          page.execute_script("arguments[0].click()", clear_button.native)
-        end
-      end
+      accept_confirm("Clear today's check-in?") { click_button "Clear" }
     end
     assert_current_path recovery_day_path
-    check_off_button = find("#recovery-person-habit-#{person_habits(:alex_water).id}").find_button("Check off")
-    click_element_and_wait_for_text check_off_button, "Checked"
+    within "#recovery-person-habit-#{person_habits(:alex_water).id}" do
+      click_button "Check off"
+    end
     assert_current_path recovery_day_path
     within "#recovery-person-habit-#{person_habits(:alex_water).id}" do
       assert_text "Checked"
     end
 
-    configure_link = find("#recovery-person-habit-#{configuration.id}").find_link("Configure")
-    click_element_and_wait_for_path configure_link, edit_person_habit_path(configuration)
+    within "#recovery-person-habit-#{configuration.id}" do
+      click_link "Configure"
+    end
     assert_current_path edit_person_habit_path(configuration)
     click_button_and_wait_for_path "Deactivate habit", recovery_day_path
     assert_no_selector "#recovery-person-habit-#{configuration.id}"

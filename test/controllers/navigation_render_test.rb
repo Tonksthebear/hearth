@@ -31,8 +31,11 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     get recipe_path(recipes(:porridge))
     assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Meals"
     assert_select "nav[aria-label='Meals'] a[href=?]", shopping_list_path
-    assert_select "nav[aria-label='Meals'] > div.flex.-mb-px"
-    assert_select "nav[aria-label='Meals'] a.py-4.dark\\:hover\\:border-white\\/20"
+    assert_select "nav[aria-label='Meals'] > div[class=?]",
+      ApplicationController.helpers.yass(nav_tabs: :list)
+    assert_select "nav[aria-label='Meals'] a[class=?]",
+      ApplicationController.helpers.yass(nav_tabs: :tab),
+      minimum: 1
 
     get recovery_day_path
     assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Activities"
