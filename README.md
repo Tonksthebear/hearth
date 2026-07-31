@@ -17,6 +17,11 @@ Hearth permits exactly one household. Demo data therefore consumes the installat
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
+The temporary ACP/MCP architecture proof is documented in
+[docs/acp-supported-agent-contract.md](docs/acp-supported-agent-contract.md).
+Its commands and unauthenticated loopback MCP endpoint are conformance
+scaffolding only; they are not a production agent runtime or product API.
+
 ## UI assets
 
 Hearth’s browser UI uses locally synced Tailwind Plus Elements components,

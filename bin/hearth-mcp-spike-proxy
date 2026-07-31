@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+require_relative "../config/environment"
+
+abort "The Hearth MCP spike proxy is available only in development or test." unless Rails.env.local?
+
+HearthMcp::SpikeStdioProxy.new.run

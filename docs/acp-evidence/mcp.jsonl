@@ -1,0 +1,2 @@
+{"observed_on":"2026-07-30","path":"rails-loopback-http","sdk":"mcp-ruby","version":"1.0.0","transport":"stateless-streamable-http","initialize":"observed","tools_list":"observed","tools_call":"observed","database_query":"select-one-observed","remote_request":"rejected","production_route":"absent"}
+{"observed_on":"2026-07-30","path":"stdio-proxy-to-rails","initialize":"observed","tools_list":"observed","tools_call":"observed","tool_ownership":"rails-only","upstream":"explicit-loopback-url"}
