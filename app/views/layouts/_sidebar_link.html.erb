@@ -1,5 +1,4 @@
 <li>
-  <% active = current_page?(path) %>
   <%= link_to path,
         aria: (active ? { current: "page" } : {}),
         class: class_names(

@@ -71,12 +71,8 @@ class MealsTest < ApplicationSystemTestCase
   test "opens household shopping from meals and excludes eaten-only text" do
     travel_to WEEK_START do
       sign_in_and_open_meals users(:one)
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Shopping", shopping_list_path
-      end
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Meals", meal_week_path
-      end
+      click_link_and_wait_for_path "Shopping", shopping_list_path
+      click_link_and_wait_for_path "Meals", meal_week_path
       click_link_and_wait_for_path "Shopping list", shopping_list_path(date: "2026-07-27")
 
       assert_text "Carrots"

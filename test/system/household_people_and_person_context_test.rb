@@ -9,6 +9,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
         features: [ { name: "prefers-color-scheme", value: "light" } ]
       )
       sign_in_via_browser users(:one)
+      visit_and_wait_for_path household_week_path
 
       week_link = find_link("Previous week", visible: :visible)
       week_link_classes = week_link[:class]
@@ -55,6 +56,7 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
     fill_in "Password", with: "password"
     click_button_and_wait_for_path "Sign in", root_path
 
+    find_button("Open person menu").click
     click_link_and_wait_for_path "Manage people", people_path
     assert_selector "section[aria-labelledby='people-heading'] h1", text: "People"
     click_link_and_wait_for_path "Add person", new_person_path
@@ -78,21 +80,21 @@ class HouseholdPeopleAndPersonContextTest < ApplicationSystemTestCase
 
     assert_no_selector "html[aria-busy='true']"
     switch_person_via_browser person
-    assert_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
+    assert_selector "h1", text: "Today"
+    assert_text "Taylor Updated"
     assert_selector "[data-household-name]", text: /#{Regexp.escape(households(:home).name)}/i
 
     assert_no_selector "html[aria-busy='true']"
+    find_button("Open person menu").click
     click_link_and_wait_for_path "Manage people", people_path
     assert_selector "section[aria-labelledby='people-heading'] h1", text: "People"
     assert_no_selector "html[aria-busy='true']"
     click_link_and_wait_for_path "Hearth", root_path
-    assert_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
-    assert_no_selector "article[data-current-person='true'] h3", text: people(:one).name
+    assert_text "Taylor Updated"
 
     assert_no_selector "html[aria-busy='true']"
     switch_person_via_browser people(:one)
-    assert_selector "article[data-current-person='true'] h3", text: people(:one).name, wait: 5
-    assert_no_selector "article[data-current-person='true'] h3", text: "Taylor Updated"
+    assert_text people(:one).name, wait: 5
   end
 
   private

@@ -87,6 +87,10 @@ class WorkoutTemplate < ApplicationRecord
     PROVENANCE_DESCRIPTIONS.fetch(provenance_status)
   end
 
+  def source_label
+    source_name.presence || "From your household"
+  end
+
   private
     def active_blocks
       workout_blocks.load_target

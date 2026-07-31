@@ -1,8 +1,12 @@
 class PeopleController < ApplicationController
-  before_action :set_person, only: %i[ edit update ]
+  before_action :set_person, only: %i[ show edit update ]
 
   def index
     @people = Current.household.people.order(:name)
+  end
+
+  def show
+    @person_overview = Person::Overview.current(household: Current.household, person: @person)
   end
 
   def new

@@ -8,8 +8,8 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", text: workout_templates(:balanced).title
-    assert_select "aside", text: /not clinical endorsement/i
-    assert_select "aside", text: /medical advice/i
+    assert_select "p", text: /not clinical endorsement/i
+    assert_select "p", text: /medical advice/i
     assert_select "form[action='#{training_sessions_path}']"
   end
 

@@ -8,9 +8,9 @@ class RecoveryDaysControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "nav a", text: "Recovery"
-    assert_select "#today-person-habit-#{person_habits(:alex_sauna).id}", text: /Your target: 20 minutes/
+    assert_select "#recovery-person-habit-#{person_habits(:alex_sauna).id}", text: /Your target: 20 minutes/
     assert_select "article", text: /Lights out.*History only/m
-    assert_select "#today-person-habit-#{person_habits(:alex_lights_out).id}", count: 0
+    assert_select "#recovery-person-habit-#{person_habits(:alex_lights_out).id}", count: 0
     assert_select "body", text: /18 minutes/
     assert_select "body", text: /170\.0 °F/
   end
@@ -38,7 +38,7 @@ class RecoveryDaysControllerTest < ActionDispatch::IntegrationTest
     get recovery_day_path
 
     assert_response :success
-    assert_select "#today-person-habit-#{person_habits(:alex_water).id}", text: /Wake time/
+    assert_select "#recovery-person-habit-#{person_habits(:alex_water).id}", text: /Wake time/
     assert_select "section[aria-labelledby='recent-heading'] article" do |articles|
       water_history = articles.find { |article| article.text.include?("Water") }
       assert_not_nil water_history

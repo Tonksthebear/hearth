@@ -291,6 +291,10 @@ tab_group:
       primary: "aria-selected:text-gray-900 aria-selected:after:bg-primary-500 dark:aria-selected:text-white dark:aria-selected:after:bg-primary-400"
   panel: "py-4"
 
+nav_tabs:
+  list: "flex border-b border-gray-200 -mb-px overflow-x-auto dark:border-white/10"
+  tab: "shrink-0 border-b-2 border-transparent px-1 py-4 text-sm font-medium whitespace-nowrap text-gray-500 hover:border-gray-300 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 aria-[current=page]:border-primary-500 aria-[current=page]:text-primary-600 dark:text-gray-400 dark:hover:border-white/20 dark:hover:text-gray-200 dark:aria-[current=page]:border-primary-400 dark:aria-[current=page]:text-primary-400"
+
 alert:
   # Structural layout (color-agnostic)
   inner: "flex"

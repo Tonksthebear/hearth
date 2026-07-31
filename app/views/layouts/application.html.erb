@@ -29,14 +29,10 @@
           <div class="flex flex-1 items-center justify-between gap-x-4">
             <div class="min-w-0">
               <p class="truncate text-sm font-semibold text-gray-900 dark:text-white" data-household-name><%= @household.name %></p>
-              <p class="truncate text-xs text-gray-500 dark:text-gray-400"><%= @current_person.name %></p>
+              <p class="truncate text-xs"><%= link_to @current_person.name, person_path(@current_person), class: "text-gray-500 underline hover:no-underline dark:text-gray-400" %></p>
             </div>
             <div class="flex items-center gap-2">
               <%= render "layouts/person_menu" %>
-              <%= button_to "Sign out", session_path,
-                    method: :delete,
-                    form: { data: { turbo_confirm: "Sign out of Hearth?" } },
-                    class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %>
             </div>
           </div>
         <% end %>

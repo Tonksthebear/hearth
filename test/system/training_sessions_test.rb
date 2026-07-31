@@ -20,9 +20,8 @@ class TrainingSessionsTest < ApplicationSystemTestCase
   test "starts a template snapshot records actual rows completes and updates progress" do
     travel_to WEEK_START do
       sign_in_via_browser users(:one)
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Workout templates", workout_templates_path
-      end
+      click_link_and_wait_for_path "Activities", activity_overview_path
+      click_link_and_wait_for_path "Templates", workout_templates_path
       click_link_and_wait_for_path workout_templates(:balanced).title, workout_template_path(workout_templates(:balanced))
       click_button_and_wait_for_text "Start workout", "Record Balanced training day"
 
@@ -46,9 +45,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       assert_text "Goblet squat"
       assert_text "Stationary bike"
 
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Training", training_week_path
-      end
+      click_link_and_wait_for_path "Training", training_week_path, match: :first
       assert_selector "article", text: /Structured minutes\s+100 min/
       assert_selector "article", text: /Strength sessions\s+2 sessions/
     end
@@ -58,12 +55,13 @@ class TrainingSessionsTest < ApplicationSystemTestCase
     travel_to WEEK_START do
       exercise_count = Exercise.count
       sign_in_via_browser users(:one)
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Training", training_week_path
-      end
+      click_link_and_wait_for_path "Activities", activity_overview_path
+      click_link_and_wait_for_path "Training", training_week_path, match: :first
       click_link_and_wait_for_path "Log ad hoc workout", new_training_session_path
 
-      fill_in_and_wait_for_value "Workout title", "Neighborhood walk"
+      assert_field "Workout title", with: "Ad hoc workout", wait: 5
+      fill_in "Workout title", with: "Neighborhood walk"
+      assert_field "Workout title", with: "Neighborhood walk"
       fill_in_and_wait_for_value "Block title", "Outdoor walk"
       select_and_wait "Zone2", from: "Block kind"
       select_and_wait "Zone2", from: "Block dose"
@@ -80,9 +78,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       check_and_wait all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']").first
       click_button_and_wait_for_text "Save draft", "Workout draft saved."
 
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Training", training_week_path
-      end
+      click_link_and_wait_for_path "Training", training_week_path, match: :first
       assert_selector "article", text: /Neighborhood walk.*excluded from progress until completed/m
       session = TrainingSession.find_by!(snapshot_title: "Neighborhood walk")
       within find("article", text: /Neighborhood walk/) do
@@ -103,16 +99,14 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       people(:two).update!(weekly_structured_minutes_target: 45)
       sign_in_via_browser users(:one)
 
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Training", training_week_path
-      end
+      click_link_and_wait_for_path "Activities", activity_overview_path
+      click_link_and_wait_for_path "Training", training_week_path, match: :first
       assert_text "Resume me"
       assert_field "Structured minutes", with: "123"
 
       switch_person_via_browser people(:two)
-      within "nav[aria-label='Household and person context']" do
-        click_link_and_wait_for_path "Training", training_week_path
-      end
+      click_link_and_wait_for_path "Activities", activity_overview_path
+      click_link_and_wait_for_path "Training", training_week_path, match: :first
       assert_no_text "Resume me"
       assert_no_text "Sunday balanced day"
       assert_text "Sam workout"

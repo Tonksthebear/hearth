@@ -1,9 +1,9 @@
 <% content_for :title, "#{@recipe.title} · Hearth" %>
+<%= render "layouts/meals_navigation" %>
 
 <article aria-labelledby="recipe-heading">
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @recipe.provenance_status.humanize %> recipe</p>
       <h1 id="recipe-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @recipe.title %></h1>
       <% if @recipe.description.present? %>
         <p class="mt-3 max-w-2xl text-gray-600 dark:text-gray-400"><%= @recipe.description %></p>
@@ -16,11 +16,15 @@
     <div>
       <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Source</dt>
       <dd class="mt-1 font-semibold">
-        <%= @recipe.source_name %>
+        <%= @recipe.source_label %>
         <% if @recipe.source_url.present? %>
           <span class="block break-all text-sm font-normal text-gray-600 dark:text-gray-400"><%= @recipe.source_url %></span>
         <% end %>
       </dd>
+    </div>
+    <div>
+      <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Provenance</dt>
+      <dd class="mt-1 text-sm text-gray-700 dark:text-gray-300"><%= @recipe.provenance_status.humanize %> · <%= @recipe.provenance_description %></dd>
     </div>
     <% if @recipe.yield.present? %>
       <div>
@@ -55,10 +59,7 @@
     </section>
   </div>
 
-  <aside class="mt-8 rounded-xl border border-primary-200 bg-primary-50 p-5 text-sm text-primary-950 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
-    <p><strong><%= @recipe.provenance_status.humanize %>:</strong> <%= @recipe.provenance_description %></p>
-    <p class="mt-2">This provenance label is not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
-  </aside>
+  <p class="mt-8 text-sm text-gray-500 dark:text-gray-400">Source and provenance are attribution, not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
 
   <p class="mt-8"><%= link_to "Back to recipes", recipes_path, class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %></p>
 </article>

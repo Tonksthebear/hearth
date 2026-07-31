@@ -1,0 +1,9 @@
+<nav aria-label="Activities" class="mb-8">
+  <div class="<%= yass(nav_tabs: :list) %>">
+    <% @secondary_navigation.each do |item| %>
+      <%= link_to item[:label], item[:path],
+            aria: (item[:active] ? { current: "page" } : {}),
+            class: yass(nav_tabs: :tab) %>
+    <% end %>
+  </div>
+</nav>

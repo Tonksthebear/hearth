@@ -11,7 +11,7 @@ Rails.application.routes.draw do
 
   resource :session, only: %i[ new create destroy ]
   resources :passwords, param: :token, only: %i[ new create edit update ]
-  resources :people, only: %i[ index new create edit update ]
+  resources :people, only: %i[ index show new create edit update ]
   resources :recipes, only: %i[ index show new create edit update ]
   resources :exercises, except: :destroy
   resources :workout_templates, except: :destroy
@@ -27,8 +27,10 @@ Rails.application.routes.draw do
   resources :person_habits, only: %i[ create edit update ]
   resource :recovery_day, only: :show
   resources :habit_check_ins, only: %i[ create update destroy ]
+  resource :household_week, only: :show
+  resource :activity_overview, only: :show
 
-  root "dashboard#show"
+  root "todays#show"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

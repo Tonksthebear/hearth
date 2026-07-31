@@ -12,6 +12,7 @@
 
   <%= menu.menu(class: "divide-y divide-gray-100 dark:divide-white/10") do %>
     <%= menu.section do %>
+      <%= link_to "Overview for #{@current_person.name}", person_path(@current_person), class: "flex items-center px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-white/5" %>
       <% @household_people.each do |person| %>
         <% if person == @current_person %>
           <span class="flex items-center px-4 py-2 text-sm font-semibold text-primary-700 dark:text-primary-300" aria-current="true">
@@ -28,6 +29,16 @@
           <% end %>
         <% end %>
       <% end %>
+    <% end %>
+    <%= menu.section do %>
+      <%= link_to "Household overview", household_week_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Manage people", people_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+    <% end %>
+    <%= menu.section do %>
+      <%= link_to "Manage recipes", recipes_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Workout templates", workout_templates_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Exercises", exercises_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Habits", habits_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
     <% end %>
     <%= menu.section do %>
       <%= button_to session_path,

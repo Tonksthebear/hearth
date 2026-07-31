@@ -17,6 +17,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     def switch_person_via_browser(person)
       find_button("Open person menu").click
       click_button_and_wait_for_path "Switch to #{person.name}", root_path
+      assert_selector "h1", text: "Today", wait: 5
     end
 
     def visit_and_wait_for_path(path)

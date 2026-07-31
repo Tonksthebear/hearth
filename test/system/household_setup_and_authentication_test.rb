@@ -15,8 +15,10 @@ class HouseholdSetupAndAuthenticationTest < ApplicationSystemTestCase
     click_button "Create household"
 
     assert_selector "[data-household-name]", text: /Bear House/i
-    assert_selector "article[data-current-person='true'] h3", text: "Tonks"
+    assert_selector "h1", text: "Today"
+    assert_text "Tonks"
 
+    find_button("Open person menu").click
     accept_confirm("Sign out of Hearth?") { click_button "Sign out" }
     assert_selector "h1", text: "Sign in"
 

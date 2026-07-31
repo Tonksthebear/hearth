@@ -15,7 +15,7 @@ class RecipesController < ApplicationController
   end
 
   def new
-    @recipe = Current.household.recipes.build
+    @recipe = Current.household.recipes.build(provenance_status: :personal)
     @recipe.add_ingredient
     @recipe.add_instruction
   end
