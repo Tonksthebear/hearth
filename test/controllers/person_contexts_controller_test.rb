@@ -33,7 +33,7 @@ class PersonContextsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to meal_week_path
 
     patch person_context_path, params: { person_id: people(:one).id, destination: "activities" }
-    assert_redirected_to activity_overview_path
+    assert_redirected_to activity_week_path
 
     patch person_context_path, params: { person_id: people(:two).id, destination: "https://example.com" }
     assert_redirected_to root_path

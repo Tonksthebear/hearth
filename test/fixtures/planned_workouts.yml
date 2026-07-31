@@ -1,0 +1,32 @@
+planned_balanced:
+  household: home
+  person: one
+  workout_template: balanced
+  scheduled_on: 2026-07-30
+
+linked_in_progress:
+  household: home
+  person: one
+  workout_template: balanced
+  training_session: in_progress
+  scheduled_on: 2026-07-29
+
+skipped_balanced:
+  household: home
+  person: one
+  workout_template: balanced
+  scheduled_on: 2026-07-28
+  skipped_at: 2026-07-28 12:00:00
+  skip_reason: Needed more recovery
+
+future_balanced:
+  household: home
+  person: one
+  workout_template: balanced
+  scheduled_on: 2026-08-03
+
+sam_balanced:
+  household: home
+  person: two
+  workout_template: balanced
+  scheduled_on: 2026-07-30

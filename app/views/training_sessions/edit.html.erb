@@ -1,7 +1,7 @@
 <% content_for :title, "Record #{@training_session.snapshot_title} · Hearth" %>
 <%= render "layouts/activities_navigation" %>
 <section aria-labelledby="edit-training-session-heading">
-  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @current_person.name %>'s draft</p>
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @current_person.name %>'s workout in progress</p>
   <h1 id="edit-training-session-heading" class="mt-2 text-3xl font-semibold tracking-tight">Record <%= @training_session.snapshot_title %></h1>
   <%= render "form", training_session: @training_session, exercise_options: @exercise_options, modalities: @modalities, movement_patterns: @movement_patterns, block_kinds: @block_kinds, dose_classes: @dose_classes, entry_kinds: @entry_kinds %>
 </section>

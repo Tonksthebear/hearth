@@ -3,16 +3,16 @@ require "application_system_test_case"
 class TrainingSessionsTest < ApplicationSystemTestCase
   WEEK_START = Date.new(2026, 7, 27)
 
-  test "requires confirmation before deleting a workout draft" do
-    training_session = training_sessions(:draft)
+  test "requires confirmation before deleting an in-progress workout" do
+    training_session = training_sessions(:in_progress)
     sign_in_via_browser users(:one)
     visit_and_wait_for_path training_session_path(training_session)
 
-    dismiss_confirm("Delete this workout draft?") { click_button "Delete draft" }
+    dismiss_confirm("Delete this in-progress workout?") { click_button "Delete in-progress workout" }
     assert TrainingSession.exists?(training_session.id)
     assert_current_path training_session_path(training_session)
 
-    accept_confirm("Delete this workout draft?") { click_button "Delete draft" }
+    accept_confirm("Delete this in-progress workout?") { click_button "Delete in-progress workout" }
     assert_current_path training_week_path(date: training_session.performed_on), wait: 5
     assert_not TrainingSession.exists?(training_session.id)
   end
@@ -20,10 +20,17 @@ class TrainingSessionsTest < ApplicationSystemTestCase
   test "starts a template snapshot records actual rows completes and updates progress" do
     travel_to WEEK_START do
       sign_in_via_browser users(:one)
-      click_link_and_wait_for_path "Activities", activity_overview_path
-      click_link_and_wait_for_path "Templates", workout_templates_path
-      click_link_and_wait_for_path workout_templates(:balanced).title, workout_template_path(workout_templates(:balanced))
-      click_button_and_wait_for_text "Start workout", "Record Balanced training day"
+      click_link_and_wait_for_path "Activities", activity_week_path
+      within "section[aria-labelledby='schedule-workout-heading']" do
+        select_and_wait workout_templates(:balanced).title, from: "Workout template"
+        set_date_and_wait "Scheduled date", WEEK_START.iso8601
+        click_button "Add to agenda"
+      end
+      assert_text "Workout scheduled.", wait: 5
+      within "[data-activity-date='#{WEEK_START.iso8601}'] li", text: workout_templates(:balanced).title do
+        click_button "Start"
+      end
+      assert_text "Record Balanced training day", wait: 5
 
       reps = all("input[name*='training_sets_attributes'][name$='[reps]']")
       loads = all("input[name*='training_sets_attributes'][name$='[load_amount]']")
@@ -45,7 +52,10 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       assert_text "Goblet squat"
       assert_text "Stationary bike"
 
-      click_link_and_wait_for_path "Training", training_week_path, match: :first
+      click_link_and_wait_for_path "History", activity_history_path
+      assert_text "Balanced training day"
+      click_link_and_wait_for_path "Week", activity_week_path
+      click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
       assert_selector "article", text: /Structured minutes\s+100 min/
       assert_selector "article", text: /Strength sessions\s+2 sessions/
     end
@@ -55,8 +65,8 @@ class TrainingSessionsTest < ApplicationSystemTestCase
     travel_to WEEK_START do
       exercise_count = Exercise.count
       sign_in_via_browser users(:one)
-      click_link_and_wait_for_path "Activities", activity_overview_path
-      click_link_and_wait_for_path "Training", training_week_path, match: :first
+      click_link_and_wait_for_path "Activities", activity_week_path
+      click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
       click_link_and_wait_for_path "Log ad hoc workout", new_training_session_path
 
       assert_field "Workout title", with: "Ad hoc workout", wait: 5
@@ -76,9 +86,10 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       select_and_wait "Zone2", from: all("el-select[name*='training_sets_attributes'][name$='[dose_class]']").first[:id]
       set_and_wait all("input[name*='training_sets_attributes'][name$='[duration_seconds]']").first, "1800"
       check_and_wait all("input[type='checkbox'][name*='training_sets_attributes'][name$='[completed]']").first
-      click_button_and_wait_for_text "Save draft", "Workout draft saved."
+      click_button_and_wait_for_text "Save progress", "Workout in progress saved."
 
-      click_link_and_wait_for_path "Training", training_week_path, match: :first
+      click_link_and_wait_for_path "Week", activity_week_path, match: :first
+      click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
       assert_selector "article", text: /Neighborhood walk.*excluded from progress until completed/m
       session = TrainingSession.find_by!(snapshot_title: "Neighborhood walk")
       within find("article", text: /Neighborhood walk/) do
@@ -99,14 +110,14 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       people(:two).update!(weekly_structured_minutes_target: 45)
       sign_in_via_browser users(:one)
 
-      click_link_and_wait_for_path "Activities", activity_overview_path
-      click_link_and_wait_for_path "Training", training_week_path, match: :first
+      click_link_and_wait_for_path "Activities", activity_week_path
+      click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
       assert_text "Resume me"
       assert_field "Structured minutes", with: "123"
 
       switch_person_via_browser people(:two)
-      click_link_and_wait_for_path "Activities", activity_overview_path
-      click_link_and_wait_for_path "Training", training_week_path, match: :first
+      click_link_and_wait_for_path "Activities", activity_week_path
+      click_link_and_wait_for_path "Open training details", training_week_path(date: WEEK_START), match: :first
       assert_no_text "Resume me"
       assert_no_text "Sunday balanced day"
       assert_text "Sam workout"

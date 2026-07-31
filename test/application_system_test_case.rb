@@ -90,6 +90,16 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       set_and_wait find_field(label), value
     end
 
+    def set_date_and_wait(label, value)
+      field = find_field(label)
+      page.execute_script(<<~JAVASCRIPT, field, value)
+        arguments[0].value = arguments[1];
+        arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
+        arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
+      JAVASCRIPT
+      assert_field field[:id], with: value, wait: 5
+    end
+
     def select_and_wait(option, from:)
       control = find_by_id(from, visible: :all, wait: 0)
     rescue Capybara::ElementNotFound

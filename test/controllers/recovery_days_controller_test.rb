@@ -7,7 +7,7 @@ class RecoveryDaysControllerTest < ActionDispatch::IntegrationTest
     get recovery_day_path
 
     assert_response :success
-    assert_select "nav a", text: "Recovery"
+    assert_select "nav[aria-label='Activities'] a[aria-current='page']", text: "Library"
     assert_select "#recovery-person-habit-#{person_habits(:alex_sauna).id}", text: /Your target: 20 minutes/
     assert_select "article", text: /Lights out.*History only/m
     assert_select "#recovery-person-habit-#{person_habits(:alex_lights_out).id}", count: 0

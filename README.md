@@ -17,10 +17,27 @@ Hearth permits exactly one household. Demo data therefore consumes the installat
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
-The temporary ACP/MCP architecture proof is documented in
+The supervised ACP runtime and the still-local MCP conformance surface are documented in
 [docs/acp-supported-agent-contract.md](docs/acp-supported-agent-contract.md).
-Its commands and unauthenticated loopback MCP endpoint are conformance
-scaffolding only; they are not a production agent runtime or product API.
+`bin/hearth-acp-runtime` is the production-shaped, standalone ACP process host.
+It requires an already initialized directory containing `.hearth/instance.yml`,
+runs separately from Puma, and never injects the unauthenticated spike MCP
+endpoint. The loopback MCP route and stdio proxy remain conformance scaffolding,
+not a production product API.
+
+The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
+not start the ACP runtime. Against an initialized installation, start or recover
+a persisted conversation/session explicitly:
+
+```bash
+bin/hearth-acp-runtime --root /path/to/hearth-instance --conversation CONVERSATION_ID
+bin/hearth-acp-runtime --root /path/to/hearth-instance --session AGENT_SESSION_ID
+```
+
+Agent executable, argv, contained working directory, environment-name allowlist,
+and manual update policy live on `Agent::Profile`. Session transport and recovery
+truth live in the database; `.hearth/tmp/acp` contains only restrictive lock/PID
+state. Ticket 09 will place this same executable beneath `hearth serve`.
 
 ## UI assets
 

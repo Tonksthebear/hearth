@@ -9,4 +9,5 @@ connected:
   advertised_capabilities:
     loadSession: true
   authentication_status: authenticated
+  mcp_authorization_status: authorized
   connected_at: 2026-07-30 12:00:00

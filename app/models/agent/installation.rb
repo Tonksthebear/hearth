@@ -19,6 +19,18 @@ class Agent::Installation < ApplicationRecord
   validate :authentication_snapshot_is_secret_free
   validate :authentication_methods_are_metadata_only
 
+  def observe!(protocol_version:, capabilities:, authentication_methods:, authentication_status:, agent_version:)
+    update!(
+      protocol_version: protocol_version,
+      status: "available",
+      advertised_capabilities: capabilities,
+      authentication_methods: authentication_methods,
+      authentication_status: authentication_status,
+      agent_version: agent_version,
+      last_seen_at: Time.current
+    )
+  end
+
   private
     def profile_matches_household
       return if profile_id.blank? || household_id.blank?

@@ -1,0 +1,293 @@
+module Acp
+  class Supervisor
+    class Error < StandardError; end
+    class RecoveryUnavailable < Error; end
+    class InstallationMismatch < Error; end
+    class ProfileDisabled < Error; end
+
+    DEFAULT_BACKOFFS = [ 0.25, 1, 4 ].freeze
+
+    attr_reader :recovery_methods, :runtime_directory, :session_list_observations
+
+    def initialize(instance_root:, runtime_directory: nil, connection_factory: nil,
+      recovery_backoffs: DEFAULT_BACKOFFS, on_fatal: ->(_session, _error) { })
+      @instance_root = File.expand_path(instance_root)
+      @runtime_directory = runtime_directory || Acp::RuntimeDirectory.new(instance_root: @instance_root)
+      @connection_factory = connection_factory || ->(**arguments) { Acp::Connection.new(**arguments) }
+      @recovery_backoffs = recovery_backoffs.map { |value| Float(value) }.freeze
+      @on_fatal = on_fatal
+      @connections = {}
+      @connections_mutex = Mutex.new
+      @session_list_observations = {}
+      @recovery_methods = {}
+      @started = false
+    end
+
+    def start!
+      return self if @started
+
+      runtime_directory.acquire!
+      @started = true
+      self
+    end
+
+    def start_session(conversation:, browser_session: nil, authentication_method: nil)
+      ensure_started!
+      ensure_profile_enabled!(conversation.profile)
+      connection = build_connection(conversation.profile).start
+      initialized = connection.initialize_connection
+      installation = observe_installation!(conversation.profile, connection, initialized, authentication_method)
+      authenticate!(connection, installation, authentication_method)
+      result = connection.new_session
+
+      agent_session = Agent::Session.create!(
+        household: conversation.household,
+        person: conversation.person,
+        conversation: conversation,
+        installation: installation,
+        browser_session: browser_session,
+        external_session_id: result.fetch("sessionId"),
+        status: "starting",
+        advertised_capabilities: connection.agent_capabilities,
+        authentication_status: installation.authentication_status,
+        mcp_authorization_status: "not_configured"
+      )
+      agent_session.connect!
+      register(agent_session, connection)
+      agent_session
+    rescue
+      connection&.stop
+      raise
+    end
+
+    def recover_session(agent_session, authentication_method: nil)
+      ensure_started!
+      ensure_profile_enabled!(agent_session.conversation.profile)
+      prepare_for_recovery!(agent_session)
+      connection = build_connection(agent_session.conversation.profile).start
+      initialized = connection.initialize_connection
+      installation = observe_installation!(
+        agent_session.conversation.profile,
+        connection,
+        initialized,
+        authentication_method
+      )
+      unless installation.id == agent_session.installation_id
+        raise InstallationMismatch, "Recovered ACP agent does not match the persisted installation"
+      end
+
+      authenticate!(connection, installation, authentication_method)
+      observe_session_list(agent_session, connection)
+      @recovery_methods[agent_session.id] = restore_session(connection, agent_session.external_session_id)
+      agent_session.reload.connect!(recovered: true)
+      register(agent_session, connection)
+      agent_session
+    rescue Acp::Connection::ProcessError,
+      Acp::Connection::TimeoutError,
+      Acp::Connection::BackpressureError => error
+      connection&.stop
+      schedule_retry(agent_session, error)
+    rescue Acp::Connection::Error, Error, ActiveRecord::ActiveRecordError => error
+      connection&.stop
+      terminal_recovery_failure(agent_session, error)
+    rescue StandardError => error
+      connection&.stop
+      terminal_recovery_failure(agent_session, error)
+    end
+
+    def prompt(agent_session, content)
+      connection_for(agent_session).prompt(content)
+    end
+
+    def cancel(agent_session)
+      connection_for(agent_session).cancel
+    end
+
+    def events_for(agent_session)
+      connection_for(agent_session).drain_events
+    end
+
+    def connection_for(agent_session)
+      @connections_mutex.synchronize { @connections[agent_session.id] } ||
+        raise(Error, "ACP session #{agent_session.id} is not attached to this runtime")
+    end
+
+    def tick
+      ensure_started!
+      disconnect_disabled_profiles
+      reap_failed_connections
+      attached_ids = @connections_mutex.synchronize { @connections.keys }
+      Agent::Session.recoverable
+        .joins(conversation: :profile)
+        .where(agent_profiles: { enabled: true })
+        .where.not(id: attached_ids)
+        .find_each { |agent_session| recover_session(agent_session) }
+      self
+    end
+
+    def shutdown!
+      connections = @connections_mutex.synchronize do
+        owned = @connections
+        @connections = {}
+        owned
+      end
+      connections.each do |session_id, connection|
+        connection.stop
+        agent_session = Agent::Session.find_by(id: session_id)
+        if agent_session&.status.in?(%w[ starting connected ])
+          agent_session.disconnect!(reason: "ACP runtime stopped")
+        end
+      end
+      runtime_directory.release!
+      @started = false
+      nil
+    end
+
+    private
+      def ensure_started!
+        raise Error, "ACP supervisor has not acquired its runtime directory" unless @started
+      end
+
+      def ensure_profile_enabled!(profile)
+        raise ProfileDisabled, "Agent profile is disabled" unless profile.enabled?
+      end
+
+      def disconnect_disabled_profiles
+        disabled_ids = Agent::Session
+          .joins(conversation: :profile)
+          .where(id: @connections_mutex.synchronize { @connections.keys })
+          .where(agent_profiles: { enabled: false })
+          .pluck(:id)
+        disabled = @connections_mutex.synchronize do
+          disabled_ids.to_h { |session_id| [ session_id, @connections.delete(session_id) ] }
+        end
+        disabled.each do |session_id, connection|
+          connection&.stop
+          agent_session = Agent::Session.find_by(id: session_id)
+          if agent_session&.status.in?(%w[ starting connected ])
+            agent_session.disconnect!(
+              reason: "Agent profile disabled",
+              recovery_error: "Agent profile is disabled"
+            )
+          end
+        end
+      end
+
+      def build_connection(profile)
+        @connection_factory.call(
+          argv: profile.argv,
+          cwd: profile.working_directory_for(@instance_root),
+          environment: profile.environment_from,
+          mcp_servers: []
+        )
+      end
+
+      def observe_installation!(profile, connection, initialized, _authentication_method)
+        info = connection.agent_info
+        external_id = info["name"].presence || "profile-#{profile.id}"
+        installation = profile.installations.find_or_initialize_by(
+          household: profile.household,
+          external_id: external_id
+        )
+        installation.executable_path ||= profile.executable_path
+        installation.protocol_version ||= initialized.fetch("protocolVersion")
+        installation.save! if installation.new_record?
+        methods = connection.auth_methods.map { |method| method.slice("id", "name", "description") }
+        status = methods.empty? ? "authenticated" : "required"
+        installation.observe!(
+          protocol_version: initialized.fetch("protocolVersion"),
+          capabilities: connection.agent_capabilities,
+          authentication_methods: methods,
+          authentication_status: status,
+          agent_version: info["version"]
+        )
+        installation
+      end
+
+      def authenticate!(connection, installation, preferred)
+        method_id = connection.authentication_method_id(preferred)
+        return unless method_id
+
+        connection.authenticate(method_id)
+        installation.update!(authentication_status: "authenticated")
+      end
+
+      def prepare_for_recovery!(agent_session)
+        agent_session.reload
+        if agent_session.status.in?(%w[ starting connected ])
+          agent_session.disconnect!(reason: "ACP transport restarted")
+        else
+          agent_session.prepare_for_transport_recovery!
+        end
+
+        agent_session
+      end
+
+      def observe_session_list(agent_session, connection)
+        return unless connection.agent_capabilities.dig("sessionCapabilities", "list")
+
+        @session_list_observations[agent_session.id] = connection.list_sessions(
+          cwd: agent_session.conversation.profile.working_directory_for(@instance_root)
+        )
+      rescue Acp::Connection::RequestError => error
+        @session_list_observations[agent_session.id] = { "error" => error.message }
+      end
+
+      def restore_session(connection, session_id)
+        if connection.agent_capabilities.dig("sessionCapabilities", "resume")
+          begin
+            connection.resume(session_id)
+            return "resume"
+          rescue Acp::Connection::RequestError
+            raise unless connection.agent_capabilities["loadSession"]
+          end
+        end
+        if connection.agent_capabilities["loadSession"]
+          connection.load(session_id)
+          return "load"
+        end
+
+        raise RecoveryUnavailable, "Agent advertises neither session/resume nor session/load"
+      end
+
+      def register(agent_session, connection)
+        @connections_mutex.synchronize { @connections[agent_session.id] = connection }
+      end
+
+      def reap_failed_connections
+        failures = @connections_mutex.synchronize do
+          @connections.filter_map do |session_id, connection|
+            next unless connection.failure
+
+            @connections.delete(session_id)
+            [ session_id, connection.failure ]
+          end
+        end
+        failures.each do |session_id, error|
+          agent_session = Agent::Session.find_by(id: session_id)
+          schedule_retry(agent_session, error) if agent_session&.status.in?(%w[ starting connected disconnected ])
+        end
+      end
+
+      def schedule_retry(agent_session, error)
+        return unless agent_session
+
+        attempt = agent_session.reload.recovery_attempts + 1
+        if attempt > @recovery_backoffs.length
+          terminal_recovery_failure(agent_session, error)
+        else
+          retry_at = Time.current + @recovery_backoffs.fetch(attempt - 1)
+          agent_session.record_recovery_failure!(error: error.message, retry_at: retry_at)
+        end
+        agent_session
+      end
+
+      def terminal_recovery_failure(agent_session, error)
+        return unless agent_session
+
+        agent_session.reload.fail_recovery!(error.message)
+        @on_fatal.call(agent_session, error)
+        agent_session
+      end
+  end
+end

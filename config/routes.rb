@@ -28,7 +28,12 @@ Rails.application.routes.draw do
   resource :recovery_day, only: :show
   resources :habit_check_ins, only: %i[ create update destroy ]
   resource :household_week, only: :show
-  resource :activity_overview, only: :show
+  resource :activity_week, only: :show
+  resource :activity_library, only: :show
+  resource :activity_history, only: :show
+  resources :planned_workouts, only: %i[ create update destroy ] do
+    resource :skip, only: %i[ create destroy ], module: :planned_workout
+  end
 
   root "todays#show"
 

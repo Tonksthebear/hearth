@@ -1,0 +1,49 @@
+<% content_for :title, "Activities history · Hearth" %>
+<%= render "layouts/activities_navigation" %>
+
+<div>
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @activity_history.person.name %>'s activities</p>
+  <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">History</h1>
+  <p class="mt-2 text-gray-600 dark:text-gray-400">Completed workouts, habit check-ins, and retained skipped plans from the last <%= ActivityHistory::WINDOW_DAYS %> days.</p>
+</div>
+
+<div class="mt-10">
+  <% @activity_history.groups.each do |date, items| %>
+    <section class="relative" aria-labelledby="activity-history-<%= date.iso8601 %>">
+      <div class="sticky top-0 z-10 border-y border-t-gray-100 border-b-gray-200 bg-gray-50 px-3 py-1.5 text-sm/6 font-semibold text-gray-900 dark:border-t-white/5 dark:border-b-white/10 dark:bg-gray-900 dark:text-white dark:before:pointer-events-none dark:before:absolute dark:before:inset-0 dark:before:bg-white/5">
+        <h2 id="activity-history-<%= date.iso8601 %>" class="relative"><%= date.to_fs(:long) %></h2>
+      </div>
+      <ul role="list" class="divide-y divide-gray-100 dark:divide-white/5">
+        <% items.each do |item| %>
+          <li class="flex items-center justify-between gap-4 px-3 py-5" data-history-status="<%= item.status %>">
+            <div class="min-w-0">
+              <p class="text-sm/6 font-semibold text-gray-900 dark:text-white">
+                <% if item.destination %>
+                  <%= link_to item.title, polymorphic_path(item.destination), class: "hover:underline" %>
+                <% else %>
+                  <%= item.title %>
+                <% end %>
+              </p>
+              <p class="mt-1 text-xs/5 text-gray-500 dark:text-gray-400"><%= item.description %></p>
+            </div>
+            <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-500/10 ring-inset dark:bg-gray-400/10 dark:text-gray-300 dark:ring-gray-400/20"><%= item.status.to_s.humanize %></span>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <% if @activity_history.items.empty? %>
+    <div class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-12 text-center dark:border-white/15">
+      <p class="text-sm font-semibold text-gray-900 dark:text-white">No activity history yet</p>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Completed and skipped outcomes will appear here.</p>
+    </div>
+  <% end %>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <% unless @activity_history.recent? %>
+      <%= link_to "Back to recent", activity_history_path, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+    <% end %>
+    <%= link_to "Show earlier", activity_history_path(before: @activity_history.previous_end_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+  </div>
+</div>

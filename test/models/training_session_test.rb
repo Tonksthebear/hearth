@@ -7,7 +7,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
     assert_equal "From your household", session.snapshot_source_label
   end
 
-  test "starts a persisted draft with immutable template and exercise snapshots" do
+  test "starts a persisted in-progress workout with immutable template and exercise snapshots" do
     session = TrainingSession.start_from(
       template: workout_templates(:balanced),
       person: people(:one),
@@ -87,7 +87,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
   end
 
   test "completion requires actual block duration and complete structured performance" do
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
     block = session.training_session_blocks.first
     set = block.training_session_exercises.first.training_sets.first
     block.update!(actual_duration_seconds: nil)
@@ -98,7 +98,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
   end
 
   test "strength-only work counts entered block time without set durations" do
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
     set = session.training_session_blocks.first.training_session_exercises.first.training_sets.first
     set.update!(completed: true, reps: 8, load_amount: 35, load_unit: :lb)
 
@@ -110,7 +110,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
   end
 
   test "completion rejects classified time beyond the containing block" do
-    session = training_sessions(:draft)
+    session = training_sessions(:in_progress)
     set = session.training_session_blocks.first.training_session_exercises.first.training_sets.first
     set.update!(completed: true, duration_seconds: 901, dose_class: :vigorous)
 

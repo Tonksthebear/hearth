@@ -1,16 +1,16 @@
 <% content_for :title, "#{@training_session.snapshot_title} · Hearth" %>
 <%= render "layouts/activities_navigation" %>
 <article aria-labelledby="training-session-heading">
-  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @training_session.completed? ? "Completed workout" : "Workout draft" %></p>
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @training_session.completed? ? "Completed workout" : "Workout in progress" %></p>
   <h1 id="training-session-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @training_session.snapshot_title %></h1>
   <p class="mt-2 text-gray-600 dark:text-gray-400"><%= @training_session.performed_on.to_fs(:long) %> · <%= @training_session.person.name %></p>
 
   <% unless @training_session.completed? %>
     <div class="mt-5 flex gap-3">
       <%= link_to "Resume workout", edit_training_session_path(@training_session), class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
-      <%= button_to "Delete draft", training_session_path(@training_session),
+      <%= button_to "Delete in-progress workout", training_session_path(@training_session),
             method: :delete,
-            form: { data: { turbo_confirm: "Delete this workout draft?" } },
+            form: { data: { turbo_confirm: "Delete this in-progress workout?" } },
             class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
     </div>
   <% end %>

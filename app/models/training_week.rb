@@ -55,9 +55,9 @@ class TrainingWeek
       .order(:performed_on, :started_at)
   end
 
-  def draft_sessions
-    @draft_sessions ||= person.training_sessions
-      .draft
+  def in_progress_sessions
+    @in_progress_sessions ||= person.training_sessions
+      .in_progress
       .during(date_range)
       .includes(training_session_blocks: { training_session_exercises: :training_sets })
       .order(:performed_on, :started_at)
