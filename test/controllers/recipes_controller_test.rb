@@ -191,6 +191,39 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "label", text: "Remove cover when this recipe is saved"
   end
 
+  test "malformed cover references render errors without changing stored data" do
+    sign_in_as users(:one)
+
+    assert_no_difference [ "Recipe.count", "ActiveStorage::Blob.count" ] do
+      post recipes_path, params: {
+        recipe: valid_recipe_params.merge(cover: "not-a-signed-id")
+      }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /Cover is invalid/
+
+    recipe = recipes(:porridge)
+    recipe.cover.attach(fixture_file_upload("recipes/cover.png", "image/png"))
+    original_title = recipe.title
+    original_blob = recipe.cover.blob
+
+    assert_no_difference "ActiveStorage::Blob.count" do
+      patch recipe_path(recipe), params: {
+        recipe: persisted_recipe_params(recipe).merge(
+          title: "Must not persist",
+          cover: "not-a-signed-id"
+        )
+      }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "#recipe-errors", text: /Cover is invalid/
+    assert_select "img[alt='Must not persist cover']"
+    assert_equal original_title, recipe.reload.title
+    assert_equal original_blob, recipe.cover.blob
+  end
+
   test "invalid create and update render their forms" do
     sign_in_as users(:one)
 

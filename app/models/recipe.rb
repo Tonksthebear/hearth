@@ -40,8 +40,9 @@ class Recipe < ApplicationRecord
     format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) },
     allow_blank: true
   validate :acceptable_cover
+  validate :valid_cover_reference
 
-  attr_accessor :cover_uploaded_this_request, :remove_cover
+  attr_accessor :cover_reference_invalid, :cover_uploaded_this_request, :remove_cover
 
   before_save :apply_cover_change
   after_commit :purge_replaced_cover, on: %i[ create update ]
@@ -177,6 +178,10 @@ class Recipe < ApplicationRecord
   end
 
   private
+    def valid_cover_reference
+      errors.add(:cover, "is invalid") if ActiveModel::Type::Boolean.new.cast(cover_reference_invalid)
+    end
+
     def acceptable_cover
       cover_blob_acceptable?(cover.blob) if cover.attached?
     end

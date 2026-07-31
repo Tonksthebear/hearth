@@ -22,7 +22,7 @@ class RecipesController < ApplicationController
   end
 
   def create
-    attributes = recipe_params
+    attributes = recipe_attributes
     @recipe = Current.household.recipes.build(attributes)
     @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
@@ -43,7 +43,7 @@ class RecipesController < ApplicationController
   end
 
   def update
-    attributes = recipe_params
+    attributes = recipe_attributes
     @recipe.assign_attributes(attributes)
     @recipe.cover_uploaded_this_request = attributes[:cover].is_a?(ActionDispatch::Http::UploadedFile)
     @recipe.normalize_positions
@@ -82,6 +82,17 @@ class RecipesController < ApplicationController
         recipe_ingredients_attributes: %i[ id amount unit name notes _destroy ],
         recipe_instructions_attributes: %i[ id body _destroy ]
       )
+    end
+
+    def recipe_attributes
+      recipe_params.tap do |attributes|
+        cover = attributes[:cover]
+        next unless cover.is_a?(String) && cover.present?
+        next if ActiveStorage::Blob.find_signed(cover)
+
+        attributes.delete(:cover)
+        attributes[:cover_reference_invalid] = true
+      end
     end
 
     def structural_action?
