@@ -1,5 +1,15 @@
 require "test_helper"
 
+module SeleniumPointerActions
+  def click(keys = [], **options)
+    # An explicit zero delay selects Capybara's W3C pointer-actions path instead of Chrome's lossy element-click endpoint.
+    options = { delay: 0 } if keys.empty? && options.empty?
+    super(keys, **options)
+  end
+end
+
+Capybara::Selenium::Node.prepend SeleniumPointerActions
+
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   include ActiveJob::TestHelper
   include ActiveSupport::Testing::TimeHelpers
@@ -92,11 +102,8 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def set_date_and_wait(label, value)
       field = find_field(label)
-      page.execute_script(<<~JAVASCRIPT, field, value)
-        arguments[0].value = arguments[1];
-        arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-        arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
-      JAVASCRIPT
+      field.native.clear
+      field.send_keys(Date.iso8601(value).strftime("%m%d%Y"))
       assert_field field[:id], with: value, wait: 5
     end
 
@@ -152,13 +159,9 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def set_and_wait(field, value)
       field_id = field[:id]
-
-      3.times do
-        current_field = find_by_id(field_id)
-        current_field.set("")
-        value.each_char { |character| current_field.send_keys(character) }
-        break if page.has_field?(field_id, with: value, wait: 1)
-      end
+      current_field = find_by_id(field_id)
+      current_field.set("")
+      current_field.send_keys(value)
 
       assert_field field_id, with: value, wait: 5
       assert_equal value, find_by_id(field_id).value
