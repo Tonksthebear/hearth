@@ -1,27 +1,39 @@
 porridge_oats:
   recipe: porridge
-  amount: 1
+  ingredient: rolled_oats
+  display_quantity: 1
+  quantity_numerator: 1
+  quantity_denominator: 1
   unit: cup
-  name: Rolled oats
+  display_name: Rolled oats
   position: 1
 
 porridge_berries:
   recipe: porridge
-  amount: 1/2
+  ingredient: blueberries
+  display_quantity: 1/2
+  quantity_numerator: 1
+  quantity_denominator: 2
   unit: cup
-  name: Blueberries
+  display_name: Blueberries
   notes: Fresh or frozen
   position: 2
 
 salad_lettuce:
   recipe: salad
-  amount: 1
+  ingredient: lettuce
+  display_quantity: 1
+  quantity_numerator: 1
+  quantity_denominator: 1
   unit: head
-  name: Lettuce
+  display_name: Lettuce
   position: 1
 
 soup_carrots:
   recipe: observed_soup
-  amount: 2
-  name: Carrots
+  ingredient: carrots
+  display_quantity: 2
+  quantity_numerator: 2
+  quantity_denominator: 1
+  display_name: Carrots
   position: 1

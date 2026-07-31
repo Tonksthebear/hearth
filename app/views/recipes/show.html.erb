@@ -47,7 +47,7 @@
       <ul class="mt-4 space-y-3 text-gray-900 dark:text-gray-100">
         <% @recipe.recipe_ingredients.each do |ingredient| %>
           <li>
-            <span class="font-medium"><%= [ ingredient.amount, ingredient.unit, ingredient.name ].compact_blank.join(" ") %></span>
+            <span class="font-medium"><%= [ ingredient.display_quantity, ingredient.unit, ingredient.display_name ].compact_blank.join(" ") %></span>
             <% if ingredient.notes.present? %>
               <span class="text-gray-600 dark:text-gray-400">— <%= ingredient.notes %></span>
             <% end %>
@@ -60,7 +60,19 @@
       <h2 id="instructions-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Instructions</h2>
       <ol class="mt-4 list-decimal space-y-3 pl-5 text-gray-900 dark:text-gray-100">
         <% @recipe.recipe_instructions.each do |instruction| %>
-          <li class="pl-2"><%= instruction.body %></li>
+          <li class="pl-2">
+            <p><%= instruction.body %></p>
+            <% cues = [ instruction.duration_cue, instruction.temperature_cue ].compact %>
+            <% references = instruction.referenced_recipe_ingredients.to_a %>
+            <% if cues.any? || references.any? %>
+              <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">
+                <%= cues.join(" · ") %>
+                <% if references.any? %>
+                  <%= " · " if cues.any? %><%= references.map(&:display_name).join(", ") %>
+                <% end %>
+              </p>
+            <% end %>
+          </li>
         <% end %>
       </ol>
     </section>

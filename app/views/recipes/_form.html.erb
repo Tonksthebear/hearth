@@ -1,5 +1,5 @@
 <div id="recipe_form">
-  <%= form_with model: recipe, class: "mt-8 space-y-12" do |form| %>
+  <%= form_with model: recipe, class: "mt-8 space-y-12", data: { controller: "recipe-form" } do |form| %>
     <% if recipe.errors.any? %>
       <%= render "layouts/alert", id: "recipe-errors", title: "Please correct the following:", messages: recipe.errors.full_messages %>
     <% end %>
@@ -73,7 +73,7 @@
       </div>
       <div class="mt-8 space-y-4">
         <%= form.fields_for :recipe_ingredients do |ingredient_form| %>
-          <%= render "ingredient_fields", form: ingredient_form %>
+          <%= render "recipes/ingredient_fields", form: ingredient_form, ingredient_name_options: ingredient_name_options %>
         <% end %>
       </div>
     </fieldset>
@@ -89,7 +89,7 @@
       </div>
       <div class="mt-8 space-y-4">
         <%= form.fields_for :recipe_instructions do |instruction_form| %>
-          <%= render "instruction_fields", form: instruction_form %>
+          <%= render "recipes/instruction_fields", form: instruction_form, ingredient_reference_options: ingredient_reference_options %>
         <% end %>
       </div>
     </fieldset>

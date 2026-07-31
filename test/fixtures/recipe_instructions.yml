@@ -1,6 +1,10 @@
 porridge_cook:
   recipe: porridge
   body: Simmer the oats until tender.
+  duration_amount: 10
+  duration_unit: minutes
+  temperature_amount: 200
+  temperature_unit: F
   position: 1
 
 porridge_finish:

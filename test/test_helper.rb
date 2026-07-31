@@ -13,6 +13,20 @@ module ActiveSupport
     fixtures :all
 
     private
+      def create_runtime_session
+        Agent::Session.create!(
+          household: households(:home),
+          person: people(:two),
+          conversation: agent_conversations(:active),
+          installation: agent_installations(:local),
+          status: "starting",
+          external_session_id: nil,
+          advertised_capabilities: {},
+          authentication_status: "authenticated",
+          mcp_authorization_status: "not_configured"
+        )
+      end
+
       def clear_installation
         Agent::AuditEvent.delete_all
         Agent::PermissionDecision.delete_all
@@ -44,8 +58,10 @@ module ActiveSupport
         WorkoutBlock.delete_all
         WorkoutTemplate.delete_all
         Exercise.delete_all
+        RecipeInstructionIngredient.delete_all
         RecipeInstruction.delete_all
         RecipeIngredient.delete_all
+        Ingredient.delete_all
         Recipe.delete_all
         Household.delete_all
       end

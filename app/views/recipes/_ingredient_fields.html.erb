@@ -7,17 +7,29 @@
   <div class="grid gap-3 rounded-lg bg-gray-50 p-4 dark:bg-white/5 sm:grid-cols-[0.7fr_0.8fr_2fr_2fr_auto]">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
+    <%= form.hidden_field :form_key %>
     <div>
-      <%= form.label :amount, class: :label %>
-      <%= form.text_field :amount, class: :text_field %>
+      <%= form.label :display_quantity, "Amount", class: :label %>
+      <%= form.text_field :display_quantity, class: :text_field %>
     </div>
     <div>
       <%= form.label :unit, class: :label %>
       <%= form.text_field :unit, class: :text_field %>
     </div>
     <div>
-      <%= form.label :name, class: :label %>
-      <%= form.text_field :name, required: true, class: :text_field %>
+      <%= form.label :display_name, "Ingredient", class: :label %>
+      <%= form.elements_autocomplete :display_name,
+        ingredient_name_options,
+        { create: true, create_text: 'Add "{value}"' },
+        {
+          placeholder: "Choose or add an ingredient",
+          required: true,
+          data: {
+            recipe_form_target: "ingredientName",
+            recipe_form_key: form.object.form_key,
+            action: "change->recipe-form#ingredientNameChanged"
+          }
+        } %>
     </div>
     <div>
       <%= form.label :notes, class: :label %>

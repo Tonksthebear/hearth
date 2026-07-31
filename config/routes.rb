@@ -1,9 +1,5 @@
 Rails.application.routes.draw do
-  if Rails.env.local?
-    constraints ->(request) { request.local? } do
-      mount HearthMcp::SpikeServer.transport => "/mcp"
-    end
-  end
+  resource :mcp, only: %i[ show create destroy ]
 
   namespace :setup do
     resource :household, only: %i[ new create ]

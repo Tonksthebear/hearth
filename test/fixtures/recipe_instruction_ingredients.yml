@@ -1,0 +1,11 @@
+porridge_cook_oats:
+  recipe: porridge
+  recipe_instruction: porridge_cook
+  recipe_ingredient: porridge_oats
+  position: 1
+
+porridge_finish_berries:
+  recipe: porridge
+  recipe_instruction: porridge_finish
+  recipe_ingredient: porridge_berries
+  position: 1

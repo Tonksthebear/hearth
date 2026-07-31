@@ -70,8 +70,8 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       assert_predicate runtime_result.fetch(:status), :success?, runtime_result.fetch(:stderr)
       assert_process_gone(agent_info.fetch("pid"))
       row = JSON.parse(File.readlines(evidence).last)
-      assert_equal "ACP-only", row["proof_scope"]
-      assert_equal [], row["mcp_servers"]
+      assert_equal "ACP runtime and sanitized MCP configuration", row["proof_scope"]
+      assert_equal [ { "name" => "Hearth", "transport" => "http", "authenticated" => true } ], row["mcp_servers"]
       assert_equal "end_turn", row["stop_reason"]
       assert_equal 300, row["update_count"]
       assert_equal Acp::Connection::DEFAULT_QUEUE_SIZE, row["retained_update_count"]
