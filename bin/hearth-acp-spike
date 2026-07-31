@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "optparse"
+require "tmpdir"
+require_relative "../config/environment"
+
+options = {
+  hold: 0,
+  images: [],
+  mcp_url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"),
+  prompt: "Reply with exactly HEARTH_ACP_OK.",
+  resources: [],
+  timeout: Acp::Probe::DEFAULT_TIMEOUT
+}
+
+parser = OptionParser.new do |arguments|
+  arguments.banner = "Usage: bin/hearth-acp-spike [options] -- AGENT [ARGS...]"
+  arguments.on("--hold SECONDS", Integer, "Hold the live session before prompting (process-boundary proof)") { |value| options[:hold] = value }
+  arguments.on("--image PATH", "Attach a PNG (repeatable)") { |value| options[:images] << value }
+  arguments.on("--mcp-url URL", "Loopback Rails MCP endpoint") { |value| options[:mcp_url] = value }
+  arguments.on("--prompt TEXT", "Conformance prompt (never written to evidence)") { |value| options[:prompt] = value }
+  arguments.on("--resource PATH", "Attach a text resource (repeatable)") { |value| options[:resources] << value }
+  arguments.on("--timeout SECONDS", Integer, "Per-request timeout") { |value| options[:timeout] = value }
+end
+parser.order!(ARGV)
+ARGV.shift if ARGV.first == "--"
+abort parser.to_s if ARGV.empty?
+
+result = nil
+Dir.mktmpdir("hearth-acp-spike") do |workspace|
+  probe = Acp::Probe.new(argv: ARGV, cwd: workspace, mcp_url: options[:mcp_url], timeout: options[:timeout]).start
+
+  begin
+    initialized = probe.initialize_connection
+    probe.authenticate(probe.auth_methods.first.fetch("id")) if probe.auth_methods.one?
+    session = probe.new_session
+    sleep(options[:hold]) if options[:hold].positive?
+    content = [ { type: "text", text: options[:prompt] } ]
+    content.concat(options[:resources].map { |path| probe.text_resource(path) })
+    content.concat(options[:images].map { |path| probe.image(path) })
+    turn = probe.prompt(content)
+    lifecycle = {}
+    {
+      load: probe.agent_capabilities["loadSession"],
+      resume: probe.agent_capabilities.dig("sessionCapabilities", "resume"),
+      close: probe.agent_capabilities.dig("sessionCapabilities", "close")
+    }.each do |name, supported|
+      lifecycle[name] = if supported
+        begin
+          probe.public_send(name)
+          "observed"
+        rescue Acp::Probe::Error
+          "failed"
+        end
+      else
+        "unsupported"
+      end
+    end
+
+    result = {
+      outcome: "observed",
+      protocol_version: initialized["protocolVersion"],
+      agent: probe.agent_info,
+      capabilities: probe.agent_capabilities,
+      session_created: !session["sessionId"].to_s.empty?,
+      stop_reason: turn["stopReason"],
+      update_types: probe.updates.filter_map { |entry| entry.dig("update", "sessionUpdate") }.uniq,
+      permission_policy: "deny_by_default",
+      mcp_transport: probe.mcp_servers.first.key?(:type) ? "http" : "stdio",
+      attachments: {
+        resource: options[:resources].empty? ? "not_attempted" : "observed",
+        image: options[:images].empty? ? "not_attempted" : "observed"
+      },
+      lifecycle: lifecycle,
+      supervisor_pid: Process.pid,
+      agent_pid: probe.pid,
+      stderr_present: !probe.stderr.empty?
+    }
+  ensure
+    probe.stop
+  end
+end
+
+puts JSON.generate(result)

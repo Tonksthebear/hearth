@@ -1,0 +1,1 @@
+{"observed_on":"2026-07-30","puma_before":16354,"puma_after":94395,"spike_supervisor":85489,"agent_child":86201,"agent_parent_is_spike":true,"agent_parent_is_puma":false,"survived_puma_restart":true,"post_restart_acp_exchange":"observed","orphan_after_supervisor_exit":false,"solid_queue_in_puma":true}

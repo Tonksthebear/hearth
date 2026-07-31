@@ -1,0 +1,1 @@
+Hearth ACP embedded resource conformance fixture.
