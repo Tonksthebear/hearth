@@ -17,6 +17,7 @@ class Acp::ProbeTest < ActiveSupport::TestCase
       assert_equal "fake-session", session["sessionId"]
       assert_equal "end_turn", result["stopReason"]
       assert_equal %w[HEARTH_ ACP_OK], probe.updates.map { |entry| entry.dig("update", "content", "text") }
+      assert_equal [ "fake-session" ], probe.list_sessions.fetch("sessions").pluck("sessionId")
       assert_equal({}, probe.resume)
       assert_equal({}, probe.load)
       assert_equal({}, probe.close)
@@ -83,8 +84,18 @@ class Acp::ProbeTest < ActiveSupport::TestCase
   test "authenticates only with an advertised method" do
     with_probe(mode: "auth") do |probe|
       probe.initialize_connection
-      assert_equal({}, probe.authenticate("fake-auth"))
+      assert_equal "fake-auth", probe.authentication_method_id
+      assert_equal "other-auth", probe.authentication_method_id("other-auth")
+      assert_equal({}, probe.authenticate(probe.authentication_method_id))
+      assert_raises(Acp::Probe::Unsupported) { probe.authentication_method_id("missing") }
       assert_raises(Acp::Probe::Unsupported) { probe.authenticate("missing") }
+    end
+  end
+
+  test "gates session list on the advertised capability" do
+    with_probe(mode: "no_list") do |probe|
+      probe.initialize_connection
+      assert_raises(Acp::Probe::Unsupported) { probe.list_sessions }
     end
   end
 

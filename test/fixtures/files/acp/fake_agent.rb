@@ -68,7 +68,11 @@ loop do
           embeddedContext: mode != "no_attachments"
         },
         mcpCapabilities: { http: mode != "stdio" },
-        sessionCapabilities: { resume: {}, close: {} }
+        sessionCapabilities: {
+          list: mode == "no_list" ? nil : {},
+          resume: {},
+          close: {}
+        }.compact
       },
       agentInfo: {
         name: "fake-agent",
@@ -76,7 +80,11 @@ loop do
         pid: Process.pid,
         ppid: Process.ppid
       },
-      authMethods: mode == "auth" ? [ { id: "fake-auth", name: "Fake authentication" } ] : []
+      authMethods: mode == "auth" ? [
+        { id: "other-auth", name: "Other authentication" },
+        { id: "fake-auth", name: "Fake authentication" }
+      ] : [],
+      _meta: mode == "auth" ? { defaultAuthMethodId: "fake-auth" } : {}
     })
   when "authenticate"
     abort "unexpected auth method" unless message.dig("params", "methodId") == "fake-auth"
@@ -103,6 +111,10 @@ loop do
   when "session/cancel"
     write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "cancelled" }) if prompt_id
     prompt_id = nil
+  when "session/list"
+    write.call(jsonrpc: "2.0", id: message["id"], result: {
+      sessions: [ { sessionId: session_id, cwd: message.dig("params", "cwd") || Dir.pwd } ]
+    })
   when "session/resume", "session/load"
     abort "MCP configuration changed across lifecycle" unless message.dig("params", "mcpServers") == expected_mcp_servers
     write.call(jsonrpc: "2.0", id: message["id"], result: {})

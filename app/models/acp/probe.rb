@@ -23,7 +23,7 @@ module Acp
     DEFAULT_MAX_LINE_BYTES = 4 * 1024 * 1024
     STDERR_LIMIT = 16 * 1024
 
-    attr_reader :agent_capabilities, :agent_info, :auth_methods, :pid, :updates
+    attr_reader :agent_capabilities, :agent_info, :auth_methods, :default_auth_method_id, :pid, :updates
 
     def initialize(argv:, cwd:, mcp_url: nil, stdio_proxy_path: nil, timeout: DEFAULT_TIMEOUT, max_line_bytes: DEFAULT_MAX_LINE_BYTES)
       raise ArgumentError, "agent argv is required" if argv.empty?
@@ -70,7 +70,16 @@ module Acp
       @agent_capabilities = result.fetch("agentCapabilities", {})
       @agent_info = result["agentInfo"]
       @auth_methods = result.fetch("authMethods", [])
+      @default_auth_method_id = result.dig("_meta", "defaultAuthMethodId")
       result
+    end
+
+    def authentication_method_id(preferred = nil)
+      method_id = preferred || default_auth_method_id || (auth_methods.one? && auth_methods.first["id"])
+      return unless method_id
+      raise Unsupported, "authentication method is not advertised" unless auth_methods.any? { |method| method["id"] == method_id }
+
+      method_id
     end
 
     def authenticate(method_id)
@@ -97,6 +106,12 @@ module Acp
       raise ProtocolError, "session has not been created" unless @session_id
 
       notify("session/cancel", { sessionId: @session_id })
+    end
+
+    def list_sessions(cwd: nil, cursor: nil)
+      raise Unsupported, "agent does not advertise session/list" unless agent_capabilities.dig("sessionCapabilities", "list")
+
+      request("session/list", { cwd: cwd, cursor: cursor }.compact)
     end
 
     def close

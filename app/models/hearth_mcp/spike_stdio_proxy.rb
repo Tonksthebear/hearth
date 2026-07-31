@@ -19,9 +19,15 @@ module HearthMcp
       while (line = @input.gets(@max_line_bytes + 1))
         raise ArgumentError, "MCP frame exceeds #{@max_line_bytes} bytes" unless line.end_with?("\n")
 
-        JSON.parse(line)
-        relay(line)
+        call(JSON.parse(line)).each do |message|
+          @output.puts(JSON.generate(message))
+          @output.flush
+        end
       end
+    end
+
+    def call(message)
+      relay(JSON.generate(message)).map { |payload| JSON.parse(payload) }
     end
 
     private
@@ -43,22 +49,16 @@ module HearthMcp
           read_timeout: 30
         ) { |http| http.request(request) }
 
-        return if response.code == "202"
+        return [] if response.code == "202"
         raise "Hearth MCP returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
 
-        messages = if response["content-type"]&.include?("text/event-stream")
+        if response["content-type"]&.include?("text/event-stream")
           response.body.each_line.filter_map do |line|
             data = line.delete_prefix("data: ").strip
             data unless data.empty?
           end
         else
           [ response.body ]
-        end
-
-        messages.each do |message|
-          JSON.parse(message)
-          @output.puts(message)
-          @output.flush
         end
       end
   end

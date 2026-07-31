@@ -6,6 +6,8 @@ require "tmpdir"
 require_relative "../config/environment"
 
 options = {
+  auth_method: nil,
+  evidence: nil,
   hold: 0,
   images: [],
   mcp_url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"),
@@ -16,6 +18,8 @@ options = {
 
 parser = OptionParser.new do |arguments|
   arguments.banner = "Usage: bin/hearth-acp-spike [options] -- AGENT [ARGS...]"
+  arguments.on("--auth-method ID", "ACP authentication method (defaults to the agent's advertised default)") { |value| options[:auth_method] = value }
+  arguments.on("--evidence PATH", "Append the sanitized result as JSONL") { |value| options[:evidence] = value }
   arguments.on("--hold SECONDS", Integer, "Hold the live session before prompting (process-boundary proof)") { |value| options[:hold] = value }
   arguments.on("--image PATH", "Attach a PNG (repeatable)") { |value| options[:images] << value }
   arguments.on("--mcp-url URL", "Loopback Rails MCP endpoint") { |value| options[:mcp_url] = value }
@@ -27,13 +31,24 @@ parser.order!(ARGV)
 ARGV.shift if ARGV.first == "--"
 abort parser.to_s if ARGV.empty?
 
+listed_tools = HearthMcp::SpikeStdioProxy.new(url: options[:mcp_url]).call(
+  jsonrpc: "2.0",
+  id: "hearth-preflight",
+  method: "tools/list",
+  params: {}
+)
+unless listed_tools.any? { |message| message.dig("result", "tools")&.any? { |tool| tool["name"] == "spike_status_tool" } }
+  abort "Hearth MCP preflight failed: spike_status_tool was not listed by #{options[:mcp_url]}"
+end
+
 result = nil
 Dir.mktmpdir("hearth-acp-spike") do |workspace|
   probe = Acp::Probe.new(argv: ARGV, cwd: workspace, mcp_url: options[:mcp_url], timeout: options[:timeout]).start
 
   begin
     initialized = probe.initialize_connection
-    probe.authenticate(probe.auth_methods.first.fetch("id")) if probe.auth_methods.one?
+    auth_method = probe.authentication_method_id(options[:auth_method])
+    probe.authenticate(auth_method) if auth_method
     session = probe.new_session
     sleep(options[:hold]) if options[:hold].positive?
     content = [ { type: "text", text: options[:prompt] } ]
@@ -42,13 +57,14 @@ Dir.mktmpdir("hearth-acp-spike") do |workspace|
     turn = probe.prompt(content)
     lifecycle = {}
     {
+      list: probe.agent_capabilities.dig("sessionCapabilities", "list"),
       load: probe.agent_capabilities["loadSession"],
       resume: probe.agent_capabilities.dig("sessionCapabilities", "resume"),
       close: probe.agent_capabilities.dig("sessionCapabilities", "close")
     }.each do |name, supported|
       lifecycle[name] = if supported
         begin
-          probe.public_send(name)
+          name == :list ? probe.list_sessions : probe.public_send(name)
           "observed"
         rescue Acp::Probe::Error
           "failed"
@@ -59,14 +75,28 @@ Dir.mktmpdir("hearth-acp-spike") do |workspace|
     end
 
     result = {
+      evidence_schema: "hearth_acp_spike/v1",
+      observed_at: Time.current.iso8601,
       outcome: "observed",
       protocol_version: initialized["protocolVersion"],
-      agent: probe.agent_info,
-      capabilities: probe.agent_capabilities,
+      agent: probe.agent_info&.slice("name", "title", "version") || { "command" => File.basename(ARGV.first) },
+      authentication_method: auth_method || "not_attempted",
+      capabilities: {
+        load_session: !!probe.agent_capabilities["loadSession"],
+        prompt: {
+          image: !!probe.agent_capabilities.dig("promptCapabilities", "image"),
+          embedded_context: !!probe.agent_capabilities.dig("promptCapabilities", "embeddedContext")
+        },
+        mcp: {
+          http: !!probe.agent_capabilities.dig("mcpCapabilities", "http")
+        },
+        session: %w[list resume close].select { |name| probe.agent_capabilities.dig("sessionCapabilities", name) }
+      },
       session_created: !session["sessionId"].to_s.empty?,
       stop_reason: turn["stopReason"],
       update_types: probe.updates.filter_map { |entry| entry.dig("update", "sessionUpdate") }.uniq,
       permission_policy: "deny_by_default",
+      mcp_preflight: "tools_list_observed",
       mcp_transport: probe.mcp_servers.first.key?(:type) ? "http" : "stdio",
       attachments: {
         resource: options[:resources].empty? ? "not_attempted" : "observed",
@@ -82,4 +112,6 @@ Dir.mktmpdir("hearth-acp-spike") do |workspace|
   end
 end
 
-puts JSON.generate(result)
+evidence = JSON.generate(result)
+File.open(options[:evidence], "a") { |file| file.puts(evidence) } if options[:evidence]
+puts evidence
