@@ -5,7 +5,7 @@ require "tmpdir"
 class Acp::SupervisorTest < ActiveSupport::TestCase
   FAKE_AGENT = Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s
 
-  test "creates a persisted session only after session new returns a valid external id" do
+  test "creates a local session and runtime grant before first session new" do
     with_supervisor do |supervisor|
       before = Agent::Session.count
       agent_session = supervisor.start_session(conversation: agent_conversations(:active))
@@ -13,25 +13,56 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
       assert_equal before + 1, Agent::Session.count
       assert_equal "fake-session-1", agent_session.external_session_id
       assert_equal "connected", agent_session.status
-      assert_equal "not_configured", agent_session.mcp_authorization_status
+      assert_equal "authorized", agent_session.mcp_authorization_status
       assert_equal "1.0.0", agent_session.installation.agent_version
-      assert_equal [], supervisor.connection_for(agent_session).mcp_servers
+      server = supervisor.connection_for(agent_session).mcp_servers.sole
+      assert_equal "http", server["type"]
+      assert_equal "http://127.0.0.1:3000/mcp", server["url"]
+      assert_match(/\ABearer /, server.fetch("headers").sole.fetch("value"))
+      assert_equal 1, agent_session.grants.active_at.count
     end
   end
 
-  test "uses advertised load when resume is unavailable and reconnects mcp inert" do
+  test "failed initialization retains the local session and revokes its runtime grant" do
+    assert_raises(Acp::Connection::ProtocolError) do
+      with_supervisor(mode: "missing_session_id") do |supervisor|
+        supervisor.start_session(conversation: agent_conversations(:active))
+      end
+    end
+
+    failed = Agent::Session.order(:id).last
+    assert_equal "failed", failed.status
+    assert_nil failed.external_session_id
+    assert_predicate failed.grants.sole, :revoked_at?
+    assert_equal "session.initialization_failed", Agent::AuditEvent.where(agent_session: failed).order(:id).last.event_type
+  end
+
+  test "uses advertised load when resume is unavailable and rotates MCP authorization" do
     prepare_persisted_session
     grant = agent_grants(:active)
     with_supervisor(mode: "load_only") do |supervisor|
       recovered = supervisor.recover_session(agent_sessions(:connected))
 
       assert_equal "connected", recovered.status, recovered.recovery_error
-      assert_equal "reauthorization_required", recovered.mcp_authorization_status
+      assert_equal "authorized", recovered.mcp_authorization_status
       assert_predicate grant.reload, :revoked_at?
-      assert_empty recovered.grants.active_at
-      assert_raises(Agent::Grant::AuthorizationRequired) { recovered.require_mcp_authorized! }
+      assert_equal 1, recovered.grants.active_at.count
+      assert_nothing_raised { recovered.require_mcp_authorized! }
       assert supervisor.session_list_observations.key?(recovered.id)
       assert_equal "load", supervisor.recovery_methods[recovered.id]
+    end
+  end
+
+
+  test "uses the stdio proxy when HTTP MCP is not advertised" do
+    with_supervisor(mode: "stdio") do |supervisor|
+      agent_session = supervisor.start_session(conversation: agent_conversations(:active))
+      server = supervisor.connection_for(agent_session).mcp_servers.sole
+
+      assert_equal Rails.root.join("bin/hearth-mcp-proxy").to_s, server["command"]
+      assert_equal [], server["args"]
+      assert_equal %w[HEARTH_MCP_BEARER HEARTH_MCP_URL], server.fetch("env").pluck("name").sort
+      refute_includes server["command"], server.fetch("env").find { |item| item["name"] == "HEARTH_MCP_BEARER" }.fetch("value")
     end
   end
 

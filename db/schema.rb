@@ -89,7 +89,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_120000) do
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.integer "household_id", null: false
-    t.integer "issued_by_id", null: false
+    t.integer "issued_by_id"
     t.integer "output_tokens_limit"
     t.integer "output_tokens_used", default: 0, null: false
     t.integer "person_id", null: false
@@ -223,7 +223,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_120000) do
     t.integer "conversation_id", null: false
     t.datetime "created_at", null: false
     t.datetime "disconnected_at"
-    t.string "external_session_id", null: false
+    t.string "external_session_id"
     t.integer "household_id", null: false
     t.integer "installation_id", null: false
     t.string "mcp_authorization_status", default: "not_configured", null: false

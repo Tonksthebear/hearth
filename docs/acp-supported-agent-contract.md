@@ -1,16 +1,19 @@
 # ACP supported-agent contract
 
-Status: production ACP runtime implemented; MCP endpoint remains conformance-only.
+Status: production ACP runtime and authenticated read-only MCP catalog implemented.
 
 This contract records two deliberately separate paths:
 
 1. `bin/hearth-acp-runtime` supervises configured ACP agents over ordinary stdin/stdout pipes, persists recovery truth, and runs as an operating-system sibling of Puma.
-2. Rails still mounts the ticket-01 stateless Streamable HTTP MCP transport at loopback-only `/mcp` as quarantined conformance scaffolding for ticket 04.
+2. Rails serves the canonical stateless Streamable HTTP MCP transport at loopback-only `POST /mcp`, authenticated on every request by a short-lived `Agent::Grant`.
 
 The runtime does not add product UI, `hearth serve`, automatic installation/update,
-or a production MCP route. Its `mcpServers` default is exactly `[]`; after
-transport recovery, a session is connected but MCP-inert until an authenticated
-browser flow issues a fresh grant.
+or automatic installation/update. Before the first `session/new`, Hearth persists
+an initializing local `Agent::Session`, issues a server-owned runtime grant from
+that persisted conversation/session context, and injects authorized `mcpServers`.
+The returned external ACP session ID is then bound once. Initialization failures
+retain the failed local row, revoke the grant, audit the failure, and stop the child.
+Recovery rotates the credential and injects fresh configuration for load/resume.
 
 ## Running the production ACP host
 
@@ -61,12 +64,13 @@ handler. Therefore `PRAGMA busy_timeout` remains `0`; the regression records
 both the pragma and configured timeout, then proves the concurrent write path
 completes without `SQLite3::BusyException`.
 
-The ticket-01 stdio MCP fallback remains reproducible, but the ACP runtime never
-references it:
+The bounded stdio fallback relays to the same authenticated endpoint and owns no
+catalog or domain behavior:
 
 ```sh
 HEARTH_MCP_URL=http://127.0.0.1:3411/mcp \
-  bin/hearth-mcp-spike-proxy < test/fixtures/files/acp/mcp_requests.jsonl
+  HEARTH_MCP_BEARER=REDACTED \
+  bin/hearth-mcp-proxy < test/fixtures/files/acp/mcp_requests.jsonl
 ```
 
 ## Boundary decision
@@ -123,45 +127,61 @@ Live Grok accepted the embedded resource. It advertised images as unsupported, s
 
 Hearth's canonical tool boundary is the official `mcp` Ruby gem's stateless `MCP::Server::Transports::StreamableHTTPTransport`.
 
-For this spike:
+The endpoint exists in every environment but rejects non-loopback addresses before
+dispatch, uses the official SDK's Host/Origin DNS-rebinding checks, and requires a
+valid bearer on every independent POST. It constructs a fresh stateless server,
+transport, and grant-filtered registry per request. `health_read` exposes the exact
+catalog; grants without `health.read` expose no tools and cannot dispatch one.
+The injected runtime grant expires after 15 minutes or 200 calls and carries a
+200,000-token output budget. The first request after expiry or exhaustion changes the
+persisted session to `reauthorization_required`; the operator recovers or restarts
+that session to inject a fresh credential. The current ACP v1 configuration is
+immutable after session selection, so an attached connection is not silently rotated
+in place.
 
-- the endpoint is mounted only when `Rails.env.local?`;
-- a Rails local-request constraint rejects non-loopback callers;
-- production route recognition proves `/mcp` is absent;
-- the loopback URL defaults to `http://127.0.0.1:3000/mcp` and is overridden explicitly with `HEARTH_MCP_URL` or `--mcp-url`;
-- an HTTP-capable agent receives `{type: "http", name: "hearth-spike", url: ..., headers: []}`;
-- an agent without HTTP capability receives the absolute `bin/hearth-mcp-spike-proxy` command, empty args, and the same URL in its environment; and
-- the stdio proxy owns no tools or domain policy. It only relays JSON-RPC to Rails.
+All tools publish strict input schemas, output schemas, descriptions, and read-only
+annotations. Results contain structured content plus JSON text fallback, stable IDs,
+UTC dates/timestamps, explicit units where the domain defines them, provenance, hard
+row/window/output bounds, and `hearth_database` origin. They delegate to Hearth's
+models and POROs; there is no SQL, Active Record passthrough, generic query language,
+controller access, filesystem resource, or mutation tool.
 
-The sole spike tool executes `SELECT 1` through Active Record and returns only `{"database":"reachable"}`. It exposes no household records.
-
-Ticket 04 replaces the spike server and proxy with the authenticated production `Agent::Grant` endpoint and complete typed tool catalog. The local unauthenticated code must not be extended into production.
-
-After successful MCP initialization, live Grok requested `/mcp`, `/.well-known/oauth-protected-resource/mcp`, `/mcp/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, `/.well-known/oauth-authorization-server/mcp`, `/.well-known/openid-configuration/mcp`, and `/mcp/.well-known/openid-configuration`. The unauthenticated spike returned 404 for every discovery request. Ticket 04 must decide and test the authenticated endpoint's discovery metadata rather than assuming successful tool calls prove authentication negotiation.
+The endpoint is pre-authorized rather than an OAuth issuer. OAuth and OpenID discovery
+paths remain absent (404); a configured valid bearer is the authentication contract.
+HTTP-capable ACP agents receive the v1 HTTP shape with an Authorization header object.
+All other v1 agents receive the absolute `bin/hearth-mcp-proxy` command and URL/bearer
+only in ACP environment objects. Credentials never enter argv, tracked files, database
+plaintext, evidence, or object inspection.
 
 ## Compatibility matrix
 
 | Agent path | Install/auth | Session + stream | Session list | Permission | MCP HTTP | MCP stdio | Text resource | Image | Cancel/failure | Close | Load/resume |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Fake ACP peer | observed | observed | observed | deny observed | observed config | observed config and proxy E2E | observed | observed | observed | observed | observed |
-| Grok Build 0.2.117 native | installed; `cached_token` authenticate observed | production runtime new + recovered prompt observed | observed | no live request; deny policy active | not injected (`mcpServers=[]`) | not injected | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed through production runtime; resume unsupported |
+| Grok Build 0.2.117 native | installed; `cached_token` authenticate observed | production runtime new + recovered prompt observed | observed | no live request; deny policy active | first-turn live proof observed: 8 read tools across meals/activity/training/habits/recovery, no DB/filesystem access | configuration + proxy E2E observed; live fallback not induced | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed; fresh MCP config implemented; resume unsupported |
 | Codex ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 | Claude ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 
 Codex CLI 0.146.0 and Claude Code 2.1.220 are installed as CLIs, but no `codex-acp` or `claude-agent-acp` executable is installed. Their registered Botster agent choices do not supply a local ACP adapter executable to this probe, so adapter cells are explicitly deferred rather than inferred from the non-ACP CLIs.
 
 HTTP and stdio are separate columns intentionally: an agent advertising HTTP does not prove the fallback executable.
+If Grok 0.2.117 is unavailable or unauthenticated during verification, the live
+acceptance check is escalated as a human question. The fake peer remains protocol
+evidence and is never substituted for the required live-agent result.
 
 ## Evidence and privacy
 
 Machine-readable summaries live in `docs/acp-evidence/*.jsonl`.
 `runtime-live-agent.jsonl` was emitted directly by `bin/hearth-acp-runtime` and
-records the 0.2.117 new/load proof with `mcpServers=[]`; exact recorded agent
+records the earlier 0.2.117 new/load proof with `mcpServers=[]`; exact recorded agent
 PIDs were absent after both runs. The older `live-agents.jsonl` and
 `process-boundary.jsonl` remain dated ticket-01 history generated by commits
 `8f3e9d6e9f5844c18c6a92f524491634df695e0a` and its ancestors. Their MCP
-tool-call evidence is historical and is not attributed to the production
-runtime.
+tool-call evidence is historical and is not attributed to the authenticated catalog.
+New evidence reports only MCP server name, transport, and authenticated status—never
+URLs, headers, environment values, raw tool arguments, or results. The ticket-04
+Project Pipelines artifact additionally records Grok 0.2.117 pass/fail and sanitized
+MCP tool names/statuses; fixture bodies and credentials were not committed.
 
 `bin/hearth-acp-runtime` writes the same sanitized result to stdout and to the
 optional JSONL evidence path. Its result narrows agent identity and negotiated

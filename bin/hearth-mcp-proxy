@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+require_relative "../app/models/hearth_mcp/stdio_proxy"
+
+HearthMcp::StdioProxy.new.run

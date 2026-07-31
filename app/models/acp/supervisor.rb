@@ -1,3 +1,5 @@
+require "uri"
+
 module Acp
   class Supervisor
     class Error < StandardError; end
@@ -10,8 +12,10 @@ module Acp
     attr_reader :recovery_methods, :runtime_directory, :session_list_observations
 
     def initialize(instance_root:, runtime_directory: nil, connection_factory: nil,
-      recovery_backoffs: DEFAULT_BACKOFFS, on_fatal: ->(_session, _error) { })
+      recovery_backoffs: DEFAULT_BACKOFFS, on_fatal: ->(_session, _error) { },
+      mcp_url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"))
       @instance_root = File.expand_path(instance_root)
+      @mcp_url = validate_mcp_url(mcp_url)
       @runtime_directory = runtime_directory || Acp::RuntimeDirectory.new(instance_root: @instance_root)
       @connection_factory = connection_factory || ->(**arguments) { Acp::Connection.new(**arguments) }
       @recovery_backoffs = recovery_backoffs.map { |value| Float(value) }.freeze
@@ -38,24 +42,27 @@ module Acp
       initialized = connection.initialize_connection
       installation = observe_installation!(conversation.profile, connection, initialized, authentication_method)
       authenticate!(connection, installation, authentication_method)
-      result = connection.new_session
-
       agent_session = Agent::Session.create!(
         household: conversation.household,
         person: conversation.person,
         conversation: conversation,
         installation: installation,
         browser_session: browser_session,
-        external_session_id: result.fetch("sessionId"),
+        external_session_id: nil,
         status: "starting",
         advertised_capabilities: connection.agent_capabilities,
         authentication_status: installation.authentication_status,
         mcp_authorization_status: "not_configured"
       )
+      credential = agent_session.issue_runtime_grant!
+      connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
+      result = connection.new_session
+      agent_session.bind_external_session!(result.fetch("sessionId"))
       agent_session.connect!
       register(agent_session, connection)
       agent_session
-    rescue
+    rescue => error
+      agent_session&.fail_initialization!(error) if agent_session&.persisted? && agent_session.status == "starting"
       connection&.stop
       raise
     end
@@ -77,9 +84,12 @@ module Acp
       end
 
       authenticate!(connection, installation, authentication_method)
+      agent_session.begin_recovery!
+      credential = agent_session.issue_runtime_grant!
+      connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       observe_session_list(agent_session, connection)
       @recovery_methods[agent_session.id] = restore_session(connection, agent_session.external_session_id)
-      agent_session.reload.connect!(recovered: true)
+      agent_session.reload.connect!
       register(agent_session, connection)
       agent_session
     rescue Acp::Connection::ProcessError,
@@ -180,6 +190,42 @@ module Acp
           environment: profile.environment_from,
           mcp_servers: []
         )
+      end
+
+      def mcp_servers_for(connection, credential)
+        if connection.agent_capabilities.dig("mcpCapabilities", "http")
+          [
+            {
+              name: "Hearth",
+              type: "http",
+              url: @mcp_url,
+              headers: [ { name: "Authorization", value: "Bearer #{credential.bearer}" } ]
+            }
+          ]
+        else
+          [
+            {
+              name: "Hearth",
+              command: Rails.root.join("bin/hearth-mcp-proxy").to_s,
+              args: [],
+              env: [
+                { name: "HEARTH_MCP_URL", value: @mcp_url },
+                { name: "HEARTH_MCP_BEARER", value: credential.bearer }
+              ]
+            }
+          ]
+        end
+      end
+
+      def validate_mcp_url(value)
+        uri = URI(value)
+        unless uri.is_a?(URI::HTTP) && %w[127.0.0.1 ::1 localhost].include?(uri.host)
+          raise ArgumentError, "Hearth MCP URL must use loopback HTTP"
+        end
+
+        uri.to_s
+      rescue URI::InvalidURIError
+        raise ArgumentError, "Hearth MCP URL must use loopback HTTP"
       end
 
       def observe_installation!(profile, connection, initialized, _authentication_method)
