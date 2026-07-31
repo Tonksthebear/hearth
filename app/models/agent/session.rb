@@ -1,5 +1,6 @@
 class Agent::Session < ApplicationRecord
   include Agent::Contextual
+  include Agent::SecretFreeSnapshot
 
   STATUSES = %w[ starting connected disconnected closed failed ].freeze
 
@@ -21,6 +22,7 @@ class Agent::Session < ApplicationRecord
   validates :authentication_status, inclusion: { in: Agent::Installation::AUTHENTICATION_STATUSES }
   validate :installation_matches_household
   validate :browser_session_matches_household
+  validate :advertised_capabilities_are_secret_free
 
   def connect!
     transition_from!(%w[ starting disconnected ], to: "connected", connected_at: Time.current, disconnected_at: nil)
@@ -79,5 +81,11 @@ class Agent::Session < ApplicationRecord
       ).exists?
 
       errors.add(:browser_session, "must belong to a user in this household")
+    end
+
+    def advertised_capabilities_are_secret_free
+      return unless contains_secret_key?(advertised_capabilities)
+
+      errors.add(:advertised_capabilities, "cannot contain secrets")
     end
 end

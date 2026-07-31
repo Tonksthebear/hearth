@@ -15,6 +15,7 @@ class Agent::ToolActivity < ApplicationRecord
   validates :input_body, presence: true, unless: :redacted_at?
   validates :input_digest, presence: true
   validates :output_tokens, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
+  validate :authorization_context_is_active, on: :create
 
   def start!
     transition_from!("pending", to: "running", started_at: Time.current)
@@ -48,4 +49,11 @@ class Agent::ToolActivity < ApplicationRecord
     end
 
     def sensitive_body_columns = %i[ input_body output_body ]
+
+    def authorization_context_is_active
+      errors.add(:conversation, "must be active") unless conversation&.status == "active"
+      unless agent_session&.status.in?(%w[ starting connected ])
+        errors.add(:agent_session, "must be starting or connected")
+      end
+    end
 end

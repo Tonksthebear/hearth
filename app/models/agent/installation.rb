@@ -1,4 +1,6 @@
 class Agent::Installation < ApplicationRecord
+  include Agent::SecretFreeSnapshot
+
   STATUSES = %w[ observed available unavailable ].freeze
   AUTHENTICATION_STATUSES = %w[ unknown required authenticated failed ].freeze
   AUTHENTICATION_METHOD_KEYS = %w[ id name description ].freeze
@@ -38,18 +40,5 @@ class Agent::Installation < ApplicationRecord
           method.values.all? { |value| value.nil? || value.is_a?(String) }
       end
       errors.add(:authentication_methods, "must contain ACP method metadata only") unless valid
-    end
-
-    def contains_secret_key?(value)
-      case value
-      when Hash
-        value.any? do |key, nested|
-          key.to_s.match?(/(?:token|secret|password|authorization)\z/i) || contains_secret_key?(nested)
-        end
-      when Array
-        value.any? { |nested| contains_secret_key?(nested) }
-      else
-        false
-      end
     end
 end

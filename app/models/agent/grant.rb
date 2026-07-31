@@ -65,7 +65,7 @@ class Agent::Grant < ApplicationRecord
           event_type: "grant.issued",
           actor: grant.issued_by,
           outcome: "active",
-          metadata: { "capability" => grant.capability_groups }
+          metadata: { "capability_groups" => grant.capability_groups }
         )
 
         Agent::Grant::Credential.new(grant: grant, bearer: "#{locator}.#{secret}")
@@ -114,17 +114,24 @@ class Agent::Grant < ApplicationRecord
 
   def revoke!(reason:, by: nil)
     raise ArgumentError, "reason is required" if reason.blank?
-    return self if revoked_at?
 
     transaction do
-      update!(revoked_at: Time.current, revocation_reason: reason)
-      Agent::AuditEvent.record!(
-        subject: self,
-        event_type: "grant.revoked",
-        actor: by,
-        outcome: "revoked",
-        metadata: { "reason" => reason }
+      revoked_at = Time.current
+      revoked = self.class.where(id: id, revoked_at: nil).update_all(
+        revoked_at: revoked_at,
+        revocation_reason: reason,
+        updated_at: revoked_at
       )
+      if revoked == 1
+        reload
+        Agent::AuditEvent.record!(
+          subject: self,
+          event_type: "grant.revoked",
+          actor: by,
+          outcome: "revoked",
+          metadata: { "reason" => reason }
+        )
+      end
     end
     self
   end

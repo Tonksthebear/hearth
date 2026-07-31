@@ -21,7 +21,7 @@ class Agent::GrantTest < ActiveSupport::TestCase
     assert_raises(TypeError) { credential.as_json }
     event = Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).sole
     assert_equal "grant.issued", event.event_type
-    assert_equal [ "health_read" ], event.metadata["capability"]
+    assert_equal [ "health_read" ], event.metadata["capability_groups"]
   end
 
   test "verifies exact persisted context without consulting mutable current person" do
@@ -157,6 +157,42 @@ class Agent::GrantTest < ActiveSupport::TestCase
     assert Agent::AuditEvent.exists?(audit_event.id)
   end
 
+  test "operator revocation bypasses obsolete capability validation and remains audited" do
+    grant = agent_grants(:active)
+
+    without_health_read_capability do
+      grant.revoke!(reason: "Operator action", by: users(:one))
+    end
+
+    assert_predicate grant.reload, :revoked_at?
+    event = Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).order(:id).last
+    assert_equal "grant.revoked", event.event_type
+    assert_equal "Operator action", event.metadata["reason"]
+  end
+
+  test "ACP close revokes grants that no longer pass capability validation" do
+    grant = agent_grants(:active)
+
+    without_health_read_capability { agent_sessions(:connected).close! }
+
+    assert_equal "closed", agent_sessions(:connected).reload.status
+    assert_predicate grant.reload, :revoked_at?
+    assert_equal "grant.revoked",
+      Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).order(:id).last.event_type
+  end
+
+  test "browser logout revokes grants that no longer pass capability validation" do
+    grant = agent_grants(:active)
+    browser_session = sessions(:browser)
+
+    without_health_read_capability { browser_session.destroy! }
+
+    assert_not Session.exists?(browser_session.id)
+    assert_predicate grant.reload, :revoked_at?
+    assert_equal "grant.revoked",
+      Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).order(:id).last.event_type
+  end
+
   test "closed conversations and terminal sessions reject new grants" do
     agent_conversations(:active).close!
 
@@ -175,5 +211,15 @@ class Agent::GrantTest < ActiveSupport::TestCase
         calls_limit: 3,
         output_tokens_limit: 100
       )
+    end
+
+    def without_health_read_capability
+      original = Agent::Grant::CAPABILITY_GROUPS
+      Agent::Grant.send(:remove_const, :CAPABILITY_GROUPS)
+      Agent::Grant.const_set(:CAPABILITY_GROUPS, {}.freeze)
+      yield
+    ensure
+      Agent::Grant.send(:remove_const, :CAPABILITY_GROUPS)
+      Agent::Grant.const_set(:CAPABILITY_GROUPS, original)
     end
 end

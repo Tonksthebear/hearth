@@ -1,7 +1,13 @@
 module Agent::Contextual
   extend ActiveSupport::Concern
 
-  CONTEXT_COLUMNS = %w[ household_id person_id conversation_id agent_session_id ].freeze
+  CONTEXT_COLUMNS = %w[
+    household_id
+    person_id
+    conversation_id
+    agent_session_id
+    browser_session_id
+  ].freeze
 
   included do
     validate :person_matches_household

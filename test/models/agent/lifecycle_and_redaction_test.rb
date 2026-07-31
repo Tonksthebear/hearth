@@ -56,11 +56,6 @@ class Agent::LifecycleAndRedactionTest < ActiveSupport::TestCase
   test "conversation and tool activity reject undeclared lifecycle transitions" do
     conversation = agent_conversations(:active)
     grant = agent_grants(:active)
-    conversation.close!
-    assert_equal "closed", conversation.status
-    assert_equal "closed", agent_sessions(:connected).reload.status
-    assert_predicate grant.reload, :revoked_at?
-
     activity = Agent::ToolActivity.create!(
       household: households(:home),
       person: people(:two),
@@ -70,12 +65,45 @@ class Agent::LifecycleAndRedactionTest < ActiveSupport::TestCase
       capability: "health.read",
       input_body: "{}"
     )
+
+    conversation.close!
+    assert_equal "closed", conversation.status
+    assert_equal "closed", agent_sessions(:connected).reload.status
+    assert_predicate grant.reload, :revoked_at?
     assert_raises(ActiveRecord::RecordInvalid) { activity.succeed!(output_body: "{}", output_tokens: 1) }
 
     activity.start!
     activity.succeed!(output_body: '{"status":"ok"}', output_tokens: 4)
     assert_equal "succeeded", activity.status
     assert_predicate activity.output_digest, :present?
+  end
+
+  test "closed context rejects new tool activity but accepts late transcript messages" do
+    conversation = agent_conversations(:active)
+    conversation.close!
+
+    activity = Agent::ToolActivity.new(
+      household: households(:home),
+      person: people(:two),
+      conversation: conversation,
+      agent_session: agent_sessions(:connected),
+      tool_name: "health_lookup",
+      capability: "health.read",
+      input_body: "{}"
+    )
+    assert_not activity.valid?
+    assert_includes activity.errors[:conversation], "must be active"
+    assert_includes activity.errors[:agent_session], "must be starting or connected"
+
+    message = Agent::Message.new(
+      household: households(:home),
+      person: people(:two),
+      conversation: conversation,
+      agent_session: agent_sessions(:connected),
+      role: "agent",
+      body: "Late final response"
+    )
+    assert_predicate message, :valid?
   end
 
   test "permission and tool cancellation plus session and tool failure are terminal" do

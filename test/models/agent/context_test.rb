@@ -42,6 +42,14 @@ class Agent::ContextTest < ActiveSupport::TestCase
     end
   end
 
+  test "validated updates cannot reattach an ACP session to another browser session" do
+    agent_session = agent_sessions(:connected)
+    agent_session.browser_session = users(:two).sessions.create!
+
+    assert_not agent_session.valid?
+    assert_includes agent_session.errors[:base], "Agent context cannot be changed"
+  end
+
   test "installation stores generic ACP snapshots without authentication secrets" do
     installation = agent_installations(:local)
 
@@ -59,6 +67,16 @@ class Agent::ContextTest < ActiveSupport::TestCase
     installation.authentication_methods = [ { "credentials" => { "value" => "sk-live-1234" } } ]
     assert_not installation.valid?
     assert_includes installation.errors[:authentication_methods], "must contain ACP method metadata only"
+  end
+
+  test "ACP session capability snapshots reject authentication secrets" do
+    agent_session = agent_sessions(:connected)
+    agent_session.advertised_capabilities = {
+      "authentication" => { "credentials" => { "value" => "sk-live-secret" } }
+    }
+
+    assert_not agent_session.valid?
+    assert_includes agent_session.errors[:advertised_capabilities], "cannot contain secrets"
   end
 
   test "profile accepts environment names but not environment values" do
