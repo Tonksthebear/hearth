@@ -236,7 +236,7 @@ module HearthMcp
         properties: { id: { type: "integer", minimum: 1 } },
         required: %w[id]
       def self.call(id:, server_context:)
-        record = household(server_context).recipes.includes(:recipe_ingredients).find_by(id: id)
+        record = household(server_context).recipes.includes(recipe_ingredients: :ingredient).find_by(id: id)
         if record
           response(Serializer.recipe(record, detail: true), server_context: server_context)
         else

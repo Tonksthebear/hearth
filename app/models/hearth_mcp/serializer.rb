@@ -37,8 +37,19 @@ module HearthMcp
           source_url: record.source_url
         }
         if detail
-          result[:ingredients] = record.recipe_ingredients.order(:position, :id).map do |ingredient|
-            { id: ingredient.id, name: ingredient.name, amount: ingredient.amount, unit: ingredient.unit }
+          result[:ingredients] = record.recipe_ingredients.sort_by { |line| [ line.position, line.id ] }.map do |line|
+            {
+              id: line.id,
+              ingredient_id: line.ingredient_id,
+              ingredient_name: line.ingredient.name,
+              display_name: line.display_name,
+              display_quantity: line.display_quantity,
+              quantity_numerator: line.quantity_numerator,
+              quantity_denominator: line.quantity_denominator,
+              unit: line.unit,
+              notes: line.notes,
+              position: line.position
+            }
           end
         end
         result

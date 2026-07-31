@@ -74,6 +74,38 @@ class HearthMcp::CatalogTest < ActiveSupport::TestCase
     assert_match(/not found/i, result.content.sole[:text])
   end
 
+  test "get recipe exposes normalized ingredient lines through the real adapter" do
+    credential = create_runtime_session.issue_runtime_grant!
+    recipe = recipes(:porridge)
+    ingredient_queries = []
+    callback = lambda do |_name, _start, _finish, _id, payload|
+      ingredient_queries << payload[:sql] if payload[:sql].match?(/FROM "ingredients"/)
+    end
+
+    result = ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      HearthMcp::Tools::GetRecipe.call(id: recipe.id, server_context: { grant: credential.grant })
+    end
+    lines = result.structured_content.dig(:data, :ingredients)
+
+    assert_not result.error?
+    assert_equal recipe.recipe_ingredients.order(:position, :id).ids, lines.pluck(:id)
+    assert_equal 1, ingredient_queries.size
+    assert_equal %i[
+      id ingredient_id ingredient_name display_name display_quantity
+      quantity_numerator quantity_denominator unit notes position
+    ], lines.first.keys
+    lines.each do |line|
+      record = RecipeIngredient.find(line.fetch(:id))
+      assert_equal record.ingredient.name, line.fetch(:ingredient_name)
+      assert_equal record.attributes.symbolize_keys.slice(
+        :id, :ingredient_id, :display_name, :display_quantity,
+        :quantity_numerator, :quantity_denominator, :unit, :notes, :position
+      ), line.except(:ingredient_name)
+      refute_includes line, :name
+      refute_includes line, :amount
+    end
+  end
+
   test "every catalog adapter reaches its real model or projection path" do
     credential = create_runtime_session.issue_runtime_grant!
     context = { grant: credential.grant }
