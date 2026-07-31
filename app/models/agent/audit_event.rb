@@ -22,7 +22,7 @@ class Agent::AuditEvent < ApplicationRecord
         household: subject.household,
         person: subject.person,
         conversation: subject.conversation,
-        agent_session: subject.try(:agent_session),
+        agent_session: subject.is_a?(Agent::Session) ? subject : subject.try(:agent_session),
         actor: actor,
         subject_type: subject.class.name,
         subject_id: subject.id,

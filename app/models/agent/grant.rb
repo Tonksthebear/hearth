@@ -3,6 +3,7 @@ require "securerandom"
 
 class Agent::Grant < ApplicationRecord
   include Agent::Contextual
+  class AuthorizationRequired < StandardError; end
 
   CAPABILITY_GROUPS = {
     "health_read" => %w[ health.read ],
@@ -67,6 +68,7 @@ class Agent::Grant < ApplicationRecord
           outcome: "active",
           metadata: { "capability_groups" => grant.capability_groups }
         )
+        agent_session.authorize_mcp!
 
         Agent::Grant::Credential.new(grant: grant, bearer: "#{locator}.#{secret}")
       end
@@ -131,6 +133,8 @@ class Agent::Grant < ApplicationRecord
           outcome: "revoked",
           metadata: { "reason" => reason }
         )
+        agent_session.require_mcp_reauthorization! unless
+          self.class.active_at.where(agent_session: agent_session).exists?
       end
     end
     self

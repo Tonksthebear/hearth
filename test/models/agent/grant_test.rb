@@ -153,6 +153,7 @@ class Agent::GrantTest < ActiveSupport::TestCase
     event = Agent::AuditEvent.where(subject_type: "Agent::Grant", subject_id: grant.id).order(:id).last
     assert_equal "grant.revoked", event.event_type
     assert_equal "agent disconnected", event.metadata["reason"]
+    assert_equal "reauthorization_required", agent_sessions(:connected).reload.mcp_authorization_status
     assert Agent::Message.exists?(message.id)
     assert Agent::AuditEvent.exists?(audit_event.id)
   end

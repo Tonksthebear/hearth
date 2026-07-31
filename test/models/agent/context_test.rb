@@ -7,7 +7,7 @@ class Agent::ContextTest < ActiveSupport::TestCase
     other_profile = Agent::Profile.new(
       household: other_household,
       name: "Other agent",
-      launch_command: "agent"
+      executable_path: "agent"
     )
     conversation = Agent::Conversation.new(
       household: households(:home),

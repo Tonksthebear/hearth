@@ -1,61 +1,79 @@
 # ACP supported-agent contract
 
-Status: executable architecture spike, observed 2026-07-30.
+Status: production ACP runtime implemented; MCP endpoint remains conformance-only.
 
-This contract is the handoff from ticket 01 to the production implementations in tickets 03 and 04. It proves two real development paths:
+This contract records two deliberately separate paths:
 
-1. `bin/hearth-acp-spike` owns an ACP agent subprocess over ordinary stdin/stdout pipes.
-2. Rails mounts an official, stateless Streamable HTTP MCP transport at loopback-only `/mcp`.
+1. `bin/hearth-acp-runtime` supervises configured ACP agents over ordinary stdin/stdout pipes, persists recovery truth, and runs as an operating-system sibling of Puma.
+2. Rails still mounts the ticket-01 stateless Streamable HTTP MCP transport at loopback-only `/mcp` as quarantined conformance scaffolding for ticket 04.
 
-It does not add a product UI, a `hearth serve` command, production agent recovery, production MCP authorization, or a production MCP route.
+The runtime does not add product UI, `hearth serve`, automatic installation/update,
+or a production MCP route. Its `mcpServers` default is exactly `[]`; after
+transport recovery, a session is connected but MCP-inert until an authenticated
+browser flow issues a fresh grant.
 
-## Reproducing this matrix
+## Running the production ACP host
 
-Boot the local Rails MCP endpoint on an explicit loopback port:
+The selected directory must already contain `.hearth/instance.yml`. Missing
+markers fail before Rails boots and write nothing. A source checkout is not
+initialized implicitly, and `Procfile.dev` is intentionally unchanged.
 
 ```sh
-bin/rails server --binding 127.0.0.1 --port 3411
+bin/hearth-acp-runtime \
+  --root /path/to/initialized-instance \
+  --conversation CONVERSATION_ID \
+  --auth-method cached_token
 ```
 
-In another terminal, reproduce the live Grok row and write the runner's sanitized JSONL record:
+`Agent::Profile` supplies a single executable plus JSON argv, a working directory
+contained by the instance root, an environment-name allowlist, and manual update
+policy. The runtime never evaluates a shell command. To recover a persisted
+session:
 
 ```sh
-bin/hearth-acp-spike \
-  --mcp-url http://127.0.0.1:3411/mcp \
+bin/hearth-acp-runtime \
+  --root /path/to/initialized-instance \
+  --session AGENT_SESSION_ID \
   --auth-method cached_token \
-  --prompt 'Call the hearth-spike MCP tool spike_status_tool with no arguments, then reply HEARTH_ACP_OK.' \
-  --resource test/fixtures/files/acp/attachment.txt \
-  --evidence /tmp/hearth-acp-live.jsonl \
-  -- grok agent stdio
+  --prompt 'Reply HEARTH_ACP_RECOVERED_OK.' \
+  --evidence /tmp/hearth-acp-runtime.jsonl \
+  --once
 ```
 
-The runner first calls `tools/list` against that exact URL and fails before starting the agent unless `spike_status_tool` is present. This makes a stale or wrong loopback port an explicit failure rather than an agent capability failure.
+The evidence is explicitly ACP-only. It records no prompt, session ID, headers,
+environment values, household data, or developer path.
 
-Reproduce the stdio fallback against the same Rails process:
+## Reproducing the process and database boundaries
+
+The automated production-entry campaign starts Puma with
+`SOLID_QUEUE_IN_PUMA=true`, holds a fake ACP child under the standalone runtime,
+proves the child's parent is the runtime rather than Puma, stops and restarts
+Puma, completes a prompt, and checks the exact child PID is absent. It also runs
+a real second Rails process holding a SQLite write transaction while runtime
+shutdown persists its lifecycle transition:
+
+```sh
+bin/rails test test/integration/acp_runtime_test.rb
+```
+
+Rails 8.1 applies `timeout: 5000` through sqlite3-ruby's GVL-releasing busy
+handler. Therefore `PRAGMA busy_timeout` remains `0`; the regression records
+both the pragma and configured timeout, then proves the concurrent write path
+completes without `SQLite3::BusyException`.
+
+The ticket-01 stdio MCP fallback remains reproducible, but the ACP runtime never
+references it:
 
 ```sh
 HEARTH_MCP_URL=http://127.0.0.1:3411/mcp \
   bin/hearth-mcp-spike-proxy < test/fixtures/files/acp/mcp_requests.jsonl
 ```
 
-For the process-boundary row, use a disposable development database that has the Solid Queue schema loaded, start Puma with `SOLID_QUEUE_IN_PUMA=true`, run the fake peer with `--hold 120`, and inspect the two processes while the runner is holding:
-
-```sh
-SOLID_QUEUE_IN_PUMA=true bin/rails server --binding 127.0.0.1 --port 3411
-bin/hearth-acp-spike \
-  --hold 120 \
-  --mcp-url http://127.0.0.1:3411/mcp \
-  -- ruby test/fixtures/files/acp/fake_agent.rb
-ps -ef | rg 'hearth-acp-spike|fake_agent.rb|puma'
-```
-
-Stop and restart only Puma during the hold. The runner must then complete its prompt, and a second `ps` check after the runner exits must show no `fake_agent.rb`. `docs/acp-evidence/process-boundary.jsonl` is a dated hand transcription of that procedure; the direct-parent and no-orphan portions are also automated in `Acp::ProbeTest`.
-
 ## Boundary decision
 
 ACP is the UI-to-agent boundary. MCP is the agent-to-Hearth/Lorester tool boundary.
 
-The first production ACP runtime should be a Hearth-owned Ruby pipe supervisor, run as an operating-system sibling of Puma and eventually supervised by the packaged `hearth serve` launcher. It must not run from a controller, Rails executor, job, Puma plugin, or Solid Queue, and it does not require a separately routed `botster-core` worker.
+The production ACP runtime is a Hearth-owned Ruby pipe supervisor, run as an operating-system sibling of Puma and eventually supervised by the packaged `hearth serve` launcher. It does not run from a controller, Rails executor, job, Puma plugin, or Solid Queue, and it does not require a separately routed `botster-core` worker.
 
 The process proof recorded in `docs/acp-evidence/process-boundary.jsonl` shows:
 
@@ -65,7 +83,10 @@ The process proof recorded in `docs/acp-evidence/process-boundary.jsonl` shows:
 - non-MCP ACP traffic succeeds after that restart; and
 - stopping the supervisor leaves no agent process.
 
-Ticket 03 owns the production supervisor, concurrent sessions, bounded queues, persistent recovery, launcher integration, and `.hearth` state. It replaces `Acp::Probe` rather than maintaining two production clients.
+Ticket 03 owns the production supervisor, concurrent sessions, bounded queues,
+persistent recovery, standalone entry, and `.hearth/tmp/acp` transient state.
+`Acp::Probe` and `bin/hearth-acp-spike` were cold-replaced, leaving one ACP
+client. Ticket 09 owns `hearth serve`/Tebako supervision.
 
 ## Required ACP v1 behavior
 
@@ -119,7 +140,7 @@ After successful MCP initialization, live Grok requested `/mcp`, `/.well-known/o
 | Agent path | Install/auth | Session + stream | Session list | Permission | MCP HTTP | MCP stdio | Text resource | Image | Cancel/failure | Close | Load/resume |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Fake ACP peer | observed | observed | observed | deny observed | observed config | observed config and proxy E2E | observed | observed | observed | observed | observed |
-| Grok Build 0.2.112 native | installed; `cached_token` authenticate observed | observed, including `session_info_update` | observed | no live request; deny policy active | initialize/list/call observed through Rails | unsupported path not selected because HTTP is advertised | observed | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed; resume unsupported |
+| Grok Build 0.2.117 native | installed; `cached_token` authenticate observed | production runtime new + recovered prompt observed | observed | no live request; deny policy active | not injected (`mcpServers=[]`) | not injected | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed through production runtime; resume unsupported |
 | Codex ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 | Claude ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 
@@ -129,7 +150,14 @@ HTTP and stdio are separate columns intentionally: an agent advertising HTTP doe
 
 ## Evidence and privacy
 
-Machine-readable summaries live in `docs/acp-evidence/*.jsonl`. The Grok row in `live-agents.jsonl` is emitted directly by `bin/hearth-acp-spike --evidence`; deferred adapter rows and the process-boundary row are explicitly dated hand summaries of the reproduction procedures above. The Grok MCP tool-call matrix cell is server-side evidence: during the documented tool-invoking run, the Rails log records `HearthMcp::SpikeStatusTool.call` and its `SELECT 1`. The emitted `tool_call` update corroborates agent activity but is not treated as sufficient identification because agents use the same update type for built-in tools.
+Machine-readable summaries live in `docs/acp-evidence/*.jsonl`.
+`runtime-live-agent.jsonl` was emitted directly by `bin/hearth-acp-runtime` and
+records the 0.2.117 new/load proof with `mcpServers=[]`; exact recorded agent
+PIDs were absent after both runs. The older `live-agents.jsonl` and
+`process-boundary.jsonl` remain dated ticket-01 history generated by commits
+`8f3e9d6e9f5844c18c6a92f524491634df695e0a` and its ancestors. Their MCP
+tool-call evidence is historical and is not attributed to the production
+runtime.
 
 The spike writes the same result to stdout and to the optional JSONL evidence path. Its result narrows agent identity and negotiated capabilities to the fields consumed by this contract; it contains no credentials, authorization headers, raw prompts, raw tool payloads, session IDs, household data, developer home paths, or agent-controlled `_meta`. Stderr is diagnostic only and must not be copied wholesale.
 

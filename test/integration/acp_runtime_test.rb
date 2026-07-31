@@ -1,0 +1,358 @@
+require "test_helper"
+require "json"
+require "net/http"
+require "open3"
+require "rbconfig"
+require "securerandom"
+require "socket"
+require "tmpdir"
+
+class AcpRuntimeTest < ActiveSupport::TestCase
+  self.use_transactional_tests = false
+
+  RUNTIME = Rails.root.join("bin/hearth-acp-runtime").to_s
+  FAKE_AGENT = Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s
+
+  test "uninitialized root fails before Rails boot and writes nothing" do
+    Dir.mktmpdir("hearth-uninitialized-runtime") do |root|
+      stdout, stderr, status = Open3.capture3(
+        {
+          "RAILS_ENV" => "environment-that-must-not-boot"
+        },
+        RbConfig.ruby,
+        RUNTIME,
+        "--root",
+        root,
+        "--once",
+        chdir: root
+      )
+
+      assert_not status.success?
+      assert_empty stdout
+      assert_match(/Hearth instance is not initialized/, stderr)
+      assert_empty Dir.children(root)
+    end
+  end
+
+  test "production runtime remains agent parent across an unconditional Puma stop and restart" do
+    with_instance_root do |root|
+      configure_runtime_profile
+      port = available_port
+      puma = start_puma(root, port)
+      wait_for_http(port)
+
+      release = File.join(root, "release")
+      info_file = File.join(root, "agent-info.json")
+      evidence = File.join(root, "runtime-evidence.jsonl")
+      runtime = start_runtime(
+        root,
+        "--conversation", agent_conversations(:active).id.to_s,
+        "--hold-until", release,
+        "--prompt", "boundary",
+        "--evidence", evidence,
+        environment: {
+          "FAKE_ACP_MODE" => "normal",
+          "FAKE_SESSION_ID" => "puma-boundary-#{SecureRandom.hex(6)}",
+          "FAKE_AGENT_INFO_FILE" => info_file
+        }
+      )
+      agent_info = wait_for_json(info_file)
+
+      assert_equal runtime.pid, agent_info.fetch("ppid")
+      refute_equal puma.pid, agent_info.fetch("ppid")
+
+      puma.stop
+      puma = start_puma(root, port)
+      wait_for_http(port)
+      File.write(release, "continue\n")
+      runtime_result = runtime.wait
+
+      assert_predicate runtime_result.fetch(:status), :success?, runtime_result.fetch(:stderr)
+      assert_process_gone(agent_info.fetch("pid"))
+      row = JSON.parse(File.readlines(evidence).last)
+      assert_equal "ACP-only", row["proof_scope"]
+      assert_equal [], row["mcp_servers"]
+      assert_equal "end_turn", row["stop_reason"]
+    ensure
+      runtime&.stop
+      puma&.stop
+    end
+  end
+
+  test "runtime shutdown waits through a real second-process SQLite writer and records pragmas" do
+    with_instance_root do |root|
+      configure_runtime_profile
+      release = File.join(root, "release")
+      info_file = File.join(root, "agent-info.json")
+      writer_ready = File.join(root, "writer-ready")
+      runtime = start_runtime(
+        root,
+        "--conversation", agent_conversations(:active).id.to_s,
+        "--hold-until", release,
+        "--prompt", "sqlite",
+        environment: {
+          "FAKE_ACP_MODE" => "normal",
+          "FAKE_SESSION_ID" => "sqlite-#{SecureRandom.hex(6)}",
+          "FAKE_AGENT_INFO_FILE" => info_file
+        }
+      )
+      wait_for_json(info_file)
+
+      writer = ProcessHarness.new(
+        {
+          "RAILS_ENV" => "test",
+          "DATABASE_URL" => test_database_url
+        },
+        RbConfig.ruby,
+        Rails.root.join("bin/rails").to_s,
+        "runner",
+        <<~RUBY,
+          connection = ActiveRecord::Base.connection
+          Agent::Profile.transaction do
+            Agent::Profile.where(id: #{agent_profiles(:hearth).id}).update_all(updated_at: Time.current)
+            File.write(#{writer_ready.inspect}, "ready")
+            sleep 0.5
+            Agent::Profile.where(id: #{agent_profiles(:hearth).id}).update_all(updated_at: Time.current)
+          end
+          puts JSON.generate(
+            journal_mode: connection.select_value("PRAGMA journal_mode"),
+            busy_timeout: connection.select_value("PRAGMA busy_timeout"),
+            configured_timeout: connection.pool.db_config.configuration_hash.fetch(:timeout)
+          )
+        RUBY
+        chdir: Rails.root.to_s
+      ).start
+      wait_until { File.exist?(writer_ready) }
+      File.write(release, "continue\n")
+      runtime_result = runtime.wait
+      writer_result = writer.wait
+
+      assert_predicate runtime_result.fetch(:status), :success?, runtime_result.fetch(:stderr)
+      assert_predicate writer_result.fetch(:status), :success?, writer_result.fetch(:stderr)
+      refute_match(/BusyException|database is locked/, runtime_result.values_at(:stdout, :stderr).join)
+      refute_match(/BusyException|database is locked/, writer_result.values_at(:stdout, :stderr).join)
+      writer_pragmas = JSON.parse(writer_result.fetch(:stdout).lines.last)
+      runtime_connection = ActiveRecord::Base.connection
+      assert_equal 5_000, writer_pragmas.fetch("configured_timeout")
+      assert_equal 5_000, runtime_connection.pool.db_config.configuration_hash.fetch(:timeout)
+      # Rails 8.1 installs sqlite3-ruby's GVL-releasing busy handler from
+      # `timeout`; that handler deliberately leaves PRAGMA busy_timeout at 0.
+      assert_equal 0, writer_pragmas.fetch("busy_timeout")
+      assert_equal 0, runtime_connection.select_value("PRAGMA busy_timeout")
+      assert_equal runtime_connection.select_value("PRAGMA journal_mode"), writer_pragmas.fetch("journal_mode")
+
+      production_targets = ActiveRecord::Base.configurations
+        .configs_for(env_name: "production")
+        .map(&:database)
+      assert_equal 4, production_targets.uniq.length
+    ensure
+      writer&.stop
+      runtime&.stop
+    end
+  end
+
+  test "SIGTERM performs idempotent runtime cleanup without leaving the exact child" do
+    with_instance_root do |root|
+      configure_runtime_profile
+      info_file = File.join(root, "agent-info.json")
+      runtime = start_runtime(
+        root,
+        "--conversation", agent_conversations(:active).id.to_s,
+        "--hold-until", File.join(root, "never-release"),
+        once: false,
+        environment: {
+          "FAKE_ACP_MODE" => "normal",
+          "FAKE_SESSION_ID" => "signal-#{SecureRandom.hex(6)}",
+          "FAKE_AGENT_INFO_FILE" => info_file
+        }
+      )
+      agent_pid = wait_for_json(info_file).fetch("pid")
+
+      runtime.terminate
+      result = runtime.wait
+
+      assert_predicate result.fetch(:status), :success?, result.fetch(:stderr)
+      assert_process_gone(agent_pid)
+      refute File.exist?(File.join(root, ".hearth/tmp/acp/supervisor.pid"))
+      runtime.stop
+    ensure
+      runtime&.stop
+    end
+  end
+
+  private
+    class ProcessHarness
+      attr_reader :pid
+
+      def initialize(environment, *command, chdir:)
+        @environment = environment
+        @command = command
+        @chdir = chdir
+        @stdout_buffer = +""
+        @stderr_buffer = +""
+      end
+
+      def start
+        @stdin, stdout, stderr, @wait_thread = Open3.popen3(
+          @environment,
+          *@command,
+          chdir: @chdir,
+          pgroup: true
+        )
+        @pid = @wait_thread.pid
+        @stdin.close
+        @stdout_thread = Thread.new { drain(stdout, @stdout_buffer) }
+        @stderr_thread = Thread.new { drain(stderr, @stderr_buffer) }
+        self
+      end
+
+      def wait(timeout: 20)
+        wait_until(timeout) { !@wait_thread.alive? }
+        @wait_thread.join
+        @stdout_thread.join
+        @stderr_thread.join
+        { status: @wait_thread.value, stdout: @stdout_buffer, stderr: @stderr_buffer }
+      rescue Timeout::Error
+        stop
+        raise
+      end
+
+      def stop
+        return unless @wait_thread
+
+        signal("TERM") if @wait_thread.alive?
+        @wait_thread.join(2)
+        if @wait_thread.alive?
+          signal("KILL")
+          @wait_thread.join(2)
+        end
+        @stdout_thread&.join(2)
+        @stderr_thread&.join(2)
+      end
+
+      def terminate
+        Process.kill("TERM", pid)
+      rescue Errno::ESRCH
+        nil
+      end
+
+      private
+        def signal(name)
+          Process.kill(name, -pid)
+        rescue Errno::ESRCH
+          nil
+        end
+
+        def drain(io, buffer)
+          buffer << io.readpartial(4096) while true
+        rescue EOFError, IOError
+          nil
+        end
+
+        def wait_until(timeout)
+          deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+          until yield
+            raise Timeout::Error if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+            sleep 0.02
+          end
+        end
+    end
+
+    def start_runtime(root, *arguments, environment:, once: true)
+      runtime_arguments = [ "--root", root ]
+      runtime_arguments << "--once" if once
+      runtime_arguments.concat(arguments)
+      ProcessHarness.new(
+        {
+          "RAILS_ENV" => "test",
+          "DATABASE_URL" => test_database_url
+        }.merge(environment),
+        RbConfig.ruby,
+        RUNTIME,
+        *runtime_arguments,
+        chdir: root
+      ).start
+    end
+
+    def start_puma(root, port)
+      ProcessHarness.new(
+        {
+          "RAILS_ENV" => "test",
+          "DATABASE_URL" => test_database_url,
+          "SOLID_QUEUE_IN_PUMA" => "true"
+        },
+        RbConfig.ruby,
+        Rails.root.join("bin/rails").to_s,
+        "server",
+        "--binding", "127.0.0.1",
+        "--port", port.to_s,
+        "--pid", File.join(root, "puma.pid"),
+        chdir: Rails.root.to_s
+      ).start
+    end
+
+    def configure_runtime_profile
+      agent_profiles(:hearth).update!(
+        executable_path: RbConfig.ruby,
+        arguments: [ FAKE_AGENT ],
+        environment_keys: %w[ FAKE_ACP_MODE FAKE_SESSION_ID FAKE_AGENT_INFO_FILE ]
+      )
+    end
+
+    def test_database_url
+      "sqlite3:#{File.expand_path(ActiveRecord::Base.connection_db_config.database, Rails.root)}"
+    end
+
+    def with_instance_root
+      Dir.mktmpdir("hearth-runtime-integration") do |root|
+        FileUtils.mkdir_p(File.join(root, ".hearth"))
+        File.write(File.join(root, ".hearth/instance.yml"), "---\n")
+        yield root
+      end
+    end
+
+    def available_port
+      server = TCPServer.new("127.0.0.1", 0)
+      server.addr[1]
+    ensure
+      server&.close
+    end
+
+    def wait_for_http(port, timeout: 10)
+      wait_until(timeout: timeout) do
+        response = Net::HTTP.start("127.0.0.1", port, open_timeout: 0.2, read_timeout: 0.2) do |http|
+          http.get("/up")
+        end
+        response.is_a?(Net::HTTPSuccess)
+      rescue SystemCallError, Net::OpenTimeout, Net::ReadTimeout, EOFError
+        false
+      end
+    end
+
+    def wait_until(timeout: 5)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+      until yield
+        flunk "condition did not become true" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        sleep 0.02
+      end
+    end
+
+    def wait_for_json(path)
+      value = nil
+      wait_until do
+        value = JSON.parse(File.read(path))
+      rescue Errno::ENOENT, JSON::ParserError
+        false
+      end
+      value
+    end
+
+    def assert_process_gone(pid)
+      wait_until do
+        Process.kill(0, pid)
+        false
+      rescue Errno::ESRCH
+        true
+      end
+    end
+end

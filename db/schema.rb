@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_30_040000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_30_050000) do
   create_table "agent_audit_events", force: :cascade do |t|
     t.integer "actor_id"
     t.integer "agent_session_id"
@@ -86,6 +86,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_040000) do
 
   create_table "agent_installations", force: :cascade do |t|
     t.json "advertised_capabilities", default: {}, null: false
+    t.string "agent_version"
     t.json "authentication_methods", default: [], null: false
     t.string "authentication_status", default: "unknown", null: false
     t.datetime "created_at", null: false
@@ -170,16 +171,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_040000) do
   end
 
   create_table "agent_profiles", force: :cascade do |t|
+    t.json "arguments", default: [], null: false
     t.datetime "created_at", null: false
     t.boolean "enabled", default: true, null: false
     t.json "environment_keys", default: [], null: false
+    t.text "executable_path", null: false
     t.integer "household_id", null: false
-    t.text "launch_command", null: false
     t.string "name", null: false
+    t.string "update_policy", default: "manual", null: false
     t.datetime "updated_at", null: false
     t.string "working_directory"
     t.index ["household_id", "name"], name: "index_agent_profiles_on_household_id_and_name", unique: true
     t.index ["household_id"], name: "index_agent_profiles_on_household_id"
+    t.check_constraint "update_policy = 'manual'", name: "agent_profiles_manual_update_policy"
   end
 
   create_table "agent_sessions", force: :cascade do |t|
@@ -194,7 +198,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_040000) do
     t.string "external_session_id", null: false
     t.integer "household_id", null: false
     t.integer "installation_id", null: false
+    t.string "mcp_authorization_status", default: "not_configured", null: false
     t.integer "person_id", null: false
+    t.integer "recovery_attempts", default: 0, null: false
+    t.string "recovery_error"
+    t.datetime "recovery_next_at"
     t.string "status", default: "starting", null: false
     t.datetime "updated_at", null: false
     t.index ["browser_session_id"], name: "index_agent_sessions_on_browser_session_id"
@@ -205,6 +213,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_040000) do
     t.index ["installation_id"], name: "index_agent_sessions_on_installation_id"
     t.index ["person_id"], name: "index_agent_sessions_on_person_id"
     t.check_constraint "authentication_status IN ('unknown', 'required', 'authenticated', 'failed')", name: "agent_sessions_authentication_status"
+    t.check_constraint "mcp_authorization_status IN ('not_configured', 'authorized', 'reauthorization_required')", name: "agent_sessions_mcp_authorization_status"
+    t.check_constraint "recovery_attempts >= 0", name: "agent_sessions_nonnegative_recovery_attempts"
     t.check_constraint "status IN ('starting', 'connected', 'disconnected', 'closed', 'failed')", name: "agent_sessions_status"
   end
 

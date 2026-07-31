@@ -3,6 +3,8 @@ class Agent::Session < ApplicationRecord
   include Agent::SecretFreeSnapshot
 
   STATUSES = %w[ starting connected disconnected closed failed ].freeze
+  MCP_AUTHORIZATION_STATUSES = %w[ not_configured authorized reauthorization_required ].freeze
+  RECOVERY_ERROR_LIMIT = 500
 
   belongs_to :household
   belongs_to :person
@@ -20,18 +22,86 @@ class Agent::Session < ApplicationRecord
   validates :external_session_id, presence: true, uniqueness: { scope: :installation_id }
   validates :status, inclusion: { in: STATUSES }
   validates :authentication_status, inclusion: { in: Agent::Installation::AUTHENTICATION_STATUSES }
+  validates :mcp_authorization_status, inclusion: { in: MCP_AUTHORIZATION_STATUSES }
+  validates :recovery_attempts, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validates :recovery_error, length: { maximum: RECOVERY_ERROR_LIMIT }, allow_nil: true
   validate :installation_matches_household
   validate :browser_session_matches_household
   validate :advertised_capabilities_are_secret_free
 
-  def connect!
-    transition_from!(%w[ starting disconnected ], to: "connected", connected_at: Time.current, disconnected_at: nil)
+  scope :recoverable, -> {
+    where(status: %w[ starting connected disconnected ])
+      .where("recovery_next_at IS NULL OR recovery_next_at <= ?", Time.current)
+  }
+
+  def connect!(recovered: false)
+    transition_from!(
+      %w[ starting disconnected ],
+      to: "connected",
+      connected_at: Time.current,
+      disconnected_at: nil,
+      recovery_attempts: 0,
+      recovery_next_at: nil,
+      recovery_error: nil,
+      mcp_authorization_status: recovered ? "reauthorization_required" : mcp_authorization_status
+    )
   end
 
-  def disconnect!
+  def disconnect!(reason: "agent disconnected", retry_at: nil, recovery_error: nil)
     transaction do
-      transition_from!(%w[ starting connected ], to: "disconnected", disconnected_at: Time.current)
-      revoke_grants!("agent disconnected")
+      transition_from!(
+        %w[ starting connected ],
+        to: "disconnected",
+        disconnected_at: Time.current,
+        recovery_next_at: retry_at,
+        recovery_error: sanitized_recovery_error(recovery_error),
+        mcp_authorization_status: "reauthorization_required"
+      )
+      revoke_grants!(reason)
+    end
+    self
+  end
+
+  def record_recovery_failure!(error:, retry_at:)
+    transaction do
+      update!(
+        status: "disconnected",
+        recovery_attempts: recovery_attempts + 1,
+        recovery_next_at: retry_at,
+        recovery_error: sanitized_recovery_error(error),
+        disconnected_at: disconnected_at || Time.current,
+        mcp_authorization_status: "reauthorization_required"
+      )
+      revoke_grants!("agent recovery interrupted")
+    end
+    self
+  end
+
+  def prepare_for_transport_recovery!
+    transaction do
+      update!(mcp_authorization_status: "reauthorization_required")
+      revoke_grants!("ACP transport restarted")
+    end
+    self
+  end
+
+  def fail_recovery!(error)
+    transaction do
+      transition_from!(
+        %w[ starting connected disconnected ],
+        to: "failed",
+        disconnected_at: Time.current,
+        recovery_next_at: nil,
+        recovery_error: sanitized_recovery_error(error),
+        mcp_authorization_status: "reauthorization_required"
+      )
+      revoke_grants!("agent session failed")
+      Agent::AuditEvent.record!(
+        subject: self,
+        event_type: "session.recovery_failed",
+        outcome: "failed",
+        metadata: { "reason" => recovery_error }
+      )
     end
     self
   end
@@ -46,10 +116,31 @@ class Agent::Session < ApplicationRecord
 
   def fail!
     transaction do
-      transition_from!(%w[ starting connected disconnected ], to: "failed", disconnected_at: Time.current)
+      transition_from!(
+        %w[ starting connected disconnected ],
+        to: "failed",
+        disconnected_at: Time.current,
+        mcp_authorization_status: "reauthorization_required"
+      )
       revoke_grants!("agent session failed")
     end
     self
+  end
+
+  def authorize_mcp!
+    update!(mcp_authorization_status: "authorized")
+  end
+
+  def require_mcp_reauthorization!
+    return self if mcp_authorization_status == "reauthorization_required"
+
+    update!(mcp_authorization_status: "reauthorization_required")
+  end
+
+  def require_mcp_authorized!
+    return self if mcp_authorization_status == "authorized"
+
+    raise Agent::Grant::AuthorizationRequired, "MCP authorization requires an authenticated browser grant"
   end
 
   private
@@ -64,6 +155,16 @@ class Agent::Session < ApplicationRecord
 
     def revoke_grants!(reason)
       grants.where(revoked_at: nil).find_each { |grant| grant.revoke!(reason: reason) }
+    end
+
+    def sanitized_recovery_error(error)
+      return if error.blank?
+
+      error.to_s.encode("UTF-8", invalid: :replace, undef: :replace, replace: "?")
+        .gsub(/[\r\n\t]+/, " ")
+        .gsub(%r{/(?:[^/\s]+/)+[^/\s]+}, "[path]")
+        .squeeze(" ")
+        .first(RECOVERY_ERROR_LIMIT)
     end
 
     def installation_matches_household
