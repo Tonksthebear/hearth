@@ -3,5 +3,5 @@
 <section aria-labelledby="edit-template-heading">
   <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
   <h1 id="edit-template-heading" class="mt-2 text-3xl font-semibold tracking-tight">Edit <%= @workout_template.title %></h1>
-  <%= render "form", workout_template: @workout_template, provenance_statuses: @provenance_statuses, block_kinds: @block_kinds, dose_classes: @dose_classes, entry_kinds: @entry_kinds, exercise_options: @exercise_options %>
+  <%= render "form", workout_template: @workout_template, provenance_statuses: @provenance_statuses, block_kinds: @block_kinds, dose_classes: @dose_classes, performance_kind_options: @performance_kind_options, distance_unit_options: @distance_unit_options, count_unit_options: @count_unit_options, heart_rate_unit_options: @heart_rate_unit_options, exercise_options: @exercise_options %>
 </section>

@@ -26,15 +26,17 @@
             <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/5">
               <h3 class="font-semibold"><%= exercise.snapshot_name %></h3>
               <p class="text-sm text-gray-600 dark:text-gray-400"><%= exercise.snapshot_modality.humanize %> · <%= exercise.snapshot_movement_pattern.humanize %></p>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= exercise.target_summary %><% if exercise.cue_summary.present? %> · <%= exercise.cue_summary %><% end %><% if exercise.completed_at %> · completed <%= l exercise.completed_at, format: :short %><% end %></p>
               <ol class="mt-3 space-y-2">
                 <% exercise.training_sets.each do |set| %>
                   <li class="text-sm">
-                    <span class="font-medium"><%= set.entry_kind.humanize %> <%= set.position %></span>:
-                    <%= [ ("#{set.reps} reps" if set.reps), ("#{set.load_amount.to_f} #{set.load_unit}" if set.load_amount), ("#{set.duration_seconds} sec" if set.duration_seconds), ("#{set.distance_amount.to_f} #{set.distance_unit}" if set.distance_amount) ].compact.join(" · ") %>
+                    <span class="font-medium">Row <%= set.position %></span>:
+                    <%= set.performance_summary %>
                     · <%= set.dose_class.humanize %> · <%= set.completed? ? "completed" : "not completed" %>
                   </li>
                 <% end %>
               </ol>
+              <% if exercise.feedback_summary.present? %><p class="mt-3 text-sm text-gray-600 dark:text-gray-400"><%= exercise.feedback_summary %></p><% end %>
             </div>
           <% end %>
         </div>

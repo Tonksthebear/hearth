@@ -1,22 +1,38 @@
 <% set_coordinate = "#{coordinate}:#{form.index}" %>
+<% performance_kind = performance_kind.to_s %>
 <% if form.object.marked_for_destruction? %>
   <div hidden>
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
+  <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/5" data-controller="performance-fields" data-performance-fields-kind-value="<%= performance_kind %>">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      <div><%= form.label :entry_kind, class: :label %><%= form.elements_select :entry_kind, entry_kinds.map { |value| [ value.humanize, value ] }, {} %></div>
       <div><%= form.label :dose_class, class: :label %><%= form.elements_select :dose_class, dose_classes.map { |value| [ value.humanize, value ] }, {} %></div>
-      <div><%= form.label :reps, class: :label %><%= form.number_field :reps, min: 1, class: :text_field %></div>
-      <div><%= form.label :load_amount, "Load", class: :label %><%= form.number_field :load_amount, min: 0, step: 0.01, class: :text_field %></div>
-      <div><%= form.label :load_unit, class: :label %><%= form.elements_select :load_unit, TrainingSet::LOAD_UNITS, { include_blank: true } %></div>
-      <div><%= form.label :duration_seconds, "Duration sec", class: :label %><%= form.number_field :duration_seconds, min: 1, class: :text_field %></div>
-      <div><%= form.label :distance_amount, "Distance", class: :label %><%= form.number_field :distance_amount, min: 0, step: 0.01, class: :text_field %></div>
-      <div><%= form.label :distance_unit, class: :label %><%= form.elements_select :distance_unit, TrainingSet::DISTANCE_UNITS, { include_blank: true } %></div>
+      <div class="sm:col-span-2 lg:col-span-5" data-performance-fields-target="fields"></div>
+
+      <template data-performance-fields-target="template" data-kind="reps">
+        <div><%= form.label :reps, class: :label %><%= form.number_field :reps, min: 1, class: :text_field %></div>
+      </template>
+      <template data-performance-fields-target="template" data-kind="interval">
+        <div><%= form.label :rest_seconds, "Recovery (seconds)", class: :label %><%= form.number_field :rest_seconds, min: 0, class: :text_field %></div>
+      </template>
+
+      <% load_active = performance_kind == "reps" %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps"<%= " data-hidden" unless load_active %>><%= form.label :load_amount, "Load", class: :label %><%= form.number_field :load_amount, min: 0, step: 0.01, class: :text_field, disabled: !load_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="reps"<%= " data-hidden" unless load_active %>><%= form.label :load_unit, "Load unit", class: :label %><%= form.elements_select :load_unit, load_unit_options, { include_blank: true }, { disabled: !load_active } %></div>
+      <% duration_active = %w[duration distance count interval].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count interval"<%= " data-hidden" unless duration_active %>><%= form.label :duration_seconds, "Work duration (seconds)", class: :label %><%= form.number_field :duration_seconds, min: 1, class: :text_field, disabled: !duration_active %></div>
+      <% distance_active = %w[duration distance].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance"<%= " data-hidden" unless distance_active %>><%= form.label :distance_amount, "Distance", class: :label %><%= form.number_field :distance_amount, min: 0, step: 0.01, class: :text_field, disabled: !distance_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance"<%= " data-hidden" unless distance_active %>><%= form.label :distance_unit, "Distance unit", class: :label %><%= form.elements_select :distance_unit, distance_unit_options, { include_blank: true }, { disabled: !distance_active } %></div>
+      <% count_active = %w[duration distance count].include?(performance_kind) %>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count"<%= " data-hidden" unless count_active %>><%= form.label :count, "Count", class: :label %><%= form.number_field :count, min: 1, class: :text_field, disabled: !count_active %></div>
+      <div class="data-[hidden]:hidden" data-performance-fields-target="applicable" data-kinds="duration distance count"<%= " data-hidden" unless count_active %>><%= form.label :count_unit, "Count unit", class: :label %><%= form.elements_select :count_unit, count_unit_options, { include_blank: true }, { disabled: !count_active } %></div>
+      <div><%= form.label :average_heart_rate_bpm, "Average HR", class: :label %><%= form.number_field :average_heart_rate_bpm, min: 1, class: :text_field %></div>
+      <div><%= form.label :peak_heart_rate_bpm, "Peak HR", class: :label %><%= form.number_field :peak_heart_rate_bpm, min: 1, class: :text_field %></div>
       <div><%= form.label :rpe, "RPE", class: :label %><%= form.number_field :rpe, min: 0, max: 10, step: 0.5, class: :text_field %></div>
       <div><%= form.label :rir, "RIR", class: :label %><%= form.number_field :rir, min: 0, max: 10, step: 0.5, class: :text_field %></div>
       <div class="flex items-end gap-2"><%= form.toggle :completed %><%= form.label :completed, class: :label %></div>

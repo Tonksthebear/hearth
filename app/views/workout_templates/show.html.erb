@@ -21,13 +21,8 @@
         <ol class="mt-4 space-y-3">
           <% block.exercise_prescriptions.each do |prescription| %>
             <li class="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
-              <p class="font-medium"><%= prescription.exercise.name %> · <%= prescription.sets_count %> <%= prescription.entry_kind.pluralize(prescription.sets_count) %></p>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                <% if prescription.rep_min || prescription.rep_max %><%= [ prescription.rep_min, prescription.rep_max ].compact.join("–") %> reps<% end %>
-                <% if prescription.work_seconds %><%= prescription.work_seconds %> sec work<% end %>
-                <% if prescription.rest_seconds %> · <%= prescription.rest_seconds %> sec rest<% end %>
-                · <%= prescription.effective_dose_class.humanize %>
-              </p>
+              <p class="font-medium"><%= prescription.exercise.name %> · <%= prescription.target_summary %></p>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= prescription.effective_dose_class.humanize %><% if prescription.cue_summary.present? %> · <%= prescription.cue_summary %><% end %></p>
             </li>
           <% end %>
         </ol>

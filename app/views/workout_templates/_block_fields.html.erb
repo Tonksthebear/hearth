@@ -33,7 +33,7 @@
     <div class="mt-3 space-y-3">
       <% prescription_count = form.object.exercise_prescriptions.count { |prescription| !prescription.marked_for_destruction? } %>
       <%= form.fields_for :exercise_prescriptions do |prescription_form| %>
-        <%= render "prescription_fields", form: prescription_form, block_index: form.index, prescription_count: prescription_count, dose_classes: dose_classes, entry_kinds: entry_kinds, exercise_options: exercise_options %>
+        <%= render "prescription_fields", form: prescription_form, block_index: form.index, prescription_count: prescription_count, dose_classes: dose_classes, performance_kind_options: performance_kind_options, distance_unit_options: distance_unit_options, count_unit_options: count_unit_options, heart_rate_unit_options: heart_rate_unit_options, exercise_options: exercise_options %>
       <% end %>
     </div>
   </section>

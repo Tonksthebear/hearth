@@ -65,9 +65,10 @@ class WorkoutTemplateTest < ActiveSupport::TestCase
     second = block.exercise_prescriptions.create!(
       exercise: exercises(:bike),
       position: 2,
-      entry_kind: :interval,
+      performance_kind: :interval,
       sets_count: 1,
-      work_seconds: 60
+      work_seconds: 60,
+      rest_seconds: 0
     )
     template = block.workout_template
     template.move_prescription("0:1:up")

@@ -2,11 +2,17 @@ squat_sets:
   workout_block: strength
   exercise: squat
   position: 1
-  entry_kind: set
+  performance_kind: reps
   sets_count: 2
   rep_min: 8
   rep_max: 10
   target_rpe: 7
+  target_rir: 2
+  per_side: true
+  tempo_cue: 3 sec lowering
+  target_heart_rate_min: 120
+  target_heart_rate_max: 150
+  target_heart_rate_unit: bpm
   dose_class: strength
   load_guidance: Choose a repeatable load.
 
@@ -14,7 +20,7 @@ bike_interval:
   workout_block: zone2
   exercise: bike
   position: 1
-  entry_kind: interval
+  performance_kind: interval
   sets_count: 1
   work_seconds: 1800
   rest_seconds: 0

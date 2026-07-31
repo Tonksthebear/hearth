@@ -25,10 +25,11 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     select_and_wait "Strength", from: "Dose class"
     fill_in_and_wait_for_value "Planned minutes", "15"
     select_and_wait "Farmer carry", from: "Catalog exercise"
-    select_and_wait "Set", from: "Entry kind"
+    select_and_wait "Reps", from: "Primary performance"
     fill_in_and_wait_for_value "Sets / rounds", "3"
-    fill_in_and_wait_for_value "Min reps", "1"
-    fill_in_and_wait_for_value "Max reps", "1"
+    fill_in_and_wait_for_value "Minimum reps", "1"
+    fill_in_and_wait_for_value "Maximum reps", "1"
+    find("details summary", text: "Optional cues and targets").click
     fill_in_and_wait_for_value "Target RPE", "7"
     click_button_and_wait_for_text "Create Workout template", "Carry practice"
 
@@ -37,6 +38,51 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     assert_text "Personal"
     assert_text "not clinical endorsement"
     assert_text "medical advice"
+  end
+
+  test "switches native performance fields and preserves them through a full structural replacement" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path new_workout_template_path
+
+    prescription = find("[data-controller='performance-fields']")
+    kind = prescription.find("el-select[name$='[performance_kind]']")
+    choose_elements_option kind, "Duration"
+    within prescription do
+      assert_field "Work duration (seconds)", wait: 5
+      assert_no_field "Minimum reps"
+      fill_in_and_wait_for_value "Work duration (seconds)", "45"
+    end
+
+    click_button_and_wait_for_count(
+      "Add exercise prescription",
+      "el-select[name$='[performance_kind]']",
+      2
+    )
+
+    first_prescription = all("[data-controller='performance-fields']").first
+    inactive_distance_units = all("[data-controller='performance-fields']")[1].all("el-select[name$='[target_distance_unit]']", visible: :all)
+    assert inactive_distance_units.all?(&:disabled?)
+    catalog_control = first_prescription.find("[data-elements-autocomplete]", visible: :all)
+    within first_prescription do
+      assert_field "Work duration (seconds)", with: "45", wait: 5
+      assert_selector "el-selectedcontent", text: "Duration"
+      choose_elements_option find("el-select[name$='[performance_kind]']"), "Distance"
+      assert_field "Distance", wait: 5
+      assert_field "Work duration (seconds)", with: "45"
+      choose_elements_option find("el-select[name$='[target_distance_unit]']"), "m"
+      assert_equal "m", find("el-select[name$='[target_distance_unit]']").value
+      fill_in_and_wait_for_value "Distance", "400"
+    end
+    choose_elements_option catalog_control, "Stationary bike"
+
+    fill_in_and_wait_for_value "Title", "Distance proof"
+    all("button[name='remove_prescription']").last.click
+    assert_selector "el-select[name$='[performance_kind]']", count: 1, wait: 5
+    click_button_and_wait_for_text "Create Workout template", "Distance proof"
+
+    prescription = WorkoutTemplate.find_by!(title: "Distance proof").workout_blocks.first.exercise_prescriptions.first
+    assert_equal 45, prescription.work_seconds
+    assert_equal 400, prescription.target_distance_amount
   end
 
   test "continues composing the intended block after removing a persisted sibling" do

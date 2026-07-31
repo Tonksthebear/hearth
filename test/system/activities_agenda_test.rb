@@ -7,6 +7,7 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
     travel_to Time.zone.local(2026, 7, 30, 12) do
       planned_workouts(:planned_balanced).destroy!
       sign_in_via_browser users(:one)
+      ensure_person_via_browser people(:one)
       click_link_and_wait_for_path "Activities", activity_week_path
 
       assert_selector "[data-activity-date='2026-07-30']", text: "Today"

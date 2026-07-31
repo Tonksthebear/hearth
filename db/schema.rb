@@ -282,17 +282,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
   create_table "exercise_prescriptions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "dose_class"
-    t.string "entry_kind", default: "set", null: false
     t.integer "exercise_id", null: false
     t.text "load_guidance"
     t.text "notes"
+    t.boolean "per_side", default: false, null: false
+    t.string "performance_kind", default: "reps", null: false
     t.integer "position", null: false
     t.integer "rep_max"
     t.integer "rep_min"
     t.integer "rest_seconds"
     t.integer "sets_count", default: 1, null: false
+    t.integer "target_count"
+    t.string "target_count_unit"
+    t.decimal "target_distance_amount", precision: 10, scale: 2
+    t.string "target_distance_unit"
+    t.integer "target_heart_rate_max"
+    t.integer "target_heart_rate_min"
+    t.string "target_heart_rate_unit"
     t.decimal "target_rir", precision: 3, scale: 1
     t.decimal "target_rpe", precision: 3, scale: 1
+    t.string "tempo_cue"
     t.datetime "updated_at", null: false
     t.integer "work_seconds"
     t.integer "workout_block_id", null: false
@@ -300,9 +309,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
     t.index ["workout_block_id", "position"], name: "index_exercise_prescriptions_on_workout_block_id_and_position", unique: true
     t.index ["workout_block_id"], name: "index_exercise_prescriptions_on_workout_block_id"
     t.check_constraint "dose_class IS NULL OR dose_class IN ('none', 'strength', 'zone2', 'vigorous')", name: "exercise_prescriptions_dose_class"
-    t.check_constraint "entry_kind IN ('set', 'interval')", name: "exercise_prescriptions_entry_kind"
+    t.check_constraint "performance_kind IN ('reps', 'duration', 'distance', 'count', 'interval')", name: "exercise_prescriptions_performance_kind"
     t.check_constraint "position > 0", name: "exercise_prescriptions_positive_position"
     t.check_constraint "sets_count > 0", name: "exercise_prescriptions_positive_sets"
+    t.check_constraint "target_count_unit IS NULL OR target_count_unit IN ('laps', 'flights', 'steps')", name: "exercise_prescriptions_target_count_unit"
+    t.check_constraint "target_distance_unit IS NULL OR target_distance_unit IN ('m', 'km', 'mi', 'ft')", name: "exercise_prescriptions_target_distance_unit"
+    t.check_constraint "target_heart_rate_unit IS NULL OR target_heart_rate_unit IN ('bpm', 'percent_max')", name: "exercise_prescriptions_target_heart_rate_unit"
   end
 
   create_table "exercises", force: :cascade do |t|
@@ -594,31 +606,50 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
   end
 
   create_table "training_session_exercises", force: :cascade do |t|
+    t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.string "difficulty"
     t.integer "exercise_id"
+    t.text "next_time_adjustment"
     t.text "notes"
     t.integer "position", null: false
     t.string "snapshot_dose_class", default: "none", null: false
-    t.string "snapshot_entry_kind", default: "set", null: false
     t.text "snapshot_equipment"
     t.text "snapshot_guidance"
     t.text "snapshot_load_guidance"
     t.string "snapshot_modality", null: false
     t.string "snapshot_movement_pattern", null: false
     t.string "snapshot_name", null: false
+    t.boolean "snapshot_per_side", default: false, null: false
+    t.string "snapshot_performance_kind", default: "reps", null: false
     t.integer "snapshot_rep_max"
     t.integer "snapshot_rep_min"
     t.integer "snapshot_rest_seconds"
     t.integer "snapshot_sets_count"
+    t.integer "snapshot_target_count"
+    t.string "snapshot_target_count_unit"
+    t.decimal "snapshot_target_distance_amount", precision: 10, scale: 2
+    t.string "snapshot_target_distance_unit"
+    t.integer "snapshot_target_heart_rate_max"
+    t.integer "snapshot_target_heart_rate_min"
+    t.string "snapshot_target_heart_rate_unit"
     t.decimal "snapshot_target_rir", precision: 3, scale: 1
     t.decimal "snapshot_target_rpe", precision: 3, scale: 1
+    t.string "snapshot_tempo_cue"
     t.integer "snapshot_work_seconds"
+    t.text "soreness_or_pain"
+    t.text "substitution"
     t.integer "training_session_block_id", null: false
     t.datetime "updated_at", null: false
     t.index ["exercise_id"], name: "index_training_session_exercises_on_exercise_id"
     t.index ["training_session_block_id", "position"], name: "index_session_exercises_on_block_and_position", unique: true
     t.index ["training_session_block_id"], name: "index_training_session_exercises_on_training_session_block_id"
+    t.check_constraint "difficulty IS NULL OR difficulty IN ('too_easy', 'about_right', 'too_hard')", name: "training_session_exercises_difficulty"
     t.check_constraint "position > 0", name: "training_session_exercises_positive_position"
+    t.check_constraint "snapshot_performance_kind IN ('reps', 'duration', 'distance', 'count', 'interval')", name: "training_session_exercises_performance_kind"
+    t.check_constraint "snapshot_target_count_unit IS NULL OR snapshot_target_count_unit IN ('laps', 'flights', 'steps')", name: "training_session_exercises_target_count_unit"
+    t.check_constraint "snapshot_target_distance_unit IS NULL OR snapshot_target_distance_unit IN ('m', 'km', 'mi', 'ft')", name: "training_session_exercises_target_distance_unit"
+    t.check_constraint "snapshot_target_heart_rate_unit IS NULL OR snapshot_target_heart_rate_unit IN ('bpm', 'percent_max')", name: "training_session_exercises_target_heart_rate_unit"
   end
 
   create_table "training_sessions", force: :cascade do |t|
@@ -642,27 +673,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_140000) do
   end
 
   create_table "training_sets", force: :cascade do |t|
+    t.integer "average_heart_rate_bpm"
     t.boolean "completed", default: false, null: false
+    t.integer "count"
+    t.string "count_unit"
     t.datetime "created_at", null: false
     t.decimal "distance_amount", precision: 10, scale: 2
     t.string "distance_unit"
     t.string "dose_class", default: "none", null: false
     t.integer "duration_seconds"
-    t.string "entry_kind", default: "set", null: false
     t.decimal "load_amount", precision: 8, scale: 2
     t.string "load_unit"
     t.text "notes"
+    t.integer "peak_heart_rate_bpm"
     t.integer "position", null: false
     t.integer "reps"
+    t.integer "rest_seconds"
     t.decimal "rir", precision: 3, scale: 1
     t.decimal "rpe", precision: 3, scale: 1
     t.integer "training_session_exercise_id", null: false
     t.datetime "updated_at", null: false
     t.index ["training_session_exercise_id", "position"], name: "index_training_sets_on_exercise_and_position", unique: true
     t.index ["training_session_exercise_id"], name: "index_training_sets_on_training_session_exercise_id"
+    t.check_constraint "count_unit IS NULL OR count_unit IN ('laps', 'flights', 'steps')", name: "training_sets_count_unit"
     t.check_constraint "distance_unit IS NULL OR distance_unit IN ('m', 'km', 'mi', 'ft')", name: "training_sets_distance_unit"
     t.check_constraint "dose_class IN ('none', 'strength', 'zone2', 'vigorous')", name: "training_sets_dose_class"
-    t.check_constraint "entry_kind IN ('set', 'interval')", name: "training_sets_entry_kind"
     t.check_constraint "load_unit IS NULL OR load_unit IN ('lb', 'kg')", name: "training_sets_load_unit"
     t.check_constraint "position > 0", name: "training_sets_positive_position"
   end
