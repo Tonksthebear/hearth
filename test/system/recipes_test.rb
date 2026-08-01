@@ -153,9 +153,12 @@ class RecipesTest < ApplicationSystemTestCase
           assert_selector ".ss-option", text: value, exact_text: true, count: 1, wait: 5
           find(".ss-option", text: value, exact_text: true).click
         end
+
+        assert_selector "option:checked", text: value, visible: :all, wait: 5
+        slim_select.click
+        assert_equal "false", slim_select["aria-expanded"]
       end
 
-      page.execute_script("arguments[0].blur()", slim_select)
       assert_equal values.sort, select.all("option:checked", visible: :all).map(&:text).sort
     end
 end
