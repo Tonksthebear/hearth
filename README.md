@@ -39,13 +39,29 @@ Choose one first-run path:
 
 Hearth permits exactly one household. Demo data therefore consumes the installation's only household slot and disables first-run setup. To return to setup-first, use a new empty database or Docker volume; do not run demo seeds against a real household. Re-running the demo seed is safe and updates the same recognized demo graph.
 
+For the directory-scoped source launcher, initialize an explicit empty directory and
+run Hearth from that same instance root:
+
+```bash
+mkdir ../hearth-home
+bin/hearth init --root ../hearth-home
+bin/hearth doctor --root ../hearth-home
+bin/hearth serve --root ../hearth-home --port 3000
+```
+
+`bin/hearth version` is the exception: it reads the source-controlled application
+version without Rails, Git, or an initialized instance. Every other operational
+command refuses an uninitialized directory and writes nothing. `serve` binds Puma to
+loopback and supervises Puma plus the ACP runtime as sibling process groups.
+
 ## Local development
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
 The supervised ACP runtime and authenticated guarded MCP operations are documented in
 [docs/acp-supported-agent-contract.md](docs/acp-supported-agent-contract.md).
-`bin/hearth-acp-runtime` is the production-shaped, standalone ACP process host.
+`bin/hearth serve` is the production source-checkout entry point and
+`bin/hearth-acp-runtime` is its standalone ACP child process host.
 It requires an already initialized directory containing `.hearth/instance.yml`,
 runs separately from Puma, and injects a short-lived server-issued `Agent::Grant`
 into the first ACP session request and every recovery. Rails serves the canonical
@@ -98,7 +114,12 @@ lose queued work.
 Agent executable, argv, contained working directory, environment-name allowlist,
 and manual update policy live on `Agent::Profile`. Session transport and recovery
 truth live in the database; `.hearth/tmp/acp` contains only restrictive lock/PID
-state. Ticket 09 will place this same executable beneath `hearth serve`.
+state. Run `bin/hearth agents --root PATH` to distinguish installed provider CLIs
+from available ACP adapters. Then run `bin/hearth agent setup --root PATH --profile grok`
+in a TTY. Hearth shows the executable, version, advertised methods, and third-party
+credential-store ownership before confirmation. It persists only the selected method,
+status, timestamp, and `operator_command` origin—not credentials. Runtime startup and
+recovery never infer consent from a default or sole advertised method.
 
 ## UI assets
 
@@ -269,6 +290,21 @@ docker exec hearth bin/rails runner \
 `DATABASE_URL` overrides the primary database. `CACHE_DATABASE_URL`, `QUEUE_DATABASE_URL`, and `CABLE_DATABASE_URL` independently override the three Solid databases while preserving their migration paths. If you relocate storage with URLs, set all four explicitly and keep them distinct. The supported alpha topology remains SQLite on one host with one web container and one shared storage mount.
 
 ## Backup and restore
+
+For a directory-scoped instance, stop `bin/hearth serve`, then back up the complete
+durable boundary (marker, stable secret, four databases, and uploads):
+
+```bash
+bin/hearth backup /protected/hearth.tgz --root /path/to/hearth-home
+mkdir /path/to/restored-hearth
+bin/hearth restore /protected/hearth.tgz --root /path/to/restored-hearth
+bin/hearth doctor --root /path/to/restored-hearth
+```
+
+Restore requires an empty destination, rejects entries outside the durable boundary,
+and restores restrictive modes. Logs, temporary files, sockets, locks, and PID files
+are intentionally excluded. The Docker volume procedure below remains the container
+topology's equivalent whole-storage backup.
 
 Stop Hearth before copying SQLite so the web process and job supervisor cannot write during the backup:
 

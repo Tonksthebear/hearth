@@ -123,7 +123,7 @@ module Acp
     end
 
     def authentication_method_id(preferred = nil)
-      method_id = preferred || default_auth_method_id || (auth_methods&.one? && auth_methods.first["id"])
+      method_id = preferred
       return unless method_id
       raise Unsupported, "authentication method is not advertised" unless
         auth_methods.any? { |method| method["id"] == method_id }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_01_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_01_121000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -137,7 +137,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_110000) do
   create_table "agent_installations", force: :cascade do |t|
     t.json "advertised_capabilities", default: {}, null: false
     t.string "agent_version"
+    t.datetime "authentication_approved_at"
+    t.string "authentication_method_id"
     t.json "authentication_methods", default: [], null: false
+    t.string "authentication_origin"
     t.string "authentication_status", default: "unknown", null: false
     t.datetime "created_at", null: false
     t.string "executable_path", null: false
@@ -151,7 +154,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_110000) do
     t.index ["household_id", "external_id"], name: "index_agent_installations_on_household_id_and_external_id", unique: true
     t.index ["household_id"], name: "index_agent_installations_on_household_id"
     t.index ["profile_id"], name: "index_agent_installations_on_profile_id"
-    t.check_constraint "authentication_status IN ('unknown', 'required', 'authenticated', 'failed')", name: "agent_installations_authentication_status"
+    t.check_constraint "authentication_status IN ('unknown', 'not_required', 'required', 'authenticated', 'failed')", name: "agent_installations_authentication_status"
     t.check_constraint "protocol_version > 0", name: "agent_installations_positive_protocol"
     t.check_constraint "status IN ('observed', 'available', 'unavailable')", name: "agent_installations_status"
   end
@@ -403,7 +406,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_110000) do
     t.index ["installation_id", "external_session_id"], name: "index_agent_sessions_on_installation_and_external_id", unique: true
     t.index ["installation_id"], name: "index_agent_sessions_on_installation_id"
     t.index ["person_id"], name: "index_agent_sessions_on_person_id"
-    t.check_constraint "authentication_status IN ('unknown', 'required', 'authenticated', 'failed')", name: "agent_sessions_authentication_status"
+    t.check_constraint "authentication_status IN ('unknown', 'not_required', 'required', 'authenticated', 'failed')", name: "agent_sessions_authentication_status"
     t.check_constraint "mcp_authorization_status IN ('not_configured', 'authorized', 'reauthorization_required')", name: "agent_sessions_mcp_authorization_status"
     t.check_constraint "recovery_attempts >= 0", name: "agent_sessions_nonnegative_recovery_attempts"
     t.check_constraint "status IN ('starting', 'connected', 'disconnected', 'closed', 'failed')", name: "agent_sessions_status"

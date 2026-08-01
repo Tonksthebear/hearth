@@ -23,6 +23,78 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     end
   end
 
+  test "advertised default and sole methods send no authenticate frame without operator approval" do
+    %w[default_auth sole_auth].each do |mode|
+      Dir.mktmpdir("hearth-auth-wire") do |directory|
+        auth_log = File.join(directory, "authenticate.log")
+        factory = connection_factory(modes: [ mode ], extra_environment: { "FAKE_AUTH_LOG" => auth_log })
+
+        assert_raises(Acp::Supervisor::AuthenticationRequired) do
+          with_supervisor(connection_factory: factory) do |supervisor|
+            supervisor.start_session(conversation: agent_conversations(:active))
+          end
+        end
+        refute File.exist?(auth_log), "#{mode} inferred authentication without approval"
+        installation = agent_profiles(:hearth).installations.find_by!(
+          external_id: "profile-#{agent_profiles(:hearth).id}"
+        )
+        assert_equal "required", installation.authentication_status
+        assert_nil installation.authentication_method_id
+      end
+    end
+  end
+
+  test "recovery also sends no authenticate frame without operator approval" do
+    %w[default_auth sole_auth].each do |mode|
+      prepare_persisted_session
+      installation = agent_installations(:local)
+      installation.update_columns(
+        authentication_method_id: nil,
+        authentication_approved_at: nil,
+        authentication_origin: nil,
+        authentication_status: "required"
+      )
+      agent_sessions(:connected).update_columns(status: "connected", recovery_error: nil)
+      Dir.mktmpdir("hearth-recovery-auth-wire") do |directory|
+        auth_log = File.join(directory, "authenticate.log")
+        factory = connection_factory(modes: [ mode ], extra_environment: { "FAKE_AUTH_LOG" => auth_log })
+        with_supervisor(connection_factory: factory) do |supervisor|
+          recovered = supervisor.recover_session(agent_sessions(:connected))
+          assert_equal "failed", recovered.status
+          assert_match(/setup is required/, recovered.recovery_error)
+        end
+        refute File.exist?(auth_log), "#{mode} inferred authentication during recovery"
+      end
+    end
+  end
+
+  test "an operator approved method is authenticated and reused" do
+    prepare_persisted_session
+    installation = agent_installations(:local)
+    installation.update!(
+      authentication_methods: [ { "id" => "fake-auth", "name" => "Fake authentication" } ],
+      authentication_status: "required",
+      authentication_method_id: nil,
+      authentication_approved_at: nil,
+      authentication_origin: nil
+    )
+    installation.approve_authentication!(method_id: "fake-auth")
+
+    Dir.mktmpdir("hearth-approved-auth") do |directory|
+      auth_log = File.join(directory, "authenticate.log")
+      factory = connection_factory(
+        modes: [ "sole_auth" ],
+        extra_environment: { "FAKE_AUTH_LOG" => auth_log, "FAKE_SESSION_ID" => "approved-session" }
+      )
+      with_supervisor(connection_factory: factory) do |supervisor|
+        session = supervisor.start_session(conversation: agent_conversations(:active))
+        assert_equal "connected", session.status
+        assert_equal "authenticated", session.authentication_status
+      end
+      assert_equal [ "authenticate\n" ], File.readlines(auth_log)
+    end
+  end
+
   test "failed initialization retains the local session and revokes its runtime grant" do
     assert_raises(Acp::Connection::ProtocolError) do
       with_supervisor(mode: "missing_session_id") do |supervisor|
@@ -568,7 +640,6 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     def prepare_persisted_session
       configure_profile
       agent_installations(:local).update!(
-        external_id: "fake-agent",
         executable_path: RbConfig.ruby,
         agent_version: "1.0.0"
       )
@@ -577,8 +648,7 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
 
     def with_instance_root
       Dir.mktmpdir("hearth-supervisor") do |root|
-        FileUtils.mkdir_p(File.join(root, ".hearth"))
-        File.write(File.join(root, ".hearth/instance.yml"), "---\n")
+        Hearth::Instance.new(root).initialize!
         yield root
       end
     end

@@ -319,9 +319,8 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       ).start
 
       result = runtime.wait
-      row = JSON.parse(File.readlines(evidence).sole)
-
       assert_predicate result.fetch(:status), :success?, result.fetch(:stderr)
+      row = JSON.parse(File.readlines(evidence).sole)
       assert_equal(
         {
           "primary" => "production.sqlite3",
@@ -520,8 +519,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
 
     def with_instance_root
       Dir.mktmpdir("hearth-runtime-integration") do |root|
-        FileUtils.mkdir_p(File.join(root, ".hearth"))
-        File.write(File.join(root, ".hearth/instance.yml"), "---\n")
+        Hearth::Instance.new(root).initialize!
         yield root
       end
     end

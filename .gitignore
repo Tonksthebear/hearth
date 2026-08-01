@@ -33,6 +33,10 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+/.hearth/
 
 /app/assets/builds/*
 !/app/assets/builds/.keep
+
+# Local Tailwind Plus element reference used by agents and previews.
+/reference

@@ -1,7 +1,7 @@
 local:
   household: home
   profile: hearth
-  external_id: installation-opaque-1
+  external_id: profile-<%= ActiveRecord::FixtureSet.identify(:hearth) %>
   executable_path: /usr/local/bin/test-agent
   protocol_version: 1
   status: available

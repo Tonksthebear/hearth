@@ -129,8 +129,7 @@ class Agent::Turn::RuntimeTest < ActiveSupport::TestCase
 
     def with_runtime(mode: "normal", stopping: -> { false })
       Dir.mktmpdir("hearth-turn-runtime") do |root|
-        FileUtils.mkdir_p(File.join(root, ".hearth"))
-        File.write(File.join(root, ".hearth/instance.yml"), "---\n")
+        Hearth::Instance.new(root).initialize!
         agent_profiles(:hearth).update!(
           executable_path: RbConfig.ruby,
           arguments: [ FAKE_AGENT ],

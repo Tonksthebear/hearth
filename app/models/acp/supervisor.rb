@@ -6,6 +6,7 @@ module Acp
     class RecoveryUnavailable < Error; end
     class InstallationMismatch < Error; end
     class ProfileDisabled < Error; end
+    class AuthenticationRequired < Error; end
 
     DEFAULT_BACKOFFS = [ 0.25, 1, 4 ].freeze
     PERMISSION_RECONCILIATION_INTERVAL = 0.1
@@ -36,13 +37,13 @@ module Acp
       self
     end
 
-    def start_session(conversation:, browser_session: nil, authentication_method: nil)
+    def start_session(conversation:, browser_session: nil)
       ensure_started!
       ensure_profile_enabled!(conversation.profile)
       connection = build_connection(conversation.profile).start
       initialized = connection.initialize_connection
-      installation = observe_installation!(conversation.profile, connection, initialized, authentication_method)
-      authenticate!(connection, installation, authentication_method)
+      installation = observe_installation!(conversation.profile, connection, initialized)
+      authenticate!(connection, installation)
       agent_session = Agent::Session.create!(
         household: conversation.household,
         person: conversation.person,
@@ -69,23 +70,18 @@ module Acp
       raise
     end
 
-    def recover_session(agent_session, authentication_method: nil)
+    def recover_session(agent_session)
       ensure_started!
       ensure_profile_enabled!(agent_session.conversation.profile)
       prepare_for_recovery!(agent_session)
       connection = build_connection(agent_session.conversation.profile).start
       initialized = connection.initialize_connection
-      installation = observe_installation!(
-        agent_session.conversation.profile,
-        connection,
-        initialized,
-        authentication_method
-      )
+      installation = observe_installation!(agent_session.conversation.profile, connection, initialized)
       unless installation.id == agent_session.installation_id
         raise InstallationMismatch, "Recovered ACP agent does not match the persisted installation"
       end
 
-      authenticate!(connection, installation, authentication_method)
+      authenticate!(connection, installation)
       agent_session.begin_recovery!
       configure_permission_handler(connection, agent_session)
       credential = agent_session.issue_runtime_grant!
@@ -337,18 +333,25 @@ module Acp
         raise ArgumentError, "Hearth MCP URL must use loopback HTTP"
       end
 
-      def observe_installation!(profile, connection, initialized, _authentication_method)
+      def observe_installation!(profile, connection, initialized)
         info = connection.agent_info
-        external_id = info["name"].presence || "profile-#{profile.id}"
         installation = profile.installations.find_or_initialize_by(
           household: profile.household,
-          external_id: external_id
+          external_id: "profile-#{profile.id}"
         )
         installation.executable_path ||= profile.executable_path
         installation.protocol_version ||= initialized.fetch("protocolVersion")
         installation.save! if installation.new_record?
-        methods = connection.auth_methods.map { |method| method.slice("id", "name", "description") }
-        status = methods.empty? ? "authenticated" : "required"
+        methods = connection.auth_methods.map { |method| method.slice("id", "name") }
+        approved_method = installation.authentication_method_id
+        approved = approved_method.present? && methods.any? { |method| method["id"] == approved_method }
+        status = if methods.empty?
+          "not_required"
+        elsif approved
+          installation.authentication_status
+        else
+          "required"
+        end
         installation.observe!(
           protocol_version: initialized.fetch("protocolVersion"),
           capabilities: connection.agent_capabilities,
@@ -359,12 +362,20 @@ module Acp
         installation
       end
 
-      def authenticate!(connection, installation, preferred)
-        method_id = connection.authentication_method_id(preferred)
-        return unless method_id
+      def authenticate!(connection, installation)
+        return if installation.authentication_status == "not_required"
 
-        connection.authenticate(method_id)
+        method_id = installation.approved_authentication_method
+        unless method_id
+          installation.require_authentication!
+          raise AuthenticationRequired, "Agent authentication setup is required; run `bin/hearth agent setup`"
+        end
+
+        connection.authenticate(connection.authentication_method_id(method_id))
         installation.update!(authentication_status: "authenticated")
+      rescue Acp::Connection::Error
+        installation.authentication_failed!
+        raise AuthenticationRequired, "Agent authentication failed; run `bin/hearth agent setup`"
       end
 
       def prepare_for_recovery!(agent_session)

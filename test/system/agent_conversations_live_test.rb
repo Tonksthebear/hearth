@@ -13,8 +13,7 @@ class AgentConversationsLiveTest < ApplicationSystemTestCase
     # This suite intentionally exercises the configured cross-process adapter.
     ActionCable.server.instance_variable_set(:@pubsub, @old_pubsub_adapter)
     @instance_root = Dir.mktmpdir("hearth-live-chat-instance")
-    FileUtils.mkdir_p(File.join(@instance_root, ".hearth"))
-    File.write(File.join(@instance_root, ".hearth/instance.yml"), "---\n")
+    Hearth::Instance.new(@instance_root).initialize!
     @agent_info_file = File.join(@instance_root, "agent-info.json")
     @release_file = File.join(@instance_root, "release-permission")
     @runtime_log = File.join(@instance_root, "runtime.log")
@@ -198,7 +197,6 @@ class AgentConversationsLiveTest < ApplicationSystemTestCase
         environment_keys: values.keys
       )
       agent_installations(:local).update!(
-        external_id: "fake-agent",
         executable_path: RbConfig.ruby,
         agent_version: "1.0.0"
       )
