@@ -336,6 +336,68 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     Current.reset
   end
 
+  test "live supervisor tick sweeps elapsed shared permission requests after mutation expiry" do
+    session = create_runtime_session
+    grant = session.issue_runtime_grant!.grant
+    message = Agent::Message.create!(
+      household: grant.household,
+      person: grant.person,
+      conversation: grant.conversation,
+      agent_session: session,
+      role: "user",
+      body: "Do not dispatch an expired capture",
+      body_digest: Digest::SHA256.hexdigest("Do not dispatch an expired capture")
+    )
+    submission = Agent::KnowledgeSubmission.propose!(
+      grant: grant,
+      message: message,
+      content: "Expired household observation",
+      requested_intent: "capture",
+      request_id: "supervisor-expired-knowledge",
+      deadline_at: 1.second.ago
+    )
+    request = submission.permission_request
+    lorester_calls = []
+    fake = Object.new
+    fake.define_singleton_method(:submit) { |**arguments| lorester_calls << arguments }
+    Agent::Profile.update_all(enabled: false)
+
+    with_stubbed_method(Lorester::Client, :new, fake) do
+      with_instance_root do |directory|
+        supervisor = Acp::Supervisor.new(instance_root: directory)
+        supervisor.start!
+        supervisor.tick
+
+        assert_equal "expired", request.reload.status
+        assert_nil request.decision
+        assert_equal "pending", submission.reload.status
+        assert_nil submission.lorester_submission_id
+        assert_empty lorester_calls
+      ensure
+        supervisor&.shutdown!
+      end
+    end
+  end
+
+  test "shared permission sweep runs after mutation proposal sweep" do
+    order = []
+    mutation_scope = Object.new
+    mutation_scope.define_singleton_method(:where) { |**_conditions| self }
+    mutation_scope.define_singleton_method(:find_each) { |&_block| order << :mutation_proposals }
+    permission_scope = Object.new
+    permission_scope.define_singleton_method(:find_each) { |&_block| order << :permission_requests }
+    permission_where = ->(**_conditions) { permission_scope }
+    supervisor = Acp::Supervisor.new(instance_root: Dir.pwd)
+
+    with_stubbed_method(Agent::MutationProposal, :pending, mutation_scope) do
+      with_stubbed_method(Agent::PermissionRequest, :where, permission_where) do
+        supervisor.send(:expire_pending_mutations)
+      end
+    end
+
+    assert_equal %i[mutation_proposals permission_requests], order
+  end
+
   test "authorization rotation detaches an attached ACP session" do
     with_supervisor do |supervisor|
       agent_session = supervisor.start_session(conversation: agent_conversations(:active))

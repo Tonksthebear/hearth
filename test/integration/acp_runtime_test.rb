@@ -157,7 +157,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       recovered_result = recovered_runtime.wait
 
       assert_predicate recovered_result.fetch(:status), :success?, recovered_result.fetch(:stderr)
-      assert_equal [ "health_read" ], agent_session.grants.order(:id).last.capability_groups
+      assert_equal %w[health_read knowledge_read knowledge_submit], agent_session.grants.order(:id).last.capability_groups
     ensure
       recovered_runtime&.stop
       runtime&.stop
@@ -504,7 +504,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       Agent::AuditEvent.where(agent_session: agent_session).delete_all
       Agent::MutationExecution.where(mutation_proposal_id: proposal_ids).delete_all
       Agent::PermissionDecision.where(permission_request_id: request_ids).delete_all
-      Agent::PermissionRequest.where(id: request_ids).update_all(mutation_proposal_id: nil)
+      Agent::PermissionRequest.where(id: request_ids).update_all(permission_subject_type: nil, permission_subject_id: nil)
       Agent::MutationProposal.where(id: proposal_ids).delete_all
       Agent::OperationalAuthorization.where(agent_session: agent_session).delete_all
       Agent::PermissionRequest.where(id: request_ids).delete_all

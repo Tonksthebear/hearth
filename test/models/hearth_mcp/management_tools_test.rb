@@ -41,7 +41,7 @@ class HearthMcp::ManagementToolsTest < ActiveSupport::TestCase
 
     @session.update!(status: "starting")
     runtime = @session.issue_runtime_grant!.grant
-    assert_equal %w[health_read], runtime.capability_groups
+    assert_equal %w[health_read knowledge_read knowledge_submit], runtime.capability_groups
     assert_empty names_for(runtime) & HearthMcp::ManagementTools::ALL.map(&:tool_name)
   end
 

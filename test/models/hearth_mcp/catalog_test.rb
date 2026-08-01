@@ -40,6 +40,29 @@ class HearthMcp::CatalogTest < ActiveSupport::TestCase
     end
   end
 
+  test "publishes the exact separate dotted knowledge catalog with fail-closed capability metadata" do
+    assert_equal %w[
+      knowledge.search knowledge.note.read knowledge.related knowledge.inbox.status
+      knowledge.health.summary knowledge.inbox.submit
+    ], HearthMcp::KnowledgeTools::ALL.map(&:tool_name)
+
+    HearthMcp::KnowledgeTools::ALL.each do |tool|
+      contract = tool.to_h
+      assert_equal false, contract.dig(:inputSchema, :additionalProperties), tool.tool_name
+      assert_equal 2, contract.dig(:outputSchema, :oneOf).size, tool.tool_name
+      refute HearthMcp::Tools::Base::DATA_PROPERTIES.key?(tool.tool_name), tool.tool_name
+      refute_includes HearthMcp::Tools::Base::PAGED_TOOLS, tool.tool_name
+      assert_equal false, contract.dig(:annotations, :openWorldHint), tool.tool_name
+    end
+    assert_equal false, HearthMcp::KnowledgeTools::InboxStatus.to_h.dig(:annotations, :readOnlyHint)
+
+    assert_equal "health.read", HearthMcp::Catalog.send(:capability_for, "get_current_context")
+    assert_equal "health.write", HearthMcp::Catalog.send(:capability_for, "create_meal")
+    assert_equal "knowledge.read", HearthMcp::Catalog.send(:capability_for, "knowledge.search")
+    assert_equal "knowledge.submit", HearthMcp::Catalog.send(:capability_for, "knowledge.inbox.submit")
+    assert_equal "unknown", HearthMcp::Catalog.send(:capability_for, "unknown.future.tool")
+  end
+
   test "paginates deterministically without duplicates or skips" do
     first = HearthMcp::Page.new(households(:home).recipes, limit: 1)
     second = HearthMcp::Page.new(households(:home).recipes, limit: 50, cursor: first.next_cursor)

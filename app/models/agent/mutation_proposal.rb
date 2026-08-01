@@ -21,7 +21,10 @@ class Agent::MutationProposal < ApplicationRecord
   belongs_to :approved_by, class_name: "User", optional: true
   belongs_to :executed_by, class_name: "User", optional: true
   has_one :execution, class_name: "Agent::MutationExecution", dependent: :restrict_with_exception
-  has_one :permission_request, class_name: "Agent::PermissionRequest", dependent: :restrict_with_exception
+  has_one :permission_request,
+    as: :permission_subject,
+    class_name: "Agent::PermissionRequest",
+    dependent: :restrict_with_exception
 
   validates :operation, :input_body, :input_digest, :expected_state_digest,
     :confirmation_nonce, :confirmation_digest, :idempotency_key, :deadline_at, presence: true
@@ -79,7 +82,7 @@ class Agent::MutationProposal < ApplicationRecord
         person: grant.person,
         conversation: grant.conversation,
         agent_session: grant.agent_session,
-        mutation_proposal: proposal,
+        permission_subject: proposal,
         external_request_id: "mutation-#{proposal.id}",
         tool_name: operation,
         capability: capability,
@@ -176,7 +179,7 @@ class Agent::MutationProposal < ApplicationRecord
       errors.add(:status, "confirmation deadline passed")
       raise ActiveRecord::RecordInvalid, self
     end
-    approved ? execute!(by: by) : self
+    approved ? execution : self
   ensure
     broadcast_confirmation
     broadcast_permission_status if persisted? && status != "pending"
@@ -237,6 +240,12 @@ class Agent::MutationProposal < ApplicationRecord
 
   def expire_if_needed!
     cancel!(reason: "confirmation deadline passed", status: "expired") if status == "pending" && deadline_at <= Time.current
+  end
+
+  def permission_approved!(permission_request:, actor:)
+    raise ArgumentError, "Permission request does not belong to this proposal" unless permission_request.permission_subject == self
+
+    execute!(by: actor)
   end
 
   def terminal? = status.in?(%w[ denied cancelled expired executed failed ])

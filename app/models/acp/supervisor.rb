@@ -290,6 +290,7 @@ module Acp
 
       def expire_pending_mutations
         Agent::MutationProposal.pending.where(deadline_at: ..Time.current).find_each(&:expire_if_needed!)
+        Agent::PermissionRequest.where(status: "pending", deadline_at: ..Time.current).find_each(&:expire_if_needed!)
       end
 
       def mcp_servers_for(connection, credential)

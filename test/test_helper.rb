@@ -27,11 +27,41 @@ module ActiveSupport
         )
       end
 
+      def with_stubbed_method(object, method_name, replacement)
+        singleton = object.singleton_class
+        visibility = if singleton.private_method_defined?(method_name)
+          :private
+        elsif singleton.protected_method_defined?(method_name)
+          :protected
+        else
+          :public
+        end
+        original_name = :"__hearth_original_#{method_name}_#{object.object_id}"
+        singleton.alias_method original_name, method_name
+        singleton.define_method(method_name) do |*arguments, **keywords, &block|
+          replacement.respond_to?(:call) ? replacement.call(*arguments, **keywords, &block) : replacement
+        end
+        singleton.send(visibility, method_name)
+        yield
+      ensure
+        alias_exists = singleton && [
+          singleton.method_defined?(original_name),
+          singleton.private_method_defined?(original_name),
+          singleton.protected_method_defined?(original_name)
+        ].any?
+        if alias_exists
+          singleton.alias_method method_name, original_name
+          singleton.send(visibility, method_name)
+          singleton.remove_method original_name
+        end
+      end
+
       def clear_installation
         Agent::AuditEvent.delete_all
         Agent::MutationExecution.delete_all
         Agent::PermissionDecision.delete_all
-        Agent::PermissionRequest.update_all(mutation_proposal_id: nil)
+        Agent::PermissionRequest.update_all(permission_subject_type: nil, permission_subject_id: nil)
+        Agent::KnowledgeSubmission.delete_all
         Agent::MutationProposal.delete_all
         Agent::OperationalAuthorization.delete_all
         Agent::PermissionRequest.delete_all

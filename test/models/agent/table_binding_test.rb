@@ -10,6 +10,7 @@ class Agent::TableBindingTest < ActiveSupport::TestCase
       Agent::Installation => "agent_installations",
       Agent::Conversation => "agent_conversations",
       Agent::Message => "agent_messages",
+      Agent::KnowledgeSubmission => "agent_knowledge_submissions",
       Agent::PermissionRequest => "agent_permission_requests",
       Agent::PermissionDecision => "agent_permission_decisions",
       Agent::ToolActivity => "agent_tool_activities",
@@ -37,6 +38,7 @@ class Agent::TableBindingTest < ActiveSupport::TestCase
     connection = ActiveRecord::Base.connection
     tables = %w[
       agent_profiles agent_installations agent_conversations agent_sessions agent_messages
+      agent_knowledge_submissions
       agent_permission_requests agent_permission_decisions agent_tool_activities agent_grants
       agent_audit_events
     ]
@@ -60,6 +62,8 @@ class Agent::TableBindingTest < ActiveSupport::TestCase
     assert_includes check_names, "agent_sessions_status"
     assert_includes check_names, "agent_sessions_authentication_status"
     assert_includes check_names, "agent_permission_requests_status"
+    assert_includes check_names, "agent_permission_requests_known_subject"
+    assert_includes check_names, "agent_knowledge_submissions_status"
     assert_includes check_names, "agent_tool_activities_status"
   end
 end

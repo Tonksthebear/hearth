@@ -2,6 +2,7 @@ require "mcp"
 
 module HearthMcp
   module MutationTools
+    CAPABILITY = "health.write"
     ID = { type: "integer", minimum: 1 }.freeze
     TEXT = { type: [ "string", "null" ], maxLength: 10_000 }.freeze
     DATE = { type: "string", format: "date" }.freeze

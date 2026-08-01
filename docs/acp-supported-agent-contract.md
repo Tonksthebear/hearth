@@ -176,6 +176,35 @@ that session to inject a fresh credential. The current ACP v1 configuration is
 immutable after session selection, so an attached connection is not silently rotated
 in place.
 
+Every runtime grant also carries `knowledge_read` and `knowledge_submit`. The exact
+grant-filtered dotted tools are `knowledge.search`, `knowledge.note.read`,
+`knowledge.related`, `knowledge.inbox.submit`, `knowledge.inbox.status`, and
+`knowledge.health.summary`. The first five read/status/summary surfaces require
+`knowledge.read`; submit requires `knowledge.submit`. These names intentionally form
+a separate Lorester namespace while the existing Hearth health catalog retains its
+snake_case wire names.
+
+Knowledge reads cross the same authenticated official-`mcp` endpoint into Lorester's
+typed version-1 Unix-socket contract. Inputs are closed and path-free. Results retain
+opaque note IDs, bounded text with explicit truncation, exact projection
+`source_commit`, and `contract_version`; Hearth persists only the bounded provenance
+allowlist plus digest-only tool bodies. `knowledge.health.summary` preserves Lorester's
+`ready`, `unavailable`, `stale`, and `incompatible` projection states. Hearth adds
+distinct `not_configured`, `stopped`, and transport `unavailable` states without
+returning a vault root, socket path, subprocess diagnostics, or raw response.
+
+All conversation-derived inbox submissions require a durable Hearth
+`PermissionRequest`, regardless of ACP harness approval. The first submit call binds
+the exact household/person/conversation/session/grant/message context, requested
+intent, deterministic redacted content, digest, preview, and session-scoped idempotency
+identity and makes zero Lorester calls. Only an approved committed decision dispatches
+the allowlisted subject callback with its deciding household user. Denial,
+cancellation, expiry, and late decisions never dispatch. Retry reuses the unchanged
+Lorester request identity, so remote acceptance can be recovered without replaying a
+permission decision or creating a second capture. Status polls are no faster than one
+second. Lorester alone chooses and writes the inbox artifact and continues to own note
+creation, linking, processing, verification, projections, health policy, and Git.
+
 All tools publish strict closed input schemas, output schemas, descriptions, and
 truthful read/write/destructive annotations. Results contain structured content plus JSON text fallback, stable IDs,
 UTC dates/timestamps, explicit units where the domain defines them, provenance, hard

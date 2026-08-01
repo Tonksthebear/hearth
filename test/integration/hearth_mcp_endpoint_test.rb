@@ -17,10 +17,15 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
         clientInfo: { name: "test", version: "1" }
       })
       assert_equal protocol, initialize_response.dig("result", "protocolVersion")
+      assert_equal "hearth", initialize_response.dig("result", "serverInfo", "name")
+      assert_equal "1.1.0", initialize_response.dig("result", "serverInfo", "version")
       assert_nil response.headers["Mcp-Session-Id"]
 
       listed = mcp_post(id: 2, method: "tools/list", params: {})
-      assert_equal HearthMcp::Tools::ALL.map(&:tool_name), listed.dig("result", "tools").pluck("name")
+      assert_equal(
+        (HearthMcp::Tools::ALL + HearthMcp::KnowledgeTools::ALL).map(&:tool_name),
+        listed.dig("result", "tools").pluck("name")
+      )
       assert_equal "private, no-store", response.headers["Cache-Control"]
     end
 
@@ -63,6 +68,21 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     assert_predicate activity, :redacted_at?
   end
 
+  test "unknown tools retain the MCP not-found response and produce a failed audit row" do
+    called = mcp_post(id: 44, method: "tools/call", params: {
+      name: "unknown.future.tool",
+      arguments: {}
+    })
+
+    assert_equal(-32602, called.dig("error", "code"), called.inspect)
+    assert_equal "Invalid params", called.dig("error", "message")
+    assert_includes called.dig("error", "data"), "Tool not found"
+    activity = Agent::ToolActivity.where(agent_session: @agent_session).sole
+    assert_equal "unknown.future.tool", activity.tool_name
+    assert_equal "unknown", activity.capability
+    assert_equal "failed", activity.status
+  end
+
   test "a grant without read capability exposes no tools and cannot dispatch one" do
     @credential.grant.update!(capability_groups: [ "health_write" ])
 
@@ -71,6 +91,124 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
 
     called = mcp_post(id: 5, method: "tools/call", params: { name: "get_current_context", arguments: {} })
     assert called["error"] || called.dig("result", "isError")
+  end
+
+  test "knowledge tools use the official endpoint with grant filtering, citations, confirmation, and capability audit" do
+    note = {
+      "id" => "note_v1_test",
+      "title" => { "text" => "Sleep temperature", "truncated" => false },
+      "description" => nil,
+      "excerpt" => { "text" => "Keep it cool", "truncated" => false },
+      "citation" => { "source_commit" => "abc123", "contract_version" => 1 }
+    }
+    fake = Object.new
+    calls = []
+    fake.define_singleton_method(:search) { |query| calls << [ :search, query ]; { "notes" => [ note ], "truncated" => false } }
+    fake.define_singleton_method(:submit) do |**arguments|
+      calls << [ :submit, arguments ]
+      { "submission_id" => "submission_v1_endpoint", "state" => "materialized", "updated_at" => 1 }
+    end
+    message = Agent::Message.create!(
+      household: @credential.grant.household,
+      person: @credential.grant.person,
+      conversation: @credential.grant.conversation,
+      agent_session: @agent_session,
+      role: "user",
+      body: "Remember the bedroom preference",
+      body_digest: Digest::SHA256.hexdigest("Remember the bedroom preference")
+    )
+
+    with_stubbed_method(Lorester::Client, :new, fake) do
+      search = mcp_post(id: 40, method: "tools/call", params: {
+        name: "knowledge.search", arguments: { query: "sleep" }
+      })
+      assert_equal "abc123", search.dig("result", "structuredContent", "result", "notes", 0, "citation", "source_commit"), search.inspect
+      assert_equal false, search.dig("result", "structuredContent", "provenance", "truncated")
+
+      submitted = mcp_post(id: 41, method: "tools/call", params: {
+        name: "knowledge.inbox.submit",
+        arguments: {
+          message_id: message.id,
+          content: "A household-safe preference",
+          requested_intent: "capture",
+          idempotency_key: "endpoint-knowledge-submit"
+        }
+      })
+      local_id = submitted.dig("result", "structuredContent", "result", "submission_id")
+      submission = Agent::KnowledgeSubmission.find(local_id)
+      assert_equal "pending", submission.status
+      assert_equal [ [ :search, "sleep" ] ], calls
+
+      submission.permission_request.decide!(outcome: "approved", by: users(:two))
+      assert_equal "materialized", submission.reload.status
+      assert_equal 2, calls.size
+      assert_equal %w[knowledge.read knowledge.submit], Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:capability)
+      assert_equal "abc123", Agent::ToolActivity.where(tool_name: "knowledge.search").order(:id).last.provenance["source_commit"]
+      assert_equal [ "MCP knowledge payloads are digest-only" ] * 2,
+        Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:redaction_reason)
+    end
+
+    @credential.grant.update!(capability_groups: [ "knowledge_read" ])
+    names = mcp_post(id: 42, method: "tools/list", params: {}).dig("result", "tools").pluck("name")
+    assert_equal HearthMcp::KnowledgeTools::READ.map(&:tool_name), names
+    refute_includes names, "knowledge.inbox.submit"
+  end
+
+  test "knowledge submission conflicts and missing statuses return their declared error codes" do
+    message = Agent::Message.create!(
+      household: @credential.grant.household,
+      person: @credential.grant.person,
+      conversation: @credential.grant.conversation,
+      agent_session: @agent_session,
+      role: "user",
+      body: "Remember this safely",
+      body_digest: Digest::SHA256.hexdigest("Remember this safely")
+    )
+    arguments = {
+      message_id: message.id,
+      content: "Original safe content",
+      requested_intent: "capture",
+      idempotency_key: "endpoint-conflict-key"
+    }
+    staged = mcp_post(id: 45, method: "tools/call", params: { name: "knowledge.inbox.submit", arguments: arguments })
+    assert_equal "ok", staged.dig("result", "structuredContent", "status")
+
+    conflict = mcp_post(id: 46, method: "tools/call", params: {
+      name: "knowledge.inbox.submit", arguments: arguments.merge(content: "Changed safe content")
+    })
+    assert_equal "idempotency_conflict", conflict.dig("result", "structuredContent", "status")
+
+    missing = mcp_post(id: 47, method: "tools/call", params: {
+      name: "knowledge.inbox.status", arguments: { submission_id: Agent::KnowledgeSubmission.maximum(:id) + 10_000 }
+    })
+    assert_equal "not_found", missing.dig("result", "structuredContent", "status")
+    assert_equal [ "knowledge.submit", "knowledge.read" ],
+      Agent::ToolActivity.where(agent_session: @agent_session, status: "failed").order(:id).pluck(:capability)
+  end
+
+  test "knowledge transport errors retain their capability and sanitized state" do
+    error_client = Object.new
+    error_client.define_singleton_method(:search) { |_query| raise Lorester::Client::Error.new("stale", "hidden /vault/path") }
+
+    with_stubbed_method(Lorester::Client, :new, error_client) do
+      called = mcp_post(id: 43, method: "tools/call", params: {
+        name: "knowledge.search", arguments: { query: "sleep" }
+      })
+      assert_equal true, called.dig("result", "isError")
+      assert_equal "stale", called.dig("result", "structuredContent", "status")
+      refute_includes called.dig("result", "content", 0, "text"), "/vault/path"
+    end
+
+    activity = Agent::ToolActivity.where(agent_session: @agent_session).sole
+    assert_equal "knowledge.read", activity.capability
+    assert_equal "failed", activity.status
+    assert_equal({
+      "contract_version" => 1,
+      "source_commit" => nil,
+      "submission_id" => nil,
+      "state" => nil,
+      "truncated" => nil
+    }, activity.provenance)
   end
 
   test "intentionally unavailable administration is undispatchable without domain writes" do

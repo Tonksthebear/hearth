@@ -17,6 +17,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
   SHOPPING_VERSION = 20260731160000
   NUTRITION_VERSION = 20260731170000
   GUARDED_MUTATIONS_VERSION = 20260731210000
+  LORESTER_KNOWLEDGE_VERSION = 20260731220000
 
   class IsolatedMigrationBase < ActiveRecord::Base
     self.abstract_class = true
@@ -34,7 +35,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
 
     assert_empty duplicates, "migration versions must have exactly one owner, found duplicates: #{duplicates.inspect}"
 
-    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION ].each do |version|
+    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION ].each do |version|
       assert_equal 1, versions.count(version.to_s), "expected migration version #{version} to have exactly one owner"
     end
   end
@@ -68,7 +69,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       context.migrate
 
       assert_supported_final_state(connection)
-      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION ],
+      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION ],
         context.get_all_versions.select { |version| version >= RUNTIME_VERSION }
       schema_dump(pool)
     end
@@ -243,6 +244,9 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       assert connection.columns(:recipe_ingredients).find { |column| column.name == "ingredient_id" }.null == false
       assert connection.columns(:agent_sessions).find { |column| column.name == "external_session_id" }.null
       assert connection.columns(:agent_grants).find { |column| column.name == "issued_by_id" }.null
+      assert connection.table_exists?(:agent_knowledge_submissions)
+      assert connection.column_exists?(:agent_tool_activities, :provenance)
+      refute connection.column_exists?(:agent_permission_requests, :mutation_proposal_id)
       expected_nutrients = Nutrient::DEFAULTS.map { |row| row.values_at(:key, :name, :unit, :category, :display_order).map(&:to_s) }
       actual_nutrients = connection.select_rows(<<~SQL.squish).map { |row| row.map(&:to_s) }
         SELECT key, name, unit, category, display_order
@@ -409,6 +413,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       assert_equal [
         [ "agent_audit_events", %w[agent_session_id] ],
         [ "agent_grants", %w[agent_session_id] ],
+        [ "agent_knowledge_submissions", %w[agent_session_id] ],
         [ "agent_messages", %w[agent_session_id] ],
         [ "agent_mutation_proposals", %w[agent_session_id] ],
         [ "agent_operational_authorizations", %w[agent_session_id] ],
