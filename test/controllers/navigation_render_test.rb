@@ -47,22 +47,24 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
 
 
   test "every rendered shopping link opts out of Turbo prefetch" do
-    sign_in_as users(:one)
-    list = ShoppingList.for(household: households(:home), date: "2026-07-27")
-    item = list.items.first
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_as users(:one)
+      list = ShoppingList.for(household: households(:home), date: "2026-07-27")
+      item = list.items.first
 
-    [
-      root_path,
-      recipe_path(recipes(:porridge)),
-      meal_week_path(date: "2026-07-27"),
-      household_week_path(date: "2026-07-27"),
-      shopping_list_path(date: "2026-07-27"),
-      edit_shopping_list_item_path(item, date: "2026-07-27")
-    ].each do |path|
-      get path
-      assert_response :success
-      assert_select "a[href*='shopping_list']" do |links|
-        assert links.all? { |link| link["data-turbo-prefetch"] == "false" }, "Expected every Shopping link on #{path} to disable prefetch"
+      [
+        root_path,
+        recipe_path(recipes(:porridge)),
+        meal_week_path(date: "2026-07-27"),
+        household_week_path(date: "2026-07-27"),
+        shopping_list_path(date: "2026-07-27"),
+        edit_shopping_list_item_path(item, date: "2026-07-27")
+      ].each do |path|
+        get path
+        assert_response :success
+        assert_select "a[href*='shopping_list']" do |links|
+          assert links.all? { |link| link["data-turbo-prefetch"] == "false" }, "Expected every Shopping link on #{path} to disable prefetch"
+        end
       end
     end
   end
