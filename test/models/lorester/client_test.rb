@@ -61,12 +61,83 @@ class Lorester::ClientTest < ActiveSupport::TestCase
     end
   end
 
+  test "maps every remote failure code to the bounded public taxonomy" do
+    mappings = {
+      "projection_pressure" => "pressure",
+      "request_in_progress" => "in_progress",
+      "idempotency_conflict" => "idempotency_conflict",
+      "projection_stale" => "stale",
+      "note_not_found" => "not_found",
+      "contract_incompatible" => "incompatible",
+      "projection_unavailable" => "unavailable",
+      "authorization_denied" => "authorization",
+      "validation_failed" => "validation",
+      "unexpected_remote_failure" => "unavailable"
+    }
+
+    mappings.each do |remote_code, public_code|
+      with_server(envelope: { "ok" => false, "error" => { "code" => remote_code } }) do |client, _requests|
+        error = assert_raises(Lorester::Client::Error) { client.search("query") }
+        assert_equal public_code, error.code
+        refute_includes error.message, "/tmp"
+      end
+    end
+  end
+
+  test "reports a rejected hello as stopped without leaking its socket path" do
+    with_server(hello_envelope: { "ok" => false, "error" => { "code" => "owner_stopped" } }) do |client, _requests|
+      error = assert_raises(Lorester::Client::Error) { client.search("query") }
+      assert_equal "stopped", error.code
+      refute_includes error.message, "/tmp"
+    end
+  end
+
+  test "rejects incompatible discovery and note payloads" do
+    invalid_responses = [
+      [ :discover, {
+        "type" => "discovery", "contract_version" => 2, "control_protocol_version" => 1,
+        "owner_started_at" => 1, "readiness" => "ready", "source_commit" => "abc123"
+      } ],
+      [ :discover, {
+        "type" => "discovery", "contract_version" => 1, "control_protocol_version" => 1,
+        "owner_started_at" => 1, "readiness" => "mystery", "source_commit" => "abc123"
+      } ],
+      [ :read, {
+        "type" => "note", "id" => "note_v1_bad", "title" => { "text" => "Bad", "truncated" => false }
+      } ]
+    ]
+
+    invalid_responses.each do |method, response|
+      with_server(response) do |client, _requests|
+        error = assert_raises(Lorester::Client::Error) do
+          method == :read ? client.read("note_v1_bad") : client.discover
+        end
+        assert_equal "incompatible", error.code
+        refute_includes error.message, "/tmp"
+      end
+    end
+  end
+
+  test "test method stubbing restores private methods and their visibility" do
+    object = Object.new
+    object.define_singleton_method(:private_value) { :original }
+    object.singleton_class.send(:private, :private_value)
+
+    with_stubbed_method(object, :private_value, :stubbed) do
+      assert_equal :stubbed, object.send(:private_value)
+      assert object.singleton_class.private_method_defined?(:private_value)
+    end
+
+    assert_equal :original, object.send(:private_value)
+    assert object.singleton_class.private_method_defined?(:private_value)
+  end
+
   private
     def submission_response(type)
       { "type" => type, "submission_id" => "submission_v1_abc", "state" => "materialized", "updated_at" => 1 }
     end
 
-    def with_server(response, declared_length: nil)
+    def with_server(response = nil, declared_length: nil, envelope: nil, hello_envelope: nil)
       Dir.mktmpdir do |directory|
         path = File.join(directory, "lorester.sock")
         server = UNIXServer.new(path)
@@ -74,10 +145,15 @@ class Lorester::ClientTest < ActiveSupport::TestCase
         thread = Thread.new do
           socket = server.accept
           requests << read_frame(socket)
-          write_frame(socket, { ok: true, result: { type: "hello_ack", vault_id: "vault-test", protocol_version: 1 } })
-          requests << read_frame(socket)
-          envelope = { ok: true, result: { type: "knowledge", response: response } }
-          write_frame(socket, envelope, declared_length: declared_length)
+          write_frame(
+            socket,
+            hello_envelope || { ok: true, result: { type: "hello_ack", vault_id: "vault-test", protocol_version: 1 } }
+          )
+          unless hello_envelope
+            requests << read_frame(socket)
+            operation_envelope = envelope || { ok: true, result: { type: "knowledge", response: response } }
+            write_frame(socket, operation_envelope, declared_length: declared_length)
+          end
           socket.close
         ensure
           server.close
@@ -86,7 +162,8 @@ class Lorester::ClientTest < ActiveSupport::TestCase
         with_stubbed_method(client, :discover_root, { "vault_id" => "vault-test", "endpoint" => path }) do
           yield client, requests
         end
-        thread.join
+      ensure
+        thread&.join
       end
     end
 

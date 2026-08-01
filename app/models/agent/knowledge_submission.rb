@@ -3,8 +3,11 @@ require "digest"
 class Agent::KnowledgeSubmission < ApplicationRecord
   include Agent::Contextual
 
+  class IdempotencyConflict < ArgumentError; end
+
   STATUSES = %w[ pending accepted materialized admitted processing complete failed unavailable ].freeze
   TERMINAL_STATUSES = %w[ complete failed unavailable ].freeze
+  DISPATCH_CLAIM_TTL = 30.seconds
   ORIGIN = "hearth_agent"
 
   belongs_to :household
@@ -29,13 +32,13 @@ class Agent::KnowledgeSubmission < ApplicationRecord
   class << self
     def propose!(grant:, message:, content:, requested_intent:, request_id:, deadline_at:)
       existing = find_by(agent_session: grant.agent_session, request_id: request_id)
-      redactor = Redactor.new(household: grant.household, person: grant.person)
+      redactor = Redactor.new(household: grant.household)
       redacted_content = redactor.redact(content)
       digest = Digest::SHA256.hexdigest(redacted_content)
       if existing
         unless existing.message_id == message.id && existing.requested_intent == requested_intent &&
             ActiveSupport::SecurityUtils.secure_compare(existing.content_digest, digest)
-          raise ArgumentError, "Idempotency key was reused with different knowledge content or intent"
+          raise IdempotencyConflict, "Idempotency key was reused with different knowledge content or intent"
         end
         existing.dispatch_approved_subject! if existing.permission_request&.status == "approved"
         return existing
@@ -114,9 +117,7 @@ class Agent::KnowledgeSubmission < ApplicationRecord
 
   private
     def dispatch!(actor:)
-      with_lock do
-        return self if lorester_submission_id.present? || terminal?
-      end
+      return self unless claim_dispatch!
 
       response = Lorester::Client.new.submit(
         request_id: request_id,
@@ -137,7 +138,7 @@ class Agent::KnowledgeSubmission < ApplicationRecord
       )
       self
     rescue Lorester::Client::Error => error
-      update!(diagnostic: error.code)
+      update!(diagnostic: error.code, dispatched_at: nil)
       Agent::AuditEvent.record!(
         subject: self,
         event_type: "knowledge.submission_failed",
@@ -147,6 +148,17 @@ class Agent::KnowledgeSubmission < ApplicationRecord
         metadata: { "request_id" => request_id, "diagnostic" => error.code }
       )
       raise
+    end
+
+    def claim_dispatch!
+      claimed_at = Time.current
+      claimed = self.class
+        .where(id: id, lorester_submission_id: nil)
+        .where.not(status: TERMINAL_STATUSES)
+        .where("dispatched_at IS NULL OR dispatched_at <= ?", claimed_at - DISPATCH_CLAIM_TTL)
+        .update_all(dispatched_at: claimed_at)
+      reload if claimed == 1
+      claimed == 1
     end
 
     def apply_lorester_status!(response)
@@ -160,7 +172,7 @@ class Agent::KnowledgeSubmission < ApplicationRecord
           "submission_id" => response.fetch("submission_id"),
           "updated_at" => response.fetch("updated_at")
         },
-        terminal_at: response.fetch("state").in?(TERMINAL_STATUSES) ? Time.current : nil
+        terminal_at: response.fetch("state").in?(TERMINAL_STATUSES) ? (terminal_at || Time.current) : terminal_at
       }
       attributes[:last_polled_at] = response["polled_at"] if response["polled_at"]
       update!(attributes)

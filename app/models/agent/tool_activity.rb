@@ -38,7 +38,8 @@ class Agent::ToolActivity < ApplicationRecord
         output_tokens: (output_json.bytesize / 4.0).ceil,
         provenance: bounded_provenance(provenance),
         redacted_at: now,
-        redaction_reason: "MCP health data is digest-only",
+        redaction_reason: capability.start_with?("knowledge.") ?
+          "MCP knowledge payloads are digest-only" : "MCP health data is digest-only",
         started_at: now,
         completed_at: now
       )

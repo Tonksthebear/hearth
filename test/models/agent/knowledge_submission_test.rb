@@ -33,7 +33,8 @@ class Agent::KnowledgeSubmissionTest < ActiveSupport::TestCase
 
   test "stages one redacted exact-context submission without contacting Lorester" do
     fake = FakeClient.new(calls: [])
-    content = "#{@grant.person.name} at #{@grant.person.user.email_address} prefers a cool bedroom"
+    other_person = people(:one)
+    content = "#{@grant.person.name} at #{@grant.person.user.email_address} and #{other_person.name} at #{other_person.user.email_address} prefer a cool bedroom"
 
     with_stubbed_method(Lorester::Client, :new, fake) do
       first = propose(content: content)
@@ -45,6 +46,8 @@ class Agent::KnowledgeSubmissionTest < ActiveSupport::TestCase
       assert_equal "pending", first.permission_request.status
       refute_includes first.content.downcase, @grant.person.name.downcase
       refute_includes first.content, @grant.person.user.email_address
+      refute_includes first.content.downcase, other_person.name.downcase
+      refute_includes first.content, other_person.user.email_address
       assert_includes first.content, "[redacted]"
       assert_equal Digest::SHA256.hexdigest(first.content), first.content_digest
     end
@@ -67,6 +70,33 @@ class Agent::KnowledgeSubmissionTest < ActiveSupport::TestCase
       assert_equal users(:two), event.actor
       assert_equal submission.lorester_submission_id, event.metadata["submission_id"]
     end
+  end
+
+  test "failed dispatch releases its claim and retries with the same request identity" do
+    submission = propose
+    calls = []
+    fake = Object.new
+    fake.define_singleton_method(:submit) do |**arguments|
+      calls << arguments
+      raise Lorester::Client::Error.new("unavailable", "temporary outage") if calls.one?
+
+      { "submission_id" => "submission_v1_retry", "state" => "materialized", "updated_at" => 2 }
+    end
+
+    with_stubbed_method(Lorester::Client, :new, fake) do
+      assert_raises(Lorester::Client::Error) do
+        submission.permission_request.decide!(outcome: "approved", by: users(:two))
+      end
+      assert_equal "approved", submission.permission_request.reload.status
+      assert_nil submission.reload.dispatched_at
+
+      submission.dispatch_approved_subject!
+    end
+
+    assert_equal 2, calls.size
+    assert_equal [ submission.request_id ] * 2, calls.pluck(:request_id)
+    assert_equal "materialized", submission.reload.status
+    assert_equal "submission_v1_retry", submission.lorester_submission_id
   end
 
   test "denial cancellation and elapsed deadline never dispatch" do
@@ -103,6 +133,14 @@ class Agent::KnowledgeSubmissionTest < ActiveSupport::TestCase
       travel 2.seconds
       submission.refresh_status!
       assert_equal 2, fake.calls.size
+    end
+  end
+
+  test "conflicting idempotency reuse raises the typed domain error" do
+    propose(content: "Original observation")
+
+    assert_raises(Agent::KnowledgeSubmission::IdempotencyConflict) do
+      propose(content: "Changed observation")
     end
   end
 

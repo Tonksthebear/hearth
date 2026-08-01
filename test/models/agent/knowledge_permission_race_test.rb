@@ -65,4 +65,63 @@ class Agent::KnowledgePermissionRaceTest < ActiveSupport::TestCase
       submission.delete
     end
   end
+
+
+  test "two concurrent dispatchers claim one local Lorester submission" do
+    grant = agent_grants(:active)
+    submission = Agent::KnowledgeSubmission.propose!(
+      grant: grant,
+      message: agent_messages(:prompt),
+      content: "One dispatch despite concurrent recovery",
+      requested_intent: "capture",
+      request_id: "knowledge-dispatch-race-#{SecureRandom.hex(4)}",
+      deadline_at: 1.minute.from_now
+    )
+    request = submission.permission_request
+    calls = Queue.new
+    fake = Object.new
+    fake.define_singleton_method(:submit) do |**arguments|
+      calls << arguments
+      sleep 0.05
+      { "submission_id" => "submission_v1_dispatch_race", "state" => "materialized", "updated_at" => 1 }
+    end
+    ready = Queue.new
+    start = Queue.new
+    errors = Queue.new
+
+    with_stubbed_method(Lorester::Client, :new, fake) do
+      threads = 2.times.map do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            ready << true
+            start.pop
+            Agent::KnowledgeSubmission.find(submission.id).send(:dispatch!, actor: users(:two))
+          rescue StandardError => error
+            errors << error
+          end
+        end
+      end
+      2.times { ready.pop }
+      2.times { start << true }
+      threads.each(&:join)
+    end
+
+    assert_empty errors
+    assert_equal 1, calls.size
+    assert_equal submission.request_id, calls.pop.fetch(:request_id)
+    assert_equal "materialized", submission.reload.status
+    assert_equal 1, Agent::AuditEvent.where(
+      subject_type: "Agent::KnowledgeSubmission",
+      subject_id: submission.id,
+      event_type: "knowledge.submission_dispatched"
+    ).count
+  ensure
+    if submission
+      Agent::AuditEvent.where(subject_type: "Agent::KnowledgeSubmission", subject_id: submission.id).delete_all
+      Agent::AuditEvent.where(subject_type: "Agent::PermissionRequest", subject_id: request&.id).delete_all
+      request&.decision&.delete
+      request&.delete
+      submission.delete
+    end
+  end
 end

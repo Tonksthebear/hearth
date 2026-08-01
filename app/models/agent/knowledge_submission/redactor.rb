@@ -2,9 +2,8 @@ class Agent::KnowledgeSubmission::Redactor
   MAX_CONTENT_BYTES = 65_536
   MAX_PREVIEW_BYTES = 500
 
-  def initialize(household:, person:)
+  def initialize(household:)
     @household = household
-    @person = person
   end
 
   def redact(value)
@@ -18,10 +17,12 @@ class Agent::KnowledgeSubmission::Redactor
   def preview(value) = bound(value, MAX_PREVIEW_BYTES)
 
   private
-    attr_reader :household, :person
+    attr_reader :household
 
     def sensitive_values
-      [ household.name, person.name, person.user&.email_address ].compact_blank.uniq.sort_by { |value| -value.bytesize }
+      people = household.people.includes(:user)
+      values = [ household.name ] + people.flat_map { |member| [ member.name, member.user&.email_address ] }
+      values.compact_blank.uniq.sort_by { |value| -value.bytesize }
     end
 
     def bound(value, maximum_bytes)

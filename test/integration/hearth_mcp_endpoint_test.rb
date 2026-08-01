@@ -68,6 +68,21 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     assert_predicate activity, :redacted_at?
   end
 
+  test "unknown tools retain the MCP not-found response and produce a failed audit row" do
+    called = mcp_post(id: 44, method: "tools/call", params: {
+      name: "unknown.future.tool",
+      arguments: {}
+    })
+
+    assert_equal(-32602, called.dig("error", "code"), called.inspect)
+    assert_equal "Invalid params", called.dig("error", "message")
+    assert_includes called.dig("error", "data"), "Tool not found"
+    activity = Agent::ToolActivity.where(agent_session: @agent_session).sole
+    assert_equal "unknown.future.tool", activity.tool_name
+    assert_equal "unknown", activity.capability
+    assert_equal "failed", activity.status
+  end
+
   test "a grant without read capability exposes no tools and cannot dispatch one" do
     @credential.grant.update!(capability_groups: [ "health_write" ])
 
@@ -129,12 +144,46 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
       assert_equal 2, calls.size
       assert_equal %w[knowledge.read knowledge.submit], Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:capability)
       assert_equal "abc123", Agent::ToolActivity.where(tool_name: "knowledge.search").order(:id).last.provenance["source_commit"]
+      assert_equal [ "MCP knowledge payloads are digest-only" ] * 2,
+        Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:redaction_reason)
     end
 
     @credential.grant.update!(capability_groups: [ "knowledge_read" ])
     names = mcp_post(id: 42, method: "tools/list", params: {}).dig("result", "tools").pluck("name")
     assert_equal HearthMcp::KnowledgeTools::READ.map(&:tool_name), names
     refute_includes names, "knowledge.inbox.submit"
+  end
+
+  test "knowledge submission conflicts and missing statuses return their declared error codes" do
+    message = Agent::Message.create!(
+      household: @credential.grant.household,
+      person: @credential.grant.person,
+      conversation: @credential.grant.conversation,
+      agent_session: @agent_session,
+      role: "user",
+      body: "Remember this safely",
+      body_digest: Digest::SHA256.hexdigest("Remember this safely")
+    )
+    arguments = {
+      message_id: message.id,
+      content: "Original safe content",
+      requested_intent: "capture",
+      idempotency_key: "endpoint-conflict-key"
+    }
+    staged = mcp_post(id: 45, method: "tools/call", params: { name: "knowledge.inbox.submit", arguments: arguments })
+    assert_equal "ok", staged.dig("result", "structuredContent", "status")
+
+    conflict = mcp_post(id: 46, method: "tools/call", params: {
+      name: "knowledge.inbox.submit", arguments: arguments.merge(content: "Changed safe content")
+    })
+    assert_equal "idempotency_conflict", conflict.dig("result", "structuredContent", "status")
+
+    missing = mcp_post(id: 47, method: "tools/call", params: {
+      name: "knowledge.inbox.status", arguments: { submission_id: Agent::KnowledgeSubmission.maximum(:id) + 10_000 }
+    })
+    assert_equal "not_found", missing.dig("result", "structuredContent", "status")
+    assert_equal [ "knowledge.submit", "knowledge.read" ],
+      Agent::ToolActivity.where(agent_session: @agent_session, status: "failed").order(:id).pluck(:capability)
   end
 
   test "knowledge transport errors retain their capability and sanitized state" do

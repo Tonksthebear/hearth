@@ -127,7 +127,11 @@ module HearthMcp
           response(result, grant: grant)
         rescue Lorester::Client::Error => error
           error_response(error.code, grant: grant)
-        rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ArgumentError => error
+        rescue ActiveRecord::RecordNotFound
+          error_response("not_found", grant: grant)
+        rescue Agent::KnowledgeSubmission::IdempotencyConflict
+          error_response("idempotency_conflict", grant: grant)
+        rescue ActiveRecord::RecordInvalid, ArgumentError
           error_response("validation", grant: grant)
         end
 
@@ -277,7 +281,8 @@ module HearthMcp
         capability: "knowledge.read",
         properties: { submission_id: { type: "integer", minimum: 1 } },
         required: %w[submission_id],
-        result_schema: SUBMISSION_SCHEMA
+        result_schema: SUBMISSION_SCHEMA,
+        read_only: false
 
       def self.call(submission_id:, server_context:)
         perform(server_context: server_context) do |grant|

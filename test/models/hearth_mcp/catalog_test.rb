@@ -54,12 +54,13 @@ class HearthMcp::CatalogTest < ActiveSupport::TestCase
       refute_includes HearthMcp::Tools::Base::PAGED_TOOLS, tool.tool_name
       assert_equal false, contract.dig(:annotations, :openWorldHint), tool.tool_name
     end
+    assert_equal false, HearthMcp::KnowledgeTools::InboxStatus.to_h.dig(:annotations, :readOnlyHint)
 
     assert_equal "health.read", HearthMcp::Catalog.send(:capability_for, "get_current_context")
     assert_equal "health.write", HearthMcp::Catalog.send(:capability_for, "create_meal")
     assert_equal "knowledge.read", HearthMcp::Catalog.send(:capability_for, "knowledge.search")
     assert_equal "knowledge.submit", HearthMcp::Catalog.send(:capability_for, "knowledge.inbox.submit")
-    assert_raises(KeyError) { HearthMcp::Catalog.send(:capability_for, "unknown.future.tool") }
+    assert_equal "unknown", HearthMcp::Catalog.send(:capability_for, "unknown.future.tool")
   end
 
   test "paginates deterministically without duplicates or skips" do

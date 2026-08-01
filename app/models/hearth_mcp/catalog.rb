@@ -72,7 +72,7 @@ module HearthMcp
         end
 
         def capability_for(tool_name)
-          tool_registry.fetch(tool_name).fetch(:capability)
+          tool_registry.dig(tool_name, :capability) || "unknown"
         end
 
         def tool_registry
