@@ -14,6 +14,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
   RECIPE_VERSION = 20260731130000
   RECONCILIATION_VERSION = 20260731140000
   MEAL_EVENTS_VERSION = 20260731150000
+  SHOPPING_VERSION = 20260731160000
 
   class IsolatedMigrationBase < ActiveRecord::Base
     self.abstract_class = true
@@ -31,7 +32,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
 
     assert_empty duplicates, "migration versions must have exactly one owner, found duplicates: #{duplicates.inspect}"
 
-    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION ].each do |version|
+    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION ].each do |version|
       assert_equal 1, versions.count(version.to_s), "expected migration version #{version} to have exactly one owner"
     end
   end
@@ -65,7 +66,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       context.migrate
 
       assert_supported_final_state(connection)
-      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION ],
+      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION ],
         context.get_all_versions.select { |version| version >= RUNTIME_VERSION }
       schema_dump(pool)
     end

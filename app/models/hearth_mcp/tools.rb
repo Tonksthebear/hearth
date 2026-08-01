@@ -282,15 +282,39 @@ module HearthMcp
 
     class GetShoppingList < Base
       contract name: "get_shopping_list",
-        description: "Return the household shopping projection from all plans, preserving exact unit boundaries and free-text amounts.",
+        description: "Return the persisted household shopping checklist without reconciling or creating it.",
         properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
-        list = ShoppingList.new(household: household(server_context), date: week_date(date))
-        entries = list.entries.map { |entry| { name: entry.name, amount: entry.amount, unit: entry.unit } }
+        start_date = week_date(date).beginning_of_week(:monday)
+        list = ShoppingList.existing_for(household: household(server_context), date: start_date)
+        entries = list ? list.display_items.map { |item| shopping_entry(item) } : []
         response(
-          { start_date: list.start_date.iso8601, end_date: list.end_date.iso8601, entries: entries },
+          { start_date: start_date.iso8601, end_date: (start_date + 6.days).iso8601, entries: entries },
           server_context: server_context
         )
+      end
+
+      def self.shopping_entry(item)
+        {
+          id: item.id,
+          ingredient_id: item.ingredient_id,
+          name: item.name,
+          amount: item.quantity,
+          unit: item.unit,
+          notes: item.notes,
+          completed: item.completed?,
+          completed_at: item.completed_at&.utc&.iso8601,
+          user_managed: item.user_managed?,
+          sources: item.shopping_list_item_sources.map do |source|
+            {
+              planned_meal_id: source.planned_meal_id,
+              planned_on: source.planned_meal.planned_on.iso8601,
+              recipe_id: source.planned_meal.recipe_id,
+              recipe_title: source.planned_meal.recipe.title,
+              recipe_ingredient_id: source.recipe_ingredient_id
+            }
+          end
+        }
       end
     end
 

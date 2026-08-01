@@ -1,0 +1,9 @@
+<% content_for :title, "Edit shopping item · Hearth" %>
+<%= render "layouts/meals_navigation" %>
+
+<section aria-labelledby="edit-shopping-item-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shopping list</p>
+  <h1 id="edit-shopping-item-heading" class="mt-2 text-3xl font-semibold tracking-tight">Edit item</h1>
+  <p class="mt-2 text-gray-600 dark:text-gray-400">Your changes are preserved when planned recipe sources change.</p>
+  <%= render "form", shopping_list_item: @shopping_list_item, shopping_list: @shopping_list %>
+</section>

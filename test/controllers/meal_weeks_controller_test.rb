@@ -35,4 +35,27 @@ class MealWeeksControllerTest < ActionDispatch::IntegrationTest
       end
     end
   end
+
+  test "shopping affordance reads an existing list only and renders only for unchecked items" do
+    sign_in_as users(:one)
+    list = shopping_lists(:target_week)
+    counts = [ ShoppingList.count, ShoppingListItem.count, ShoppingListItemSource.count ]
+    timestamps = [ list.updated_at, *list.items.order(:id).pluck(:updated_at) ]
+
+    get meal_week_path, params: { date: list.week_start.iso8601 }
+
+    assert_response :success
+    assert_select "a[href=?][data-turbo-prefetch='false']", shopping_list_path(date: list.week_start.iso8601), text: /Shopping list \(1\)/
+    assert_equal counts, [ ShoppingList.count, ShoppingListItem.count, ShoppingListItemSource.count ]
+    assert_equal timestamps, [ list.reload.updated_at, *list.items.order(:id).pluck(:updated_at) ]
+
+    list.items.update_all(completed_at: Time.current)
+    get meal_week_path, params: { date: list.week_start.iso8601 }
+    assert_select "a", text: /Shopping list \(/, count: 0
+
+    list.destroy!
+    get meal_week_path, params: { date: "2026-07-27" }
+    assert_select "a", text: /Shopping list \(/, count: 0
+    refute ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
+  end
 end

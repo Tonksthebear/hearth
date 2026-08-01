@@ -26,7 +26,9 @@
         <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared operations</p>
         <h2 id="household-plans-heading" class="mt-1 text-2xl font-semibold">Household plans</h2>
       </div>
-      <%= link_to "Open shopping list", shopping_list_path(date: @household_week.to_param), class: "font-semibold text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
+      <%= link_to "Open shopping list", shopping_list_path(date: @household_week.to_param),
+        data: { turbo_prefetch: false },
+        class: "font-semibold text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
     </div>
 
     <div class="group/plans mt-5 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
