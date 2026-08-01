@@ -1,0 +1,19 @@
+<section id="agent_citations" class="rounded-lg bg-white p-5 shadow-sm outline-1 outline-gray-900/5 dark:bg-gray-800/50 dark:shadow-none dark:outline-white/10">
+  <h2 class="text-sm font-semibold">Sources and provenance</h2>
+  <% if citations.any? %>
+    <ul role="list" class="mt-4 space-y-3">
+      <% citations.each do |citation| %>
+        <li class="min-w-0 text-sm">
+          <% if citation.url.present? %>
+            <%= link_to citation.title, citation.url, rel: "noreferrer", class: "break-words font-medium text-primary-700 underline dark:text-primary-400" %>
+          <% else %>
+            <span class="break-words font-medium"><%= citation.title %></span>
+          <% end %>
+          <p class="text-xs text-gray-500 dark:text-gray-400"><%= citation.source_kind.titleize %></p>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No sources were attached.</p>
+  <% end %>
+</section>

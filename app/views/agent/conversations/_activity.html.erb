@@ -1,0 +1,7 @@
+<li id="<%= dom_id(activity) %>" class="flex min-w-0 gap-3">
+  <span class="mt-1 size-2 shrink-0 rounded-full <%= activity.status == "failed" ? "bg-red-500" : activity.status == "succeeded" ? "bg-green-500" : "bg-primary-500" %>"></span>
+  <div class="min-w-0">
+    <p class="break-words text-sm font-medium"><%= activity.display_title.presence || activity.tool_name %></p>
+    <p class="text-xs text-gray-500 dark:text-gray-400"><%= activity.kind.presence || activity.capability %> · <%= activity.status.humanize %></p>
+  </div>
+</li>

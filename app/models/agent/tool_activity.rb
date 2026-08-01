@@ -4,6 +4,7 @@ class Agent::ToolActivity < ApplicationRecord
   include Agent::Redactable
 
   STATUSES = %w[ pending running succeeded failed cancelled ].freeze
+  SOURCES = %w[ mcp acp ].freeze
 
   belongs_to :household
   belongs_to :person
@@ -11,12 +12,18 @@ class Agent::ToolActivity < ApplicationRecord
   belongs_to :agent_session, class_name: "Agent::Session"
   belongs_to :redacted_by, class_name: "User", optional: true
 
-  validates :tool_name, :capability, presence: true
+  validates :tool_name, presence: true, if: -> { source == "mcp" }
+  validates :display_title, :kind, presence: true, if: -> { source == "acp" }
+  validates :source, inclusion: { in: SOURCES }
+  validates :capability, presence: true
   validates :status, inclusion: { in: STATUSES }
   validates :input_body, presence: true, unless: :redacted_at?
   validates :input_digest, presence: true
   validates :output_tokens, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validate :authorization_context_is_active, on: :create
+
+  after_create_commit :broadcast_created
+  after_update_commit :broadcast_updated
 
   class << self
     def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false, capability:, provenance: {})
@@ -91,5 +98,19 @@ class Agent::ToolActivity < ApplicationRecord
       unless agent_session&.status.in?(%w[ starting connected ])
         errors.add(:agent_session, "must be starting or connected")
       end
+    end
+
+    def broadcast_created
+      broadcast_append_to conversation,
+        target: "agent_activities",
+        partial: "agent/conversations/activity",
+        locals: { activity: self }
+    end
+
+    def broadcast_updated
+      broadcast_replace_to conversation,
+        target: self,
+        partial: "agent/conversations/activity",
+        locals: { activity: self }
     end
 end

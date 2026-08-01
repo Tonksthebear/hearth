@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+APP_ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+ACCEPTANCE_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/hearth-agent-chat.XXXXXX")
+trap 'rm -rf "$ACCEPTANCE_ROOT"' EXIT HUP INT TERM
+
+export RAILS_ENV=test
+export HEARTH_CROSS_PROCESS_SYSTEM_TEST=1
+export PRIMARY_DATABASE_URL="sqlite3:$ACCEPTANCE_ROOT/primary.sqlite3"
+export CABLE_DATABASE_URL="sqlite3:$ACCEPTANCE_ROOT/cable.sqlite3"
+
+cd "$APP_ROOT"
+bin/rails db:prepare
+bin/system-test-browser bin/rails test test/system/agent_conversations_live_test.rb

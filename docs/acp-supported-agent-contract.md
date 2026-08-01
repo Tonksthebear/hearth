@@ -21,6 +21,18 @@ The selected directory must already contain `.hearth/instance.yml`. Missing
 markers fail before Rails boots and write nothing. A source checkout is not
 initialized implicitly, and `Procfile.dev` is intentionally unchanged.
 
+For the Coach UI, start the durable queue consumer without a selected
+conversation. It conditionally claims pending `Agent::Turn` rows, serializes
+prompt work in the runtime, and persists typed projections before broadcasting:
+
+```sh
+RAILS_ENV=development bin/hearth-acp-runtime --root /path/to/initialized-instance
+```
+
+Development uses Solid Cable with distinct primary, cache, queue, and cable
+SQLite targets. Puma only commits messages, turns, cancellations, and human
+decisions. It never constructs the supervisor or writes ACP stdio.
+
 ```sh
 bin/hearth-acp-runtime \
   --root /path/to/initialized-instance \
@@ -127,13 +139,13 @@ The agent may then send `session/request_permission` with:
 Hearth accepts only an existing pending proposal whose household, person,
 conversation, ACP session, operation, canonical input digest, staged grant,
 deadline, and idempotency identity all still match. Permission handling runs off
-the ACP stdout reader thread and waits on Action Cable pubsub, so other JSON-RPC
-responses continue to dispatch and the supervisor does not poll the proposal row.
-Production uses Solid Cable, which carries that notification across the web and
-runtime processes. The test adapter proves the notification path in-process only;
-the standalone multi-process test proves the bounded deadline/reload fallback and
-correct result, not cross-process notification latency. Development's async adapter
-has the same fallback when the runtime is a separate process.
+the ACP stdout reader thread, uses Action Cable pubsub as a wake-up, and reloads
+the proposal on a bounded interval until a terminal decision or deadline. Other
+JSON-RPC responses continue to dispatch, while the committed database decision
+remains authoritative even if a notification is dropped. Development and
+production use Solid Cable across the web/runtime process boundary; ordinary
+system tests retain the in-process test adapter. `bin/agent-chat-acceptance`
+provides the isolated real-browser, real-runtime Solid Cable proof.
 
 ACP v1 permits permission-first requests and does not require `rawInput`, but those
 generic requests cannot safely identify a typed Hearth mutation. Missing input,

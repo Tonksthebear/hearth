@@ -1,0 +1,48 @@
+<% content_for :title, "Coach · Hearth" %>
+
+<div class="mx-auto max-w-5xl">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Coach</p>
+      <h1 class="mt-1 text-3xl font-bold tracking-tight">Conversations for <%= @current_person.name %></h1>
+      <p class="mt-2 text-sm/6 text-gray-600 dark:text-gray-400">Your household data stays in Hearth. Agent responses can be incomplete or wrong.</p>
+    </div>
+    <% if @profiles.any? %>
+      <%= link_to "New conversation", new_agent_conversation_path, class: yass(btn: [ :base, { md: :base }, { primary: :solid } ]) %>
+    <% end %>
+  </div>
+
+  <% if @profiles.empty? %>
+    <div class="mt-8 rounded-md bg-yellow-50 p-4 dark:bg-yellow-500/10 dark:outline dark:outline-yellow-500/15" role="status">
+      <div class="flex gap-3">
+        <%= icon "key", variant: :mini, class: "size-5 shrink-0 text-yellow-400 dark:text-yellow-300" %>
+        <div>
+          <h2 class="text-sm font-medium text-yellow-800 dark:text-yellow-100">Coach setup is required</h2>
+          <p class="mt-2 text-sm text-yellow-700 dark:text-yellow-100/80">Enable an ACP agent profile for this household before starting a conversation.</p>
+        </div>
+      </div>
+    </div>
+  <% elsif @conversations.empty? %>
+    <div class="mt-8 rounded-lg bg-white p-8 text-center shadow-sm outline-1 outline-gray-900/5 dark:bg-gray-800/50 dark:shadow-none dark:outline-white/10">
+      <%= icon "clipboard-document-list", class: "mx-auto size-10 text-gray-400" %>
+      <h2 class="mt-3 text-base font-semibold">No conversations yet</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Start with a question about your recorded meals, training, habits, or recovery.</p>
+    </div>
+  <% else %>
+    <ul role="list" class="mt-8 space-y-3">
+      <% @conversations.each do |conversation| %>
+        <li class="overflow-hidden bg-white px-4 py-4 shadow-sm sm:rounded-md sm:px-6 dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+          <%= link_to agent_conversation_path(conversation), class: "block min-w-0 rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600" do %>
+            <div class="flex items-center justify-between gap-4">
+              <div class="min-w-0">
+                <p class="truncate font-semibold"><%= conversation.title %></p>
+                <p class="mt-1 truncate text-sm text-gray-500 dark:text-gray-400"><%= conversation.profile.name %> · <%= pluralize(conversation.messages.size, "message") %></p>
+              </div>
+              <time datetime="<%= conversation.updated_at.iso8601 %>" class="shrink-0 text-xs text-gray-500 dark:text-gray-400"><%= time_ago_in_words(conversation.updated_at) %> ago</time>
+            </div>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</div>

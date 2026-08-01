@@ -305,6 +305,29 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     Current.reset
   end
 
+  test "permission wait observes a committed decision when the pubsub notification is dropped" do
+    Current.session = sessions(:browser)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    agent_session = agent_sessions(:connected)
+    agent_session.update!(status: "starting")
+    grant = agent_session.issue_runtime_grant!.grant
+    meal = meals(:sam_recipe_target_week)
+    proposal, = stage_delete_proposal(grant, meal, "dropped-permission-notification", 2.seconds.from_now)
+    supervisor = Acp::Supervisor.new(instance_root: Dir.pwd)
+    pubsub = ActionCable.server.pubsub
+    with_stubbed_method(pubsub, :subscribe, ->(_channel, _callback, success) { success.call }) do
+      waiter = Thread.new { supervisor.send(:wait_for_permission_decision, proposal, 2.seconds.from_now) }
+      sleep 0.05
+      proposal.update_column(:status, "denied")
+      assert waiter.join(1), "database reconciliation did not wake promptly"
+    end
+
+    assert_equal "denied", proposal.reload.status
+  ensure
+    Current.reset
+  end
+
   test "supervisor expires pending proposals and operational authorizations" do
     Current.session = sessions(:browser)
     Current.household = households(:home)

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_01_010000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -61,6 +61,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.index ["household_id"], name: "index_agent_audit_events_on_household_id"
     t.index ["person_id"], name: "index_agent_audit_events_on_person_id"
     t.index ["subject_type", "subject_id"], name: "index_agent_audit_events_on_subject_type_and_subject_id"
+  end
+
+  create_table "agent_citations", force: :cascade do |t|
+    t.integer "agent_session_id", null: false
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.integer "household_id", null: false
+    t.integer "message_id"
+    t.integer "person_id", null: false
+    t.string "source_kind", default: "external_search", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.index ["agent_session_id", "external_id"], name: "index_agent_citations_on_agent_session_id_and_external_id", unique: true
+    t.index ["agent_session_id"], name: "index_agent_citations_on_agent_session_id"
+    t.index ["conversation_id", "created_at"], name: "index_agent_citations_on_conversation_id_and_created_at"
+    t.index ["conversation_id"], name: "index_agent_citations_on_conversation_id"
+    t.index ["household_id"], name: "index_agent_citations_on_household_id"
+    t.index ["message_id"], name: "index_agent_citations_on_message_id"
+    t.index ["person_id"], name: "index_agent_citations_on_person_id"
+    t.check_constraint "source_kind IN ('hearth_fact', 'vault_knowledge', 'external_search', 'agent_suggestion')", name: "agent_citations_source_kind"
   end
 
   create_table "agent_conversations", force: :cascade do |t|
@@ -176,10 +198,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.string "external_id"
     t.integer "household_id", null: false
     t.integer "person_id", null: false
+    t.json "provenance", default: {}, null: false
     t.datetime "redacted_at"
     t.integer "redacted_by_id"
     t.text "redaction_reason"
     t.string "role", null: false
+    t.string "source_kind", default: "hearth_fact", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_session_id", "external_id"], name: "index_agent_messages_on_session_and_external_id", unique: true, where: "external_id IS NOT NULL"
     t.index ["agent_session_id"], name: "index_agent_messages_on_agent_session_id"
@@ -190,6 +214,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.index ["redacted_by_id"], name: "index_agent_messages_on_redacted_by_id"
     t.check_constraint "(body IS NOT NULL AND redacted_at IS NULL) OR (body IS NULL AND redacted_at IS NOT NULL)", name: "agent_messages_redaction_state"
     t.check_constraint "role IN ('user', 'agent', 'system')", name: "agent_messages_role"
+    t.check_constraint "source_kind IN ('hearth_fact', 'vault_knowledge', 'external_search', 'agent_suggestion')", name: "agent_messages_source_kind"
   end
 
   create_table "agent_mutation_executions", force: :cascade do |t|
@@ -322,6 +347,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.check_constraint "status IN ('pending', 'approved', 'denied', 'cancelled', 'expired')", name: "agent_permission_requests_status"
   end
 
+  create_table "agent_plans", force: :cascade do |t|
+    t.integer "agent_session_id", null: false
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.json "entries", default: [], null: false
+    t.integer "household_id", null: false
+    t.integer "person_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_session_id"], name: "index_agent_plans_on_agent_session_id"
+    t.index ["conversation_id"], name: "index_agent_plans_on_conversation_id", unique: true
+    t.index ["household_id"], name: "index_agent_plans_on_household_id"
+    t.index ["person_id"], name: "index_agent_plans_on_person_id"
+  end
+
   create_table "agent_profiles", force: :cascade do |t|
     t.json "arguments", default: [], null: false
     t.datetime "created_at", null: false
@@ -376,10 +415,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.datetime "completed_at"
     t.integer "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.string "display_title"
     t.string "external_id"
     t.integer "household_id", null: false
     t.text "input_body"
     t.string "input_digest", null: false
+    t.string "kind"
     t.text "output_body"
     t.string "output_digest"
     t.integer "output_tokens"
@@ -388,9 +429,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.datetime "redacted_at"
     t.integer "redacted_by_id"
     t.text "redaction_reason"
+    t.string "source", default: "mcp", null: false
     t.datetime "started_at"
     t.string "status", default: "pending", null: false
-    t.string "tool_name", null: false
+    t.string "tool_name"
     t.datetime "updated_at", null: false
     t.index ["agent_session_id", "external_id"], name: "index_agent_tool_activities_on_session_and_external_id", unique: true, where: "external_id IS NOT NULL"
     t.index ["agent_session_id"], name: "index_agent_tool_activities_on_agent_session_id"
@@ -400,8 +442,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
     t.index ["person_id"], name: "index_agent_tool_activities_on_person_id"
     t.index ["redacted_by_id"], name: "index_agent_tool_activities_on_redacted_by_id"
     t.check_constraint "(input_body IS NOT NULL AND redacted_at IS NULL) OR (input_body IS NULL AND redacted_at IS NOT NULL)", name: "agent_tool_activities_redaction_state"
+    t.check_constraint "(source = 'mcp' AND tool_name IS NOT NULL) OR (source = 'acp' AND display_title IS NOT NULL AND kind IS NOT NULL)", name: "agent_tool_activities_source_shape"
     t.check_constraint "output_tokens IS NULL OR output_tokens >= 0", name: "agent_tool_activities_nonnegative_output_tokens"
+    t.check_constraint "source IN ('mcp', 'acp')", name: "agent_tool_activities_source"
     t.check_constraint "status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')", name: "agent_tool_activities_status"
+  end
+
+  create_table "agent_turns", force: :cascade do |t|
+    t.integer "agent_session_id"
+    t.integer "browser_session_id", null: false
+    t.datetime "cancel_requested_at"
+    t.datetime "cancel_sent_at"
+    t.datetime "claimed_at"
+    t.string "claimed_by"
+    t.datetime "completed_at"
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "dispatched_at"
+    t.string "error_message"
+    t.datetime "heartbeat_at"
+    t.integer "household_id", null: false
+    t.string "idempotency_key", null: false
+    t.datetime "lease_expires_at"
+    t.integer "person_id", null: false
+    t.string "status", default: "pending", null: false
+    t.string "stop_reason"
+    t.datetime "updated_at", null: false
+    t.integer "user_message_id", null: false
+    t.index ["agent_session_id"], name: "index_agent_turns_on_agent_session_id"
+    t.index ["browser_session_id", "idempotency_key"], name: "index_agent_turns_on_browser_session_id_and_idempotency_key", unique: true
+    t.index ["browser_session_id"], name: "index_agent_turns_on_browser_session_id"
+    t.index ["conversation_id", "created_at"], name: "index_agent_turns_on_conversation_id_and_created_at"
+    t.index ["conversation_id"], name: "index_agent_turns_on_conversation_id"
+    t.index ["household_id"], name: "index_agent_turns_on_household_id"
+    t.index ["person_id"], name: "index_agent_turns_on_person_id"
+    t.index ["status", "lease_expires_at"], name: "index_agent_turns_on_status_and_lease_expires_at"
+    t.index ["user_message_id"], name: "index_agent_turns_on_user_message_id"
+    t.check_constraint "status IN ('pending', 'claimed', 'running', 'succeeded', 'failed', 'cancelled')", name: "agent_turns_status"
   end
 
   create_table "exercise_prescriptions", force: :cascade do |t|
@@ -1012,6 +1089,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
   add_foreign_key "agent_audit_events", "households"
   add_foreign_key "agent_audit_events", "people"
   add_foreign_key "agent_audit_events", "users", column: "actor_id"
+  add_foreign_key "agent_citations", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_citations", "agent_messages", column: "message_id"
+  add_foreign_key "agent_citations", "agent_sessions"
+  add_foreign_key "agent_citations", "households"
+  add_foreign_key "agent_citations", "people"
   add_foreign_key "agent_conversations", "agent_profiles", column: "profile_id"
   add_foreign_key "agent_conversations", "households"
   add_foreign_key "agent_conversations", "people"
@@ -1057,6 +1139,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
   add_foreign_key "agent_permission_requests", "households"
   add_foreign_key "agent_permission_requests", "people"
   add_foreign_key "agent_permission_requests", "users", column: "redacted_by_id"
+  add_foreign_key "agent_plans", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_plans", "agent_sessions"
+  add_foreign_key "agent_plans", "households"
+  add_foreign_key "agent_plans", "people"
   add_foreign_key "agent_profiles", "households"
   add_foreign_key "agent_sessions", "agent_conversations", column: "conversation_id"
   add_foreign_key "agent_sessions", "agent_installations", column: "installation_id"
@@ -1068,6 +1154,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
   add_foreign_key "agent_tool_activities", "households"
   add_foreign_key "agent_tool_activities", "people"
   add_foreign_key "agent_tool_activities", "users", column: "redacted_by_id"
+  add_foreign_key "agent_turns", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_turns", "agent_messages", column: "user_message_id"
+  add_foreign_key "agent_turns", "agent_sessions"
+  add_foreign_key "agent_turns", "households"
+  add_foreign_key "agent_turns", "people"
+  add_foreign_key "agent_turns", "sessions", column: "browser_session_id", on_delete: :cascade
   add_foreign_key "exercise_prescriptions", "exercises", on_delete: :restrict
   add_foreign_key "exercise_prescriptions", "workout_blocks"
   add_foreign_key "exercises", "households"

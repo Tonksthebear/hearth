@@ -152,7 +152,34 @@ loop do
     prompt_id = message["id"]
     prompt = message.dig("params", "prompt")
     abort "unsupported attachment was written" if mode == "no_attachments" && prompt.any? { |block| %w[image resource].include?(block["type"]) }
-    if mode == "permission_flood"
+    if mode == "chat_stream"
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", messageId: "live-message", content: { type: "text", text: "**Recorded fact:** " }, _meta: { hearth: { sourceKind: "hearth_fact" } } }
+      })
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "tool_call", toolCallId: "live-tool", title: "Review weekly records", kind: "search", status: "in_progress", rawInput: { private: "digest-only" } }
+      })
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "plan", entries: [ { content: "Review the week", status: "completed" }, { content: "Suggest next steps", status: "pending" } ] }
+      })
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "citation", id: "live-citation", title: "Hearth weekly record", sourceKind: "hearth_fact" }
+      })
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", messageId: "live-message", content: { type: "text", text: "streamed safely." }, _meta: { hearth: { sourceKind: "hearth_fact" } } }
+      })
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "tool_call_update", toolCallId: "live-tool", status: "completed", rawOutput: { result: "redacted" } }
+      })
+      write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
+      prompt_id = nil
+    elsif mode == "permission_flood"
       6.times do |index|
         write.call(jsonrpc: "2.0", id: 900 + index, method: "session/request_permission", params: {
           sessionId: session_id,
@@ -170,6 +197,9 @@ loop do
         update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "started" } }
       })
     else
+      while ENV["FAKE_PERMISSION_RELEASE_FILE"] && !File.exist?(ENV["FAKE_PERMISSION_RELEASE_FILE"])
+        sleep 0.02
+      end
       tool_call = { toolCallId: "fake-tool" }
       if mode == "permission_allow"
         tool_call[:title] = ENV.fetch("FAKE_PERMISSION_OPERATION")

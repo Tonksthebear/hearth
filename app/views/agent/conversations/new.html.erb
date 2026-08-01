@@ -1,0 +1,28 @@
+<% content_for :title, "New coach conversation · Hearth" %>
+
+<div class="mx-auto max-w-2xl">
+  <%= link_to "Back to conversations", agent_conversations_path, class: "text-sm font-semibold text-primary-700 hover:underline dark:text-primary-400" %>
+  <h1 class="mt-4 text-3xl font-bold tracking-tight">Start a conversation</h1>
+  <p class="mt-2 text-sm/6 text-gray-600 dark:text-gray-400">Choose an enabled household agent. Authentication choices are reported by the agent, not hard-coded by Hearth.</p>
+
+  <%= form_with model: @conversation, url: agent_conversations_path, class: "mt-8 space-y-6" do |form| %>
+    <% if @conversation.errors.any? %>
+      <%= render "layouts/alert", id: "conversation-errors", title: "The conversation could not be created:", messages: @conversation.errors.full_messages %>
+    <% end %>
+    <div>
+      <%= form.label :profile_id, "Agent", class: :label %>
+      <div class="mt-2"><%= form.select :profile_id, @profiles.map { |profile| [ profile.name, profile.id ] }, {}, class: :select, required: true %></div>
+      <% @profiles.each do |profile| %>
+        <% installation = profile.installations.max_by(&:last_seen_at) %>
+        <% if installation&.authentication_status == "required" %>
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400"><%= profile.name %> requires authentication. Available methods: <%= installation.authentication_methods.filter_map { |method| method["name"].presence }.to_sentence.presence || "reported by the agent at connection time" %>.</p>
+        <% end %>
+      <% end %>
+    </div>
+    <div>
+      <%= form.label :title, "Conversation title", class: :label %>
+      <div class="mt-2"><%= form.text_field :title, class: :text_field, placeholder: "Optional" %></div>
+    </div>
+    <%= form.submit "Create conversation", class: { btn: [ :base, { md: :base }, { primary: :solid } ] } %>
+  <% end %>
+</div>

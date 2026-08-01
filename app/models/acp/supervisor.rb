@@ -8,6 +8,7 @@ module Acp
     class ProfileDisabled < Error; end
 
     DEFAULT_BACKOFFS = [ 0.25, 1, 4 ].freeze
+    PERMISSION_RECONCILIATION_INTERVAL = 0.1
 
     attr_reader :recovery_methods, :runtime_directory, :session_list_observations
 
@@ -249,9 +250,16 @@ module Acp
         ActionCable.server.pubsub.subscribe(proposal.permission_channel, callback, -> { subscribed.push(true) })
         remaining = [ deadline - Time.current, 0 ].max
         subscribed.pop(timeout: [ remaining, 2 ].min) if remaining.positive?
-        proposal.reload
-        decision.pop(timeout: [ deadline - Time.current, 0 ].max) if proposal.status == "pending" && deadline > Time.current
-        proposal.reload.expire_if_needed!
+        loop do
+          proposal.reload
+          break unless proposal.status == "pending"
+
+          remaining = deadline - Time.current
+          break unless remaining.positive?
+
+          decision.pop(timeout: [ remaining, PERMISSION_RECONCILIATION_INTERVAL ].min)
+        end
+        proposal.reload.expire_if_needed! if proposal.status == "pending"
       ensure
         ActionCable.server.pubsub.unsubscribe(proposal.permission_channel, callback) if callback
       end

@@ -1,7 +1,7 @@
 require "test_helper"
 
 class NavigationRenderTest < ActionDispatch::IntegrationTest
-  test "shared shell exposes exactly three primary destinations and relocates administration" do
+  test "shared shell exposes the four primary destinations and relocates administration" do
     sign_in_as users(:one)
 
     get root_path
@@ -9,12 +9,13 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "nav[aria-label='Household and person context']", count: 2 do |navigations|
       navigations.each do |navigation|
-        assert_select navigation, "> ul > li:first-child a", count: 3
+        assert_select navigation, "> ul > li:first-child a", count: 4
       end
     end
     assert_select "nav[aria-label='Household and person context'] a", text: "Today"
     assert_select "nav[aria-label='Household and person context'] a", text: "Meals"
     assert_select "nav[aria-label='Household and person context'] a", text: "Activities"
+    assert_select "nav[aria-label='Household and person context'] a", text: "Coach"
     %w[Manage\ people Recipes Shopping Exercises Workout\ templates Recovery].each do |label|
       assert_select "nav[aria-label='Household and person context'] a", text: label, count: 0
     end

@@ -66,13 +66,22 @@ incompatible contract remain distinct bounded results. Inbox status polling is l
 to once per second; normal Lorester reconciliation and processing may take longer.
 
 The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
-not start the ACP runtime. Against an initialized installation, start or recover
-a persisted conversation/session explicitly:
+not start the ACP runtime. Development uses separate primary, cache, queue, and
+cable SQLite files, and Solid Cable carries committed chat projections between
+the web and runtime processes. Run the web process and durable turn consumer in
+two terminals, using an explicit initialized instance root:
 
 ```bash
-bin/hearth-acp-runtime --root /path/to/hearth-instance --conversation CONVERSATION_ID
-bin/hearth-acp-runtime --root /path/to/hearth-instance --session AGENT_SESSION_ID
+bin/dev
+RAILS_ENV=development bin/hearth-acp-runtime --root /path/to/initialized/hearth-instance
 ```
+
+The Coach form only commits a user message and pending `Agent::Turn`; it never
+starts an ACP process in Puma. If a turn remains Pending, confirm the second
+terminal is running, the selected profile is enabled, and the root contains
+`.hearth/instance.yml`. Do not point multiple database roles at one shared URL.
+The runtime polls the database as its authority, so a missed notification cannot
+lose queued work.
 
 Agent executable, argv, contained working directory, environment-name allowlist,
 and manual update policy live on `Agent::Profile`. Session transport and recovery
@@ -132,6 +141,13 @@ before it is committed:
 After a refresh, review those files rather than accepting the export
 wholesale, regenerate the theme with the command above, run
 `bin/rails tailwindcss:build`, and run `bin/ci`.
+
+The production-shaped chat acceptance uses isolated temporary primary and cable
+databases, real Chrome/Puma, Solid Cable, and a real sibling ACP runtime:
+
+```bash
+bin/agent-chat-acceptance
+```
 
 For setup-first, `bin/setup` prepares the database and starts `bin/dev`. Open [http://localhost:3000](http://localhost:3000) and complete household setup.
 

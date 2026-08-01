@@ -19,7 +19,8 @@ class ApplicationController < ActionController::Base
       @primary_navigation = [
         { label: "Today", path: root_path, icon_name: "home", active: primary_navigation_area == :today },
         { label: "Meals", path: meal_week_path, icon_name: "calendar-days", active: primary_navigation_area == :meals },
-        { label: "Activities", path: activity_week_path, icon_name: "bolt", active: primary_navigation_area == :activities }
+        { label: "Activities", path: activity_week_path, icon_name: "bolt", active: primary_navigation_area == :activities },
+        { label: "Coach", path: agent_conversations_path, icon_name: "clipboard-document-list", active: primary_navigation_area == :coach }
       ].freeze
       @secondary_navigation = secondary_navigation_items
       prepare_agent_operations
@@ -36,6 +37,7 @@ class ApplicationController < ActionController::Base
         recovery_days habit_check_ins habits person_habits workout_templates exercises
       ].include?(controller_path)
       return :today if controller_path == "todays"
+      return :coach if controller_path.start_with?("agent/conversations", "agent/turns", "agent/turn/cancellations")
 
       nil
     end
