@@ -79,8 +79,12 @@ class Hearth::InstanceTest < ActiveSupport::TestCase
 
   test "source checkout ignores instance secrets and databases" do
     ignore = Rails.root.join(".gitignore").read
+    nested_secret = Rails.root.join("hearth-home/.hearth/secret_key_base")
+    _output, _error, status = Open3.capture3("git", "check-ignore", "-q", "--", nested_secret.to_s,
+      chdir: Rails.root)
 
-    assert_includes ignore.lines.map(&:strip), "/.hearth/"
+    assert_includes ignore.lines.map(&:strip), ".hearth/"
+    assert_predicate status, :success?, "nested instance secrets must be ignored"
   end
 
   test "backup rejects symlinks and restore rejects traversal entries" do

@@ -33,7 +33,7 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
-/.hearth/
+.hearth/
 
 /app/assets/builds/*
 !/app/assets/builds/.keep

@@ -345,7 +345,17 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       installation = insert(connection, :agent_installations,
         household_id: household,
         profile_id: profile,
-        external_id: "installation",
+        external_id: "profile-#{profile}",
+        executable_path: "/usr/bin/true",
+        protocol_version: 1,
+        advertised_capabilities: "{}",
+        authentication_methods: "[]",
+        created_at: now,
+        updated_at: now)
+      duplicate_installation = insert(connection, :agent_installations,
+        household_id: household,
+        profile_id: profile,
+        external_id: "migration-agent",
         executable_path: "/usr/bin/true",
         protocol_version: 1,
         advertised_capabilities: "{}",
@@ -363,7 +373,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
         household_id: household,
         person_id: person,
         conversation_id: conversation,
-        installation_id: installation,
+        installation_id: duplicate_installation,
         external_session_id: "external-session",
         advertised_capabilities: "{}",
         created_at: now,
@@ -392,7 +402,8 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
         created_at: now,
         updated_at: now)
 
-      { profile: profile, installation: installation, session: agent_session, grant: grant, message: message }
+      { profile: profile, installation: installation, duplicate_installation: duplicate_installation,
+        session: agent_session, grant: grant, message: message }
     end
 
     def assert_agent_rows_survived(connection, ids)
@@ -401,6 +412,15 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       assert_equal ids[:message], connection.select_value("SELECT id FROM agent_messages WHERE agent_session_id = #{ids[:session]}")
       assert_equal "profile-#{ids[:profile]}", connection.select_value(
         "SELECT external_id FROM agent_installations WHERE id = #{ids[:installation]}"
+      )
+      assert_nil connection.select_value(
+        "SELECT id FROM agent_installations WHERE id = #{ids[:duplicate_installation]}"
+      )
+      assert_equal ids[:installation], connection.select_value(
+        "SELECT installation_id FROM agent_sessions WHERE id = #{ids[:session]}"
+      )
+      assert_equal 1, connection.select_value(
+        "SELECT COUNT(*) FROM agent_installations WHERE profile_id = #{ids[:profile]}"
       )
     end
 

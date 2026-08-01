@@ -30,8 +30,8 @@ class HearthLauncherTest < ActiveSupport::TestCase
           pgroup: true, out: File::NULL, err: File::NULL
         )
         wait_for_http(port)
-        pids = [ launcher, instance.launcher_path.join("puma.pid").read.to_i,
-          instance.acp_pid_path.read.to_i ].uniq
+        pids = [ launcher, wait_for_pid(instance.launcher_path.join("puma.pid")),
+          wait_for_pid(instance.acp_pid_path) ].uniq
         response = Net::HTTP.get_response(URI("http://127.0.0.1:#{port}/up"))
         assert_equal "200", response.code
         Process.kill("TERM", -launcher)
@@ -80,6 +80,20 @@ class HearthLauncherTest < ActiveSupport::TestCase
         return if response.is_a?(Net::HTTPSuccess)
       rescue Errno::ECONNREFUSED, Errno::ECONNRESET, EOFError
         raise "Hearth did not become ready" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        sleep 0.1
+      end
+    end
+
+    def wait_for_pid(path, timeout: 20)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+      loop do
+        pid = path.read.to_i
+        return pid if pid.positive?
+
+        raise "Hearth did not write #{path}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        sleep 0.1
+      rescue Errno::ENOENT
+        raise "Hearth did not write #{path}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
         sleep 0.1
       end
     end
