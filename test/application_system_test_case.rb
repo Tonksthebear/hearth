@@ -9,6 +9,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   end
   driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ] do |options|
     options.binary = chrome_headless_shell
+    options.add_argument("--no-sandbox") if ENV["CI"]
   end
 
   private
