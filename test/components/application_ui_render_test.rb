@@ -151,6 +151,26 @@ class ApplicationUiRenderTest < ActiveSupport::TestCase
     assert_nil alert.at_css("script")
   end
 
+
+  test "nutrition badge stats and table keys resolve through yass in raw ERB" do
+    document = render_inline(<<~ERB)
+      <span class="<%= yass(nutrition_badge: [ :base, :sm, :incomplete ]) %>">
+        <span class="<%= yass(nutrition_badge_dot: [ :base, :incomplete ]) %>"></span>
+        Incomplete
+      </span>
+      <dl class="<%= yass(nutrition_stats: :container) %>">
+        <div class="<%= yass(nutrition_stats: :item) %>"><dt class="<%= yass(nutrition_stats: :label) %>">Protein</dt><dd class="<%= yass(nutrition_stats: :value) %>">6.18 g</dd></div>
+      </dl>
+      <table class="<%= yass(nutrition_table: :table) %>"><thead class="<%= yass(nutrition_table: :head) %>"><tr><th class="<%= yass(nutrition_table: :heading) %>">Nutrient</th></tr></thead><tbody><tr class="<%= yass(nutrition_table: :row) %>"><td class="<%= yass(nutrition_table: :value) %>">6.18 g</td></tr></tbody></table>
+    ERB
+
+    assert document.at_css("span.bg-warning-100.px-2")
+    assert document.at_css("span.bg-warning-500.rounded-full")
+    assert document.at_css("dl.grid.bg-white.dark\\:bg-gray-800\\/75")
+    assert document.at_css("table.min-w-full thead.border-gray-300")
+    assert document.at_css("tbody tr.border-gray-200 td.text-right")
+  end
+
   private
     def render_inline(template, assigns = {})
       html = ApplicationController.render(

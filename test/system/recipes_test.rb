@@ -122,6 +122,26 @@ class RecipesTest < ApplicationSystemTestCase
     assert_not ActiveStorage::Blob.exists?(staged_replacement_blob.id)
   end
 
+  test "edits manual ingredient nutrition while preserving known zero" do
+    sign_in_via_browser users(:one)
+    visit recipes_path
+    click_link_and_wait_for_path "Ingredient nutrition", ingredients_path
+
+    find("tr", text: ingredients(:lettuce).name).find_link("Edit").click
+    assert_current_path edit_ingredient_path(ingredients(:lettuce)), wait: 5
+    assert_no_selector "html[aria-busy='true']"
+    fill_in_and_wait_for_value "Protein (g)", "10.5"
+    fill_in_and_wait_for_value "Energy (kcal)", "0"
+    select_element_and_wait "Provenance", "Personal"
+    fill_in_and_wait_for_value "Source name", ""
+    click_button_and_wait_for_path "Save nutrition", ingredients_path
+
+    within "tr", text: ingredients(:lettuce).name do
+      assert_text "10.5 g"
+      assert_text "0 kcal"
+    end
+  end
+
   private
     def create_ingredient_option_and_wait(value, index: 0)
       label = all("label", text: "Ingredient", exact_text: true)[index]

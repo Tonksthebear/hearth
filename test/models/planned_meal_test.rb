@@ -57,6 +57,9 @@ class PlannedMealTest < ActiveSupport::TestCase
     assert_equal plan.planned_on, sam_meal.eaten_on
     assert_equal [ people(:one).id, people(:two).id ].sort, plan.meals.reload.map(&:person_id).sort
     assert_equal alex_meal.id, plan.convert_for!(people(:one), today: Date.new(2026, 7, 31)).id
+    assert_nil alex_meal.meal_items.first.portion_amount
+    assert_equal "incomplete — portion needed", alex_meal.meal_items.first.nutrition_status
+    assert_empty alex_meal.meal_items.first.meal_item_nutrient_values
 
     alex_meal.update!(notes: "Alex changed this meal")
     assert_nil sam_meal.reload.notes

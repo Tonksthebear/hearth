@@ -377,3 +377,33 @@ alert:
     warning: "bg-warning-50 text-warning-500 hover:bg-warning-100 focus-visible:ring-warning-600 focus-visible:ring-offset-warning-50 dark:text-warning-400 dark:hover:bg-warning-500/10 dark:focus-visible:ring-warning-500 dark:focus-visible:ring-offset-warning-900"
     danger: "bg-danger-50 text-danger-500 hover:bg-danger-100 focus-visible:ring-danger-600 focus-visible:ring-offset-danger-50 dark:text-danger-400 dark:hover:bg-danger-500/10 dark:focus-visible:ring-danger-500 dark:focus-visible:ring-offset-danger-900"
     info: "bg-primary-50 text-primary-500 hover:bg-primary-100 focus-visible:ring-primary-600 focus-visible:ring-offset-primary-50 dark:text-primary-400 dark:hover:bg-primary-500/10 dark:focus-visible:ring-primary-500 dark:focus-visible:ring-offset-primary-900"
+
+nutrition_badge:
+  base: "inline-flex items-center gap-x-1.5 rounded-md font-medium"
+  sm: "px-2 py-1 text-xs"
+  md: "px-2.5 py-1 text-sm"
+  complete: "bg-success-100 text-success-700 dark:bg-success-400/10 dark:text-success-400"
+  estimated: "bg-primary-100 text-primary-700 dark:bg-primary-400/10 dark:text-primary-400"
+  incomplete: "bg-warning-100 text-warning-800 dark:bg-warning-400/10 dark:text-warning-400"
+  unavailable: "bg-gray-100 text-gray-600 dark:bg-gray-400/10 dark:text-gray-400"
+
+nutrition_badge_dot:
+  base: "size-1.5 rounded-full"
+  complete: "bg-success-500 dark:bg-success-400"
+  estimated: "bg-primary-500 dark:bg-primary-400"
+  incomplete: "bg-warning-500 dark:bg-warning-400"
+  unavailable: "bg-gray-400"
+
+nutrition_stats:
+  container: "grid grid-cols-2 divide-x divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm sm:grid-cols-3 lg:grid-cols-6 dark:divide-white/10 dark:bg-gray-800/75 dark:shadow-none dark:inset-ring dark:inset-ring-white/10"
+  item: "px-4 py-5 sm:p-6"
+  label: "text-sm font-normal text-gray-700 dark:text-gray-300"
+  value: "mt-1 text-2xl font-semibold text-primary-700 dark:text-primary-400"
+
+nutrition_table:
+  table: "min-w-full"
+  head: "border-b border-gray-300 text-gray-900 dark:border-white/15 dark:text-white"
+  heading: "py-3.5 px-3 text-left text-sm font-semibold text-gray-900 first:pl-0 last:text-right dark:text-white"
+  row: "border-b border-gray-200 dark:border-white/10"
+  label: "py-5 pr-3 text-left text-sm font-medium text-gray-900 dark:text-white"
+  value: "px-3 py-5 text-right text-sm text-gray-500 dark:text-gray-400"

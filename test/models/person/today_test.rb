@@ -38,4 +38,12 @@ class Person::TodayTest < ActiveSupport::TestCase
       end
     end
   end
+
+
+  test "prepares concise selected-person nutrition from snapshots" do
+    today = Person::Today.new(household: households(:home), person: people(:one), date: Date.new(2026, 7, 27))
+
+    assert_equal "estimated", today.nutrition_summary.status
+    assert_equal BigDecimal("9.2625"), today.nutrition_summary.totals.find { |total| total.key == "protein" }.amount
+  end
 end

@@ -84,6 +84,23 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "p", text: /does not provide medical advice/i
   end
 
+
+  test "recipe forms capture servings grams and explicit facts while show labels data quality" do
+    sign_in_as users(:one)
+
+    get edit_recipe_path(recipes(:salad))
+    assert_response :success
+    assert_select "input[name='recipe[serving_count]'][value='2.0']"
+    assert_select "input[name*='recipe_ingredients_attributes'][name$='[gram_weight]'][value='125.0']"
+    assert_select "input[name*='recipe_nutrient_values_attributes'][name$='[amount]']", count: 6
+
+    get recipe_path(recipes(:salad))
+    assert_response :success
+    assert_select "#recipe-nutrition-heading", text: "Nutrition per serving"
+    assert_select "table[data-nutrition-table]", text: /Protein.*complete estimate.*6\.18 g/m
+    assert_select "table[data-nutrition-table]", text: /Energy.*complete estimate.*0 kcal/m
+  end
+
   test "recipe feedback history links to another household person's readable meal" do
     sign_in_as users(:one)
     item = meal_items(:sam_soup)

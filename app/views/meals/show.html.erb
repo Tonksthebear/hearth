@@ -30,6 +30,14 @@
     </div>
   </section>
 
+  <div class="mt-10">
+    <%= render "shared/nutrition_summary",
+      summary: @meal.nutrition_summary,
+      id: "meal-nutrition-heading",
+      title: "Nutrition snapshot",
+      description: "These values were frozen when this meal item source or portion was saved." %>
+  </div>
+
   <section aria-labelledby="meal-items-heading" class="mt-10">
     <h2 id="meal-items-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Items eaten</h2>
     <ul role="list" class="mt-4 divide-y divide-gray-100 overflow-hidden rounded-lg bg-white shadow-sm outline-1 outline-gray-900/5 dark:divide-white/5 dark:bg-gray-800/50 dark:shadow-none dark:-outline-offset-1 dark:outline-white/10">
@@ -39,6 +47,8 @@
             <div>
               <p class="font-semibold text-gray-900 dark:text-white"><%= item.recipe ? link_to(item.snapshot_label, item.recipe, class: "text-primary-800 underline dark:text-primary-300") : item.snapshot_label %></p>
               <p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400"><%= item.source_kind.humanize %><%= " · #{item.portion}" if item.portion.present? %></p>
+              <% tone = item.nutrition_status.start_with?("complete") ? :complete : (item.nutrition_status == "estimated" ? :estimated : (item.nutrition_status.start_with?("incomplete") ? :incomplete : :unavailable)) %>
+              <span class="mt-2 <%= yass(nutrition_badge: [ :base, :sm, tone ]) %>"><span aria-hidden="true" class="<%= yass(nutrition_badge_dot: [ :base, tone ]) %>"></span><span class="sr-only">Nutrition status:</span> <%= item.nutrition_status %></span>
             </div>
             <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 inset-ring inset-ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-300 dark:inset-ring-gray-400/20">Item <%= item.position %></span>
           </div>

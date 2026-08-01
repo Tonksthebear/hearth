@@ -44,7 +44,7 @@ class MealWeek
   def meals
     @meals ||= person.meals
       .during(date_range)
-      .includes(meal_items: [ :recipe, :ingredient ])
+      .includes(meal_items: [ :recipe, :ingredient, :meal_item_nutrient_values ])
       .order(:eaten_on, :created_at)
   end
 
@@ -54,6 +54,14 @@ class MealWeek
 
   def meals_for(day)
     meals_by_date[day] || []
+  end
+
+  def nutrition_for(day)
+    Meal::NutritionSummary.new(meals_for(day))
+  end
+
+  def nutrition_summary
+    @nutrition_summary ||= Meal::NutritionSummary.new(meals)
   end
 
   def converted_meal_for(planned_meal)

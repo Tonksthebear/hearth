@@ -1,4 +1,6 @@
 # Demo data is opt-in so a normal production boot remains on the first-run setup path.
+Nutrient.ensure_defaults!
+
 if ENV["HEARTH_DEMO_DATA"] == "1"
   demo_email = "demo@hearth.local"
   demo_password = ENV["HEARTH_DEMO_PASSWORD"]
@@ -43,6 +45,7 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
       oats.assign_attributes(
         description: "A simple make-ahead breakfast with fruit and seeds.",
         yield: "2 servings",
+        serving_count: 2,
         source_name: "Hearth demo kitchen",
         provenance_status: "observed"
       )
@@ -57,11 +60,25 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         { position: 2, body: "Fold in the apple, cinnamon, and chia seeds.", ingredient_reference_keys: %w[apple chia] }
       ] if oats.new_record?
       oats.save!
+      oats.recipe_ingredients.find_by!(display_name: "rolled oats").update!(gram_weight: 80)
+      oats.recipe_ingredients.find_by!(display_name: "water").update!(gram_weight: 480)
+      oats.recipe_ingredients.find_by!(display_name: "apple").update!(gram_weight: 180)
+      oats.recipe_ingredients.find_by!(display_name: "chia seeds").update!(gram_weight: 12)
+
+      oats_ingredient = household.ingredients.find_by!(normalized_name: "rolled oats")
+      oats_ingredient.update!(nutrition_provenance_status: :observed, nutrition_source_name: "Hearth demo kitchen")
+      {
+        "energy" => 379, "protein" => 13.15, "carbohydrates" => 67.7,
+        "fat" => 6.52, "fiber" => 10.1, "sodium" => 6
+      }.each do |key, amount|
+        oats_ingredient.ingredient_nutrient_values.find_or_initialize_by(nutrient: Nutrient.find_by!(key:)).update!(amount_per_100_grams: amount)
+      end
 
       bowl = household.recipes.find_or_initialize_by(title: "Roasted vegetable grain bowl")
       bowl.assign_attributes(
         description: "A flexible grain bowl for a shared weeknight meal.",
         yield: "4 servings",
+        serving_count: 4,
         source_name: "Hearth demo kitchen",
         provenance_status: "observed"
       )

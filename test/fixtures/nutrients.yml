@@ -1,0 +1,41 @@
+energy:
+  key: energy
+  name: Energy
+  unit: kcal
+  category: energy
+  display_order: 1
+
+protein:
+  key: protein
+  name: Protein
+  unit: g
+  category: macronutrient
+  display_order: 2
+
+carbohydrates:
+  key: carbohydrates
+  name: Carbohydrates
+  unit: g
+  category: macronutrient
+  display_order: 3
+
+fat:
+  key: fat
+  name: Fat
+  unit: g
+  category: macronutrient
+  display_order: 4
+
+fiber:
+  key: fiber
+  name: Fiber
+  unit: g
+  category: macronutrient
+  display_order: 5
+
+sodium:
+  key: sodium
+  name: Sodium
+  unit: mg
+  category: mineral
+  display_order: 6

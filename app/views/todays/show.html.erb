@@ -16,6 +16,14 @@
   </div>
 </div>
 
+<div class="mt-10">
+  <%= render "shared/nutrition_summary",
+    summary: @today.nutrition_summary,
+    id: "today-nutrition-heading",
+    title: "Known nutrition today",
+    description: "Concise context from logged meal snapshots; this is tracking information, not medical advice." %>
+</div>
+
 <div class="mt-10 space-y-10">
   <% @today.sections.each do |section| %>
     <section aria-labelledby="today-<%= section.key %>-heading">

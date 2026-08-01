@@ -1,0 +1,37 @@
+<% content_for :title, "Ingredient nutrition · Hearth" %>
+<%= render "layouts/meals_navigation" %>
+
+<section aria-labelledby="ingredients-heading">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
+      <h1 id="ingredients-heading" class="mt-2 text-3xl font-semibold tracking-tight">Ingredient nutrition</h1>
+      <p class="mt-2 max-w-2xl text-gray-600 dark:text-gray-400">Record known values per 100 grams. A blank value is missing; zero is a known zero.</p>
+    </div>
+    <%= link_to "Back to recipes", recipes_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+  </div>
+
+  <div class="mt-8 flow-root overflow-x-auto">
+    <table class="<%= yass(nutrition_table: :table) %>" data-nutrition-table>
+      <thead class="<%= yass(nutrition_table: :head) %>">
+        <tr>
+          <th scope="col" class="<%= yass(nutrition_table: :heading) %>">Ingredient</th>
+          <% @nutrients.each do |nutrient| %><th scope="col" class="<%= yass(nutrition_table: :heading) %>"><%= nutrient.name %></th><% end %>
+          <th scope="col" class="py-3.5 pl-3"><span class="sr-only">Edit</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @ingredients.each do |ingredient| %>
+          <% values = ingredient.ingredient_nutrient_values.index_by(&:nutrient_id) %>
+          <tr class="<%= yass(nutrition_table: :row) %>">
+            <th scope="row" class="<%= yass(nutrition_table: :label) %>"><%= ingredient.name %></th>
+            <% @nutrients.each do |nutrient| %>
+              <td class="<%= yass(nutrition_table: :value) %>"><%= Nutrient.format_amount(values[nutrient.id]&.amount_per_100_grams, unit: nutrient.unit) %></td>
+            <% end %>
+            <td class="py-5 pl-3 text-right text-sm"><%= link_to "Edit", edit_ingredient_path(ingredient), class: "font-semibold text-primary-700 underline dark:text-primary-300" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>

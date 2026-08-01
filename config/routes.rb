@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   resources :passwords, param: :token, only: %i[ new create edit update ]
   resources :people, only: %i[ index show new create edit update ]
   resources :recipes, only: %i[ index show new create edit update ]
+  resources :ingredients, only: %i[ index edit update ]
   resources :exercises, except: :destroy
   resources :workout_templates, except: :destroy
   resources :training_sessions, only: %i[ new create show edit update destroy ]

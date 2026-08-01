@@ -1,0 +1,29 @@
+lettuce_energy:
+  ingredient: lettuce
+  nutrient: energy
+  amount_per_100_grams: 0
+
+lettuce_protein:
+  ingredient: lettuce
+  nutrient: protein
+  amount_per_100_grams: 9.88
+
+lettuce_carbohydrates:
+  ingredient: lettuce
+  nutrient: carbohydrates
+  amount_per_100_grams: 0
+
+lettuce_fat:
+  ingredient: lettuce
+  nutrient: fat
+  amount_per_100_grams: 0
+
+lettuce_fiber:
+  ingredient: lettuce
+  nutrient: fiber
+  amount_per_100_grams: 0
+
+lettuce_sodium:
+  ingredient: lettuce
+  nutrient: sodium
+  amount_per_100_grams: 0

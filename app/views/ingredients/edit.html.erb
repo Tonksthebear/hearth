@@ -1,0 +1,8 @@
+<% content_for :title, "Nutrition for #{@ingredient.name} · Hearth" %>
+<%= render "layouts/meals_navigation" %>
+
+<section aria-labelledby="ingredient-heading" class="mx-auto max-w-3xl">
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Ingredient nutrition</p>
+  <h1 id="ingredient-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @ingredient.name %></h1>
+  <%= render "form", ingredient: @ingredient, nutrients: @nutrients %>
+</section>

@@ -19,7 +19,7 @@ class HearthMcp::SerializerTest < ActiveSupport::TestCase
 
 
   test "meal serializes scoped nested event data" do
-    meal = Meal.includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ]).find(meals(:alex_recipe_target_week).id)
+    meal = Meal.includes(meal_items: [ :recipe, :ingredient, :recipe_feedback, :meal_item_nutrient_values ]).find(meals(:alex_recipe_target_week).id)
 
     serialized = HearthMcp::Serializer.meal(meal)
 
@@ -28,5 +28,9 @@ class HearthMcp::SerializerTest < ActiveSupport::TestCase
     assert_equal "recipe", serialized.dig(:items, 0, :source_kind)
     assert_equal meal_items(:alex_salad).snapshot_label, serialized.dig(:items, 0, :snapshot_label)
     assert_equal recipe_feedbacks(:alex_salad_feedback).body, serialized.dig(:items, 0, :recipe_feedback, :body)
+    assert_equal true, serialized.dig(:items, 0, :nutrition_complete)
+    protein = serialized.dig(:items, 0, :nutrition).find { |value| value[:key] == "protein" }
+    assert_equal "9.2625", protein[:amount]
+    assert_equal "estimated", protein[:calculation_kind]
   end
 end
