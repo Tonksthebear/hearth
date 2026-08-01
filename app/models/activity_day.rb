@@ -111,13 +111,20 @@ class ActivityDay
       return unless configuration.scheduled_on?(date)
 
       check_in = @habit_check_ins.find { |record| record.person_habit_id == configuration.id }
+      measured = configuration.habit.habit_metrics.any?
       Item.new(
-        kind: check_in ? :habit_check_in : (configuration.habit.habit_metrics.empty? ? :simple_habit : :measured_habit),
+        kind: check_in ? :habit_check_in : (measured ? :measured_habit : :simple_habit),
         record: check_in || configuration,
         title: configuration.habit.name,
-        description: check_in ? "Habit checked off" : configuration.habit.description,
+        description: habit_description(configuration, check_in:, measured:),
         status: check_in ? :checked : :planned,
         destination: nil
       )
+    end
+
+    def habit_description(configuration, check_in:, measured:)
+      return "Habit checked off" if check_in
+
+      configuration.habit.description.presence || (measured ? "Record a value for this habit" : "Daily habit")
     end
 end

@@ -93,6 +93,7 @@ class TodayNavigationTest < ApplicationSystemTestCase
 
     travel_to Time.zone.local(2026, 7, 30, 12) do
       person_habits(:alex_sauna).habit_check_ins.destroy_all
+      planned_workouts(:planned_balanced).update!(skipped_at: Time.current, skip_reason: "Recovery")
       sign_in_via_browser users(:one)
 
       assert_equal 390, page.evaluate_script("window.innerWidth")
@@ -102,7 +103,10 @@ class TodayNavigationTest < ApplicationSystemTestCase
       assert_no_text "Simple habit"
       assert_no_text "Measured habit"
       summary_card = find("[data-today-summary-fact='meals']")
+      attention_card = find("[data-today-summary-fact='attention'][data-tone='attention']")
       light_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", summary_card)
+      refute_equal page.evaluate_script("getComputedStyle(arguments[0]).boxShadow", summary_card),
+        page.evaluate_script("getComputedStyle(arguments[0]).boxShadow", attention_card)
 
       browser.execute_cdp(
         "Emulation.setEmulatedMedia",
@@ -119,6 +123,7 @@ class TodayNavigationTest < ApplicationSystemTestCase
       assert_current_path recovery_day_path, ignore_query: true, wait: 5
       assert_selector "##{target_id}:focus", wait: 5
       assert_equal target_id, page.evaluate_script("document.activeElement.id")
+      assert_equal "solid", page.evaluate_script("getComputedStyle(arguments[0]).outlineStyle", find("##{target_id}"))
       within "##{target_id}" do
         assert_button "Record today's check-in"
       end

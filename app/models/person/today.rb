@@ -107,7 +107,7 @@ class Person::Today
           key: :attention,
           title: "Plan status".freeze,
           value: (attention_reasons.empty? ? "No exceptions" : "#{attention_reasons.size} #{'item'.pluralize(attention_reasons.size)} to review").freeze,
-          description: (attention_reasons.empty? ? "Nothing in today's records needs attention." : attention_reasons.to_sentence.capitalize.concat(".")).freeze,
+          description: (attention_reasons.empty? ? "Nothing in today's records needs attention." : attention_reasons.to_sentence.capitalize + ".").freeze,
           tone: attention_reasons.empty? ? :clear : :attention
         )
       ].freeze

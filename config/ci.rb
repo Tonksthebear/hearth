@@ -59,7 +59,6 @@ production_database_assertion = <<~'RUBY'
   raise "Missing Active Storage tables: #{missing_tables.inspect}" if missing_tables.any?
   raise "Unexpected Active Storage service" unless Rails.application.config.active_storage.service == :local
   raise "Expected six reference nutrients" unless Nutrient.count == 6
-  raise "Demo household leaked into production prepare" if Household.exists? || User.exists?
   expected_storage_root = Rails.root.join("storage").to_s
   actual_storage_root = ActiveStorage::Blob.service.root.to_s
   raise "Active Storage root changed: #{actual_storage_root}" unless actual_storage_root == expected_storage_root
@@ -68,6 +67,7 @@ production_database_assertion = <<~'RUBY'
 RUBY
 active_storage_write_assertion = <<~'RUBY'
   payload = "hearth release gate cover bytes\n"
+  raise "Production database was not empty before the Active Storage check" if Household.exists? || User.exists?
   household = Household.create!(name: "Release gate household", installation_key: 1)
   recipe = household.recipes.create!(title: "Release gate recipe", provenance_status: :personal)
   recipe.cover.attach(
@@ -80,13 +80,18 @@ active_storage_write_assertion = <<~'RUBY'
 RUBY
 active_storage_read_assertion = <<~'RUBY'
   payload = "hearth release gate cover bytes\n"
-  recipe = Recipe.find_by!(title: "Release gate recipe")
-  raise "Recipe cover attachment was not persisted" unless recipe.cover.attached?
-  raise "Recipe cover bytes changed across processes" unless recipe.cover.download == payload
-  recipe.cover.purge
-  recipe.destroy!
-  recipe.household.destroy!
-  puts "Production Active Storage independent-process byte round-trip verified"
+  recipe = Recipe.find_by(title: "Release gate recipe")
+  household = recipe&.household
+  begin
+    raise "Release gate recipe was not persisted" unless recipe
+    raise "Recipe cover attachment was not persisted" unless recipe.cover.attached?
+    raise "Recipe cover bytes changed across processes" unless recipe.cover.download == payload
+    puts "Production Active Storage independent-process byte round-trip verified"
+  ensure
+    recipe&.cover&.purge
+    recipe&.destroy!
+    household&.destroy!
+  end
 RUBY
 
 CI.run do

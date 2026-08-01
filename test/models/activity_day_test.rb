@@ -31,6 +31,20 @@ class ActivityDayTest < ActiveSupport::TestCase
     end
   end
 
+  test "gives planned habits useful fallback descriptions" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      habits(:water).update!(description: nil)
+      habits(:sauna).update!(description: nil)
+      person_habits(:alex_water).habit_check_ins.delete_all
+      person_habits(:alex_sauna).habit_check_ins.destroy_all
+
+      items = ActivityDay.new(household: households(:home), person: people(:one), date: Date.current).up_next
+
+      assert_equal "Daily habit", items.find { |item| item.title == habits(:water).name }.description
+      assert_equal "Record a value for this habit", items.find { |item| item.title == habits(:sauna).name }.description
+    end
+  end
+
   test "linked plan renders on performed date rather than intended date" do
     plan = planned_workouts(:linked_in_progress)
 

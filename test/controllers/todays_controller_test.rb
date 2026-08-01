@@ -63,10 +63,15 @@ class TodaysControllerTest < ActionDispatch::IntegrationTest
       assert_select "[data-activity-kind='workout']",
         text: /#{Regexp.escape(other_session.snapshot_title)}/,
         count: 0
-      assert_select "[data-activity-kind='planned_meal']", text: other_plan.recipe.title, count: 0
-      assert_select "[data-activity-kind='meal']", text: other_meal.description, count: 0
-      assert_select "[data-activity-kind]", text: habits(:movement).name, count: 0
-      assert_select "[data-activity-kind]", text: habits(:sauna).name, count: 0
+      assert_select "[data-activity-kind='planned_meal']", text: /#{Regexp.escape(other_plan.recipe.title)}/, count: 0
+      assert_select "[data-activity-kind='meal']", text: /#{Regexp.escape(other_meal.description)}/, count: 0
+      assert_select "[data-activity-kind]", text: /#{Regexp.escape(habits(:movement).name)}/, count: 0
+
+      patch person_context_path, params: { person_id: people(:two).id }
+      get root_path
+      assert_select "[data-activity-kind='planned_meal']", text: /#{Regexp.escape(other_plan.recipe.title)}/
+      assert_select "[data-activity-kind='meal']", text: /#{Regexp.escape(other_meal.description)}/
+      assert_select "[data-activity-kind]", text: /#{Regexp.escape(habits(:movement).name)}/
     end
   end
 

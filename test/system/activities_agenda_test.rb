@@ -6,14 +6,18 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
   test "navigates dates and changes planned and skipped workout outcomes" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
       planned_workouts(:planned_balanced).destroy!
+      habits(:water).update!(description: nil)
+      person_habits(:alex_water).habit_check_ins.delete_all
       sign_in_via_browser users(:one)
       ensure_person_via_browser people(:one)
       click_link_and_wait_for_path "Activities", activity_week_path
 
       assert_selector "[data-activity-date='2026-07-30']", text: "Today"
       assert_selector "[data-activity-date='2026-07-30'] [data-activity-kind='workout'][data-activity-status]"
-      within "[data-activity-date='2026-07-30'] [data-activity-kind='workout']", match: :first do
-        assert_no_text "Planned workout"
+      assert_no_text "Simple habit"
+      assert_no_text "Measured habit"
+      within "[data-activity-date='2026-07-30'] [data-activity-kind='simple_habit']" do
+        assert_text "Daily habit"
       end
       click_link_and_wait_for_path "Previous", activity_week_path(date: WEEK_START - 7.days)
       assert_selector "[data-activity-date='2026-07-20']"
