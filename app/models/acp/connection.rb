@@ -29,6 +29,7 @@ module Acp
     DEFAULT_QUEUE_SIZE = 128
     DEFAULT_QUEUE_TIMEOUT = 0.25
     DEFAULT_TERMINATION_GRACE = 1
+    DEFAULT_MAX_AGENT_REQUESTS = 4
     STDERR_LIMIT = 16 * 1024
     STOP_WRITER = Object.new.freeze
 
@@ -38,7 +39,7 @@ module Acp
     def initialize(argv:, cwd:, environment: {}, mcp_servers: [], timeout: DEFAULT_TIMEOUT,
       max_line_bytes: DEFAULT_MAX_LINE_BYTES, queue_size: DEFAULT_QUEUE_SIZE,
       queue_timeout: DEFAULT_QUEUE_TIMEOUT, termination_grace: DEFAULT_TERMINATION_GRACE,
-      on_fatal: ->(_error) { })
+      max_agent_requests: DEFAULT_MAX_AGENT_REQUESTS, on_fatal: ->(_error) { })
       raise ConfigurationError, "agent argv is required" if argv.blank?
       raise ConfigurationError, "agent argv must contain only strings" unless argv.all? { |argument| argument.is_a?(String) }
       raise ConfigurationError, "cwd must be absolute" unless Pathname.new(cwd).absolute?
@@ -53,6 +54,9 @@ module Acp
       @max_line_bytes = Integer(max_line_bytes)
       @queue_timeout = Float(queue_timeout)
       @termination_grace = Float(termination_grace)
+      max_agent_requests = Integer(max_agent_requests)
+      raise ConfigurationError, "max_agent_requests must be positive" unless max_agent_requests.positive?
+
       @on_fatal = on_fatal
       @on_permission = nil
       @outbound = SizedQueue.new(Integer(queue_size))
@@ -65,6 +69,8 @@ module Acp
       @finalize_mutex = Mutex.new
       @request_threads_mutex = Mutex.new
       @request_threads = Set.new
+      @request_slots = SizedQueue.new(max_agent_requests)
+      max_agent_requests.times { @request_slots << true }
       @stderr = +""
       @next_id = 0
       @dropped_event_count = 0
@@ -363,15 +369,37 @@ module Acp
       end
 
       def dispatch_agent_request(message)
-        thread = Thread.new do
-          Thread.current.report_on_exception = false
-          handle_agent_request(message)
-        rescue StandardError => error
-          fail_connection(error) unless stopping?
-        ensure
-          @request_threads_mutex.synchronize { @request_threads.delete(Thread.current) }
+        slot = @request_slots.pop(true)
+        @request_threads_mutex.synchronize do
+          thread = Thread.new do
+            Thread.current.report_on_exception = false
+            handle_agent_request(message)
+          rescue StandardError => error
+            fail_connection(error) unless stopping?
+          ensure
+            @request_slots.push(slot, true) rescue nil
+            @request_threads_mutex.synchronize { @request_threads.delete(Thread.current) }
+          end
+          @request_threads << thread
         end
-        @request_threads_mutex.synchronize { @request_threads << thread }
+      rescue ThreadError
+        reject_agent_request_overflow(message)
+      end
+
+      def reject_agent_request_overflow(message)
+        if message["method"] == "session/request_permission"
+          result = reject_permission(
+            message.fetch("params", {}),
+            code: "request_capacity_exceeded",
+            message: "Hearth is already handling the maximum number of agent requests"
+          )
+          enqueue_outbound(jsonrpc: "2.0", id: message["id"], result: result)
+        else
+          enqueue_outbound(jsonrpc: "2.0", id: message["id"], error: {
+            code: -32_000,
+            message: "Hearth is already handling the maximum number of agent requests"
+          })
+        end
       end
 
       def retain_event(message)
@@ -413,9 +441,11 @@ module Acp
         reject_permission(params)
       end
 
-      def reject_permission(params)
+      def reject_permission(params, code: nil, message: nil)
         option = params["options"]&.find { |candidate| candidate["kind"] == "reject_once" }
-        option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+        result = option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+        result[:_meta] = { hearth: { code: code, message: message } } if code
+        result
       end
 
       def session_params

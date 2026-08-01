@@ -90,6 +90,7 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     second = mcp_post(id: 32, method: "tools/call", params: { name: "create_meal", arguments: arguments })
 
     assert_equal "executed", first.dig("result", "structuredContent", "status"), first.inspect
+    assert_equal first.dig("result", "structuredContent"), second.dig("result", "structuredContent")
     assert_equal first.dig("result", "structuredContent", "result", "id"), second.dig("result", "structuredContent", "result", "id")
     assert_equal 1, people(:two).meals.where(notes: nil).joins(:meal_items).where(meal_items: { snapshot_label: "MCP meal" }).count
     assert_equal [ "health.write", "health.write" ], Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:capability)

@@ -127,9 +127,13 @@ The agent may then send `session/request_permission` with:
 Hearth accepts only an existing pending proposal whose household, person,
 conversation, ACP session, operation, canonical input digest, staged grant,
 deadline, and idempotency identity all still match. Permission handling runs off
-the ACP stdout reader thread and waits on the existing Solid Cable notification
-path, so other JSON-RPC responses continue to dispatch and the supervisor does not
-poll the proposal row.
+the ACP stdout reader thread and waits on Action Cable pubsub, so other JSON-RPC
+responses continue to dispatch and the supervisor does not poll the proposal row.
+Production uses Solid Cable, which carries that notification across the web and
+runtime processes. The test adapter proves the notification path in-process only;
+the standalone multi-process test proves the bounded deadline/reload fallback and
+correct result, not cross-process notification latency. Development's async adapter
+has the same fallback when the runtime is a separate process.
 
 ACP v1 permits permission-first requests and does not require `rawInput`, but those
 generic requests cannot safely identify a typed Hearth mutation. Missing input,

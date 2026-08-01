@@ -67,6 +67,35 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     end
   end
 
+  test "bounds concurrent agent requests and rejects overflow with structured metadata" do
+    entered = Queue.new
+    release = Queue.new
+    with_connection(mode: "permission_flood", max_agent_requests: 2) do |connection|
+      connection.configure_permission_handler! do |params|
+        entered << true
+        release.pop
+        reject = params.fetch("options").find { |option| option["kind"] == "reject_once" }
+        { outcome: { outcome: "selected", optionId: reject.fetch("optionId") } }
+      end
+      connection.initialize_connection
+      connection.new_session
+      result = nil
+      prompt_thread = Thread.new { result = connection.prompt([ { type: "text", text: "flood" } ]) }
+
+      dispatched = connection.next_event(timeout: 2)
+      wait_until { entered.size == 2 }
+      assert_equal "flood-dispatched", dispatched.dig("params", "update", "content", "text")
+      assert_equal 2, entered.size
+      2.times { release << true }
+      prompt_thread.join(2)
+      overflow = connection.next_event(timeout: 2)
+
+      assert_equal "overflow=4", overflow.dig("params", "update", "content", "text")
+      assert_equal "end_turn", result.fetch("stopReason")
+      refute prompt_thread.alive?
+    end
+  end
+
   test "correlates out of order responses while both requests are live" do
     with_connection(mode: "out_of_order") do |connection|
       connection.initialize_connection
@@ -179,7 +208,8 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
 
   private
     def with_connection(mode: "normal", timeout: 2, max_line_bytes: Acp::Connection::DEFAULT_MAX_LINE_BYTES,
-      queue_size: Acp::Connection::DEFAULT_QUEUE_SIZE, mcp_servers: [], environment: {})
+      queue_size: Acp::Connection::DEFAULT_QUEUE_SIZE, mcp_servers: [], environment: {},
+      max_agent_requests: Acp::Connection::DEFAULT_MAX_AGENT_REQUESTS)
       Dir.mktmpdir("acp-connection-test") do |workspace|
         connection = build_connection(
           workspace: workspace,
@@ -188,7 +218,8 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
           max_line_bytes: max_line_bytes,
           queue_size: queue_size,
           mcp_servers: mcp_servers,
-          environment: environment
+          environment: environment,
+          max_agent_requests: max_agent_requests
         ).start
         yield connection
       ensure
@@ -198,7 +229,8 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
 
     def build_connection(workspace:, mode: "normal", timeout: 2,
       max_line_bytes: Acp::Connection::DEFAULT_MAX_LINE_BYTES,
-      queue_size: Acp::Connection::DEFAULT_QUEUE_SIZE, mcp_servers: [], environment: {})
+      queue_size: Acp::Connection::DEFAULT_QUEUE_SIZE, mcp_servers: [], environment: {},
+      max_agent_requests: Acp::Connection::DEFAULT_MAX_AGENT_REQUESTS)
       Acp::Connection.new(
         argv: [ RbConfig.ruby, FAKE_AGENT ],
         cwd: workspace,
@@ -210,6 +242,7 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
         timeout: timeout,
         max_line_bytes: max_line_bytes,
         queue_size: queue_size,
+        max_agent_requests: max_agent_requests,
         termination_grace: 0.25
       )
     end

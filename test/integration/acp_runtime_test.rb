@@ -159,10 +159,11 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       assert_predicate recovered_result.fetch(:status), :success?, recovered_result.fetch(:stderr)
       assert_equal [ "health_read" ], agent_session.grants.order(:id).last.capability_groups
     ensure
-      Current.reset
       recovered_runtime&.stop
       runtime&.stop
       puma&.stop
+      delete_runtime_session_records(agent_session)
+      Current.reset
     end
   end
 
@@ -493,6 +494,24 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       response = Net::HTTP.start("127.0.0.1", port, open_timeout: 1, read_timeout: 5) { |http| http.request(request) }
       assert_kind_of Net::HTTPSuccess, response
       JSON.parse(response.body)
+    end
+
+    def delete_runtime_session_records(agent_session)
+      return unless agent_session&.persisted?
+
+      proposal_ids = Agent::MutationProposal.where(agent_session: agent_session).ids
+      request_ids = Agent::PermissionRequest.where(agent_session: agent_session).ids
+      Agent::AuditEvent.where(agent_session: agent_session).delete_all
+      Agent::MutationExecution.where(mutation_proposal_id: proposal_ids).delete_all
+      Agent::PermissionDecision.where(permission_request_id: request_ids).delete_all
+      Agent::PermissionRequest.where(id: request_ids).update_all(mutation_proposal_id: nil)
+      Agent::MutationProposal.where(id: proposal_ids).delete_all
+      Agent::OperationalAuthorization.where(agent_session: agent_session).delete_all
+      Agent::PermissionRequest.where(id: request_ids).delete_all
+      Agent::ToolActivity.where(agent_session: agent_session).delete_all
+      Agent::Message.where(agent_session: agent_session).delete_all
+      Agent::Grant.where(agent_session: agent_session).delete_all
+      Agent::Session.where(id: agent_session.id).delete_all
     end
 
     def test_database_url

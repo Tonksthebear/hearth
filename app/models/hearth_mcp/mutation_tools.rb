@@ -164,7 +164,7 @@ module HearthMcp
           {
             status: proposal.status,
             proposal_id: proposal.id,
-            deadline_at: proposal.deadline_at.utc.iso8601,
+            deadline_at: proposal.permission_request&.deadline_at&.utc&.iso8601,
             next_action: proposal.status == "pending" ? "Request ACP permission for #{proposal.operation} with the same idempotency_key after staging this proposal." : nil,
             result: proposal.execution&.result || {}
           }
