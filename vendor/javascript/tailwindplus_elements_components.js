@@ -228,40 +228,15 @@ function initializeElementsSelects(root = document) {
   selects.forEach((select) => {
     if (initializedElementsSelects.has(select)) return
 
-    let valueBeforeOptionClick
-    let clickedOptionValue
-    let synchronizedChangeObserved
-    select.addEventListener("click", (event) => {
-      const option = event.target.closest?.("el-option")
-      if (!option || !select.contains(option)) return
-
-      valueBeforeOptionClick = select.value
-      clickedOptionValue = option.getAttribute("value")
-      synchronizedChangeObserved = false
-    }, { capture: true })
-    select.addEventListener("change", () => {
-      if (clickedOptionValue !== undefined && select.value === clickedOptionValue) {
-        synchronizedChangeObserved = true
-      }
-    })
-
     select.addEventListener("click", (event) => {
       const option = event.target.closest?.("el-option")
       if (!option || !select.contains(option)) return
 
       const value = option.getAttribute("value")
-      const valueChanged = valueBeforeOptionClick !== value
-      if (valueChanged) select.value = value
+      if (select.value !== value) select.value = value
 
       const selectedContent = select.querySelector("el-selectedcontent")
       if (selectedContent) selectedContent.textContent = option.textContent.trim()
-
-      if (valueChanged && !synchronizedChangeObserved) {
-        select.dispatchEvent(new Event("change", { bubbles: true }))
-      }
-      valueBeforeOptionClick = undefined
-      clickedOptionValue = undefined
-      synchronizedChangeObserved = undefined
 
       option.closest("el-options")?.hidePopover?.()
     })

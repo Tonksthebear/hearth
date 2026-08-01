@@ -91,7 +91,10 @@ class PointerDeliveryTest < ApplicationSystemTestCase
       option.click
 
       assert_equal workout_templates(:balanced).title, control.find("el-selectedcontent").text
-      assert_events probe, %w[pointerdown click change], trusted: %w[pointerdown click], diagnostics:
+      assert_events probe, %w[pointerdown click change],
+        trusted: %w[pointerdown click],
+        counts: { "pointerdown" => 2, "click" => 2, "change" => 1 },
+        diagnostics:
       synchronized_changes = recorded_events(probe).count { |event|
         event["type"] == "change" && event["value"] == workout_templates(:balanced).id.to_s
       }
@@ -124,12 +127,12 @@ class PointerDeliveryTest < ApplicationSystemTestCase
       end
     end
 
-    def assert_events(key, expected_types, trusted:, diagnostics:)
+    def assert_events(key, expected_types, trusted:, diagnostics:, counts: expected_types.index_with(1))
       events = recorded_events(key)
 
       expected_types.each do |type|
-        assert events.any? { |event| event["type"] == type },
-          "expected #{type}; events=#{events.inspect}; diagnostics=#{diagnostics.inspect}"
+        assert_equal counts.fetch(type), events.count { |event| event["type"] == type },
+          "unexpected #{type} count; events=#{events.inspect}; diagnostics=#{diagnostics.inspect}"
       end
 
       trusted.each do |type|

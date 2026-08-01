@@ -86,7 +86,9 @@ CI.run do
   step "Release gate: Verify production database isolation",
     "env", *production_database_env, "bin/rails", "runner", production_database_assertion
   step "Release gate: Precompile production assets",
-    "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret", "bin/rails", "assets:precompile"
+    "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret",
+    "bin/rails", "assets:precompile", "assets:clobber"
+  step "Release gate: Restore dynamic test assets", "bin/rails", "tailwindcss:build"
   step "Release gate: Eager load production",
     "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret",
     "bin/rails", "runner", "Rails.application.eager_load!; puts \"Production eager load verified\""
