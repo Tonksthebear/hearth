@@ -28,6 +28,7 @@ salad_lettuce:
   unit: head
   display_name: Lettuce
   position: 1
+  gram_weight: 125
 
 soup_carrots:
   recipe: observed_soup

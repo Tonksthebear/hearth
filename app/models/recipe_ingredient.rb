@@ -12,6 +12,7 @@ class RecipeIngredient < ApplicationRecord
   validates :position,
     presence: true,
     numericality: { only_integer: true, greater_than: 0 }
+  validates :gram_weight, numericality: { greater_than: 0 }, allow_nil: true
   validate :ingredient_belongs_to_household
 
   def form_key

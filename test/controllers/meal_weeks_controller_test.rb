@@ -1,6 +1,17 @@
 require "test_helper"
 
 class MealWeeksControllerTest < ActionDispatch::IntegrationTest
+  test "renders selected-person weekly and daily snapshot totals" do
+    sign_in_as users(:one)
+
+    get meal_week_path(date: "2026-07-27")
+
+    assert_response :success
+    assert_select "#week-nutrition-heading", text: "Known nutrition this week"
+    assert_select "section", text: /Protein.*9\.26 g/m
+    assert_select "section[aria-labelledby='day-2026-07-27']", text: /Protein.*9\.26 g.*Estimated/m
+  end
+
   test "renders the selected person's planned and eaten week" do
     sign_in_as users(:one)
 

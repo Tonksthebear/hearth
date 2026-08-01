@@ -1,0 +1,57 @@
+alex_salad_energy:
+  meal_item: alex_salad
+  nutrient: energy
+  amount: 0
+  snapshot_key: energy
+  snapshot_name: Energy
+  snapshot_unit: kcal
+  snapshot_source_name: Family Notebook
+  snapshot_provenance_status: adapted
+  snapshot_calculation_kind: estimated
+
+alex_salad_protein:
+  meal_item: alex_salad
+  nutrient: protein
+  amount: 9.2625
+  snapshot_key: protein
+  snapshot_name: Protein
+  snapshot_unit: g
+  snapshot_source_name: Family Notebook
+  snapshot_provenance_status: adapted
+  snapshot_calculation_kind: estimated
+
+alex_salad_carbohydrates:
+  meal_item: alex_salad
+  nutrient: carbohydrates
+  amount: 0
+  snapshot_key: carbohydrates
+  snapshot_name: Carbohydrates
+  snapshot_unit: g
+  snapshot_calculation_kind: estimated
+
+alex_salad_fat:
+  meal_item: alex_salad
+  nutrient: fat
+  amount: 0
+  snapshot_key: fat
+  snapshot_name: Fat
+  snapshot_unit: g
+  snapshot_calculation_kind: estimated
+
+alex_salad_fiber:
+  meal_item: alex_salad
+  nutrient: fiber
+  amount: 0
+  snapshot_key: fiber
+  snapshot_name: Fiber
+  snapshot_unit: g
+  snapshot_calculation_kind: estimated
+
+alex_salad_sodium:
+  meal_item: alex_salad
+  nutrient: sodium
+  amount: 0
+  snapshot_key: sodium
+  snapshot_name: Sodium
+  snapshot_unit: mg
+  snapshot_calculation_kind: estimated

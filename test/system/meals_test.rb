@@ -184,6 +184,28 @@ class MealsTest < ApplicationSystemTestCase
     end
   end
 
+  test "logs a visible recipe serving and renders its historical nutrition snapshot" do
+    travel_to WEEK_START do
+      sign_in_and_open_meals users(:one)
+      click_link_and_wait_for_path "Log meal", new_meal_path(date: WEEK_START)
+      fill_in_and_wait_for_value "Food or meal", "Side"
+      click_button_and_wait_for_count "Add recipe", "li[data-meal-item-kind]", 2
+
+      recipe_control_id = within "li[data-meal-item-kind='recipe']" do
+        assert_selector "input[aria-label='Portion amount'][value='1']"
+        assert_selector "input[aria-label='Portion unit'][value='servings']"
+        find("label", text: "Recipe", match: :prefer_exact)[:for]
+      end
+      select_and_wait recipes(:salad).title, from: recipe_control_id
+
+      click_button "Log meal"
+      assert_text "was logged", wait: 5
+      assert_selector "#meal-nutrition-heading", text: "Nutrition snapshot"
+      assert_text "6.18 g"
+      assert_text(/estimated/i)
+    end
+  end
+
   private
     def sign_in_and_open_meals(user)
       sign_in_via_browser user

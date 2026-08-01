@@ -6,6 +6,8 @@ alex_salad:
   portion_amount: 1.5
   portion_unit: servings
   position: 1
+  nutrition_complete: true
+  nutrition_estimated: true
 
 alex_dinner_with_friends:
   meal: alex_ad_hoc_target_week

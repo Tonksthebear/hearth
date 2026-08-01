@@ -4,6 +4,20 @@ Hearth is a self-hosted household health app for meals, training, habits, and re
 
 The current alpha includes household setup and sign-in, multiple people, recipes and meal planning/logging, shopping views, workout templates and session logs, habits/recovery check-ins, and weekly operating views.
 
+## Nutrition tracking
+
+Hearth starts with an extensible reference catalog for energy, protein, carbohydrates, fat, fiber, and sodium. Ingredient values are recorded per 100 grams from the Recipes area. Blank means unknown; an explicitly entered zero remains a known zero. Recipe estimates use only explicit ingredient gram weights and serving counts, and source-provided per-serving facts override estimates one nutrient at a time.
+
+Meal nutrition is snapshotted when a meal item's source or portion is saved. Later recipe, ingredient, or catalog edits do not rewrite that history. Unsupported or missing portions remain visibly incomplete and are never treated as zero. These are household tracking tools, not medical advice.
+
+USDA FoodData Central import is optional and operator-triggered; normal browser and MCP reads never contact it. Configure `FDC_API_KEY` outside the repository (or the `food_data_central.api_key` Rails credential), then import one known food ID into an existing ingredient:
+
+```bash
+FDC_API_KEY=... bin/rails "nutrition:import_fdc[INGREDIENT_ID,FDC_FOOD_ID]"
+```
+
+The importer records USDA attribution, accepts only recognized nutrient identifier/unit pairs, and never persists the API key.
+
 ## Before you run it
 
 Choose one first-run path:
@@ -136,7 +150,7 @@ test -s "$HOME/.config/hearth/secret_key_base" ||
 } > "$HOME/.config/hearth/docker.env"
 ```
 
-Rails credentials are not used by this alpha. `SECRET_KEY_BASE` is the only required runtime secret.
+`SECRET_KEY_BASE` is the only required runtime secret. Rails credentials or `FDC_API_KEY` are used only when the optional FoodData Central import is invoked.
 
 Build and start:
 

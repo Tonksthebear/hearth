@@ -4,7 +4,7 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="grid gap-3 rounded-lg bg-gray-50 p-4 dark:bg-white/5 sm:grid-cols-[0.7fr_0.8fr_2fr_2fr_auto]">
+  <div class="grid gap-3 rounded-lg bg-gray-50 p-4 dark:bg-white/5 sm:grid-cols-[0.7fr_0.8fr_0.9fr_2fr_2fr_auto]">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <%= form.hidden_field :form_key %>
@@ -15,6 +15,10 @@
     <div>
       <%= form.label :unit, class: :label %>
       <%= form.text_field :unit, class: :text_field %>
+    </div>
+    <div>
+      <%= form.label :gram_weight, "Weight (g)", class: :label %>
+      <%= form.number_field :gram_weight, min: 0, step: :any, class: :text_field %>
     </div>
     <div>
       <%= form.label :display_name, "Ingredient", class: :label %>

@@ -18,6 +18,30 @@ class MealsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name*='meal_items_attributes'][name$='[position]']", count: 0
   end
 
+
+  test "visible recipe item form prefills one editable serving" do
+    sign_in_as users(:one)
+
+    post meals_path,
+      params: { meal: { eaten_on: "2026-07-31", meal_items_attributes: { "0" => { source_kind: "free_text", snapshot_label: "Soup" } } }, add_recipe_item: "1" },
+      headers: turbo_stream_headers
+
+    assert_response :success
+    assert_select "li[data-meal-item-kind='recipe'] input[name$='[portion_amount]'][value='1']"
+    assert_select "li[data-meal-item-kind='recipe'] input[name$='[portion_unit]'][value='servings']"
+  end
+
+  test "show renders historical snapshot amounts and completeness" do
+    sign_in_as users(:one)
+
+    get meal_path(meals(:alex_recipe_target_week))
+
+    assert_response :success
+    assert_select "#meal-nutrition-heading", text: "Nutrition snapshot"
+    assert_select "section", text: /Protein.*9\.26 g/m
+    assert_select "span", text: /Nutrition status:.*estimated/i
+  end
+
   test "invalid form uses the shared alert and Elements aria-invalid state" do
     sign_in_as users(:one)
 

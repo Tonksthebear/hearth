@@ -12,6 +12,8 @@ lettuce:
   household: home
   name: Lettuce
   normalized_name: lettuce
+  nutrition_source_name: Family Notebook
+  nutrition_provenance_status: adapted
 
 carrots:
   household: home

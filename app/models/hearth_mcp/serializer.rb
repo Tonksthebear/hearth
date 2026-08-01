@@ -86,6 +86,20 @@ module HearthMcp
               portion_unit: item.portion_unit,
               substitutions: item.substitutions,
               notes: item.notes,
+              nutrition_complete: item.nutrition_complete?,
+              nutrition_estimated: item.nutrition_estimated?,
+              nutrition_status: item.nutrition_status,
+              nutrition: item.meal_item_nutrient_values.map do |value|
+                {
+                  key: value.snapshot_key,
+                  name: value.snapshot_name,
+                  unit: value.snapshot_unit,
+                  amount: value.amount.to_s,
+                  source_name: value.snapshot_source_name,
+                  provenance_status: value.snapshot_provenance_status,
+                  calculation_kind: value.snapshot_calculation_kind
+                }
+              end,
               recipe_feedback: item.recipe_feedback && { id: item.recipe_feedback.id, body: item.recipe_feedback.body }
             }
           end

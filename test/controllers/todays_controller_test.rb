@@ -1,6 +1,18 @@
 require "test_helper"
 
 class TodaysControllerTest < ActionDispatch::IntegrationTest
+  test "renders concise same-day nutrition snapshot context" do
+    sign_in_as users(:one)
+    travel_to Time.zone.local(2026, 7, 27, 12) do
+      get root_path
+
+      assert_response :success
+      assert_select "#today-nutrition-heading", text: "Known nutrition today"
+      assert_select "section", text: /Protein.*9\.26 g/m
+      assert_select "p", text: /not medical advice/i
+    end
+  end
+
   test "fresh anonymous root redirects to setup" do
     clear_installation
 

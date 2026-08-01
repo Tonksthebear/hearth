@@ -41,6 +41,7 @@ module ActiveSupport
         Session.delete_all
         User.delete_all
         RecipeFeedback.delete_all
+        MealItemNutrientValue.delete_all
         MealItem.delete_all
         Meal.delete_all
         PlannedMeal.delete_all
@@ -62,9 +63,12 @@ module ActiveSupport
         Exercise.delete_all
         RecipeInstructionIngredient.delete_all
         RecipeInstruction.delete_all
+        RecipeNutrientValue.delete_all
         RecipeIngredient.delete_all
+        IngredientNutrientValue.delete_all
         Ingredient.delete_all
         Recipe.delete_all
+        Nutrient.delete_all
         Household.delete_all
       end
   end

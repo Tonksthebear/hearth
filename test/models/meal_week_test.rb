@@ -26,6 +26,8 @@ class MealWeekTest < ActiveSupport::TestCase
     refute_includes week.meals, meals(:sam_recipe_target_week)
     assert_equal households(:home).recipes.order(:title).to_a, week.recipes.to_a
     assert_equal households(:home).people.order(:name).to_a, week.people.to_a
+    assert_equal "incomplete", week.nutrition_summary.status
+    assert_equal BigDecimal("9.2625"), week.nutrition_summary.totals.find { |total| total.key == "protein" }.amount
   end
 
 

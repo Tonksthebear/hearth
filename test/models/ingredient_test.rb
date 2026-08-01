@@ -31,4 +31,29 @@ class IngredientTest < ActiveSupport::TestCase
       assert_equal ingredients(:rolled_oats), Ingredient.resolve!(household: households(:home), name: "  ROLLED OATS ")
     end
   end
+
+
+  test "manual nutrition allows blank attribution while sourced statuses require it" do
+    ingredient = ingredients(:rolled_oats)
+    ingredient.ingredient_nutrient_values.build(nutrient: nutrients(:protein), amount_per_100_grams: 0)
+    ingredient.nutrition_provenance_status = :personal
+    assert ingredient.valid?
+
+    %i[verified adapted observed].each do |status|
+      ingredient.nutrition_provenance_status = status
+      ingredient.nutrition_source_name = nil
+      assert_not ingredient.valid?
+      assert_includes ingredient.errors[:nutrition_source_name], "can't be blank"
+    end
+  end
+
+  test "recipe identity resolution preserves an existing nutrition profile" do
+    ingredient = ingredients(:lettuce)
+    before = [ ingredient.nutrition_source_name, ingredient.nutrition_provenance_status, ingredient.ingredient_nutrient_values.order(:nutrient_id).pluck(:nutrient_id, :amount_per_100_grams) ]
+
+    assert_equal ingredient, Ingredient.resolve!(household: ingredient.household, name: " LETTUCE ")
+
+    ingredient.reload
+    assert_equal before, [ ingredient.nutrition_source_name, ingredient.nutrition_provenance_status, ingredient.ingredient_nutrient_values.order(:nutrient_id).pluck(:nutrient_id, :amount_per_100_grams) ]
+  end
 end
