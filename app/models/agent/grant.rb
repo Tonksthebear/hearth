@@ -7,7 +7,9 @@ class Agent::Grant < ApplicationRecord
 
   CAPABILITY_GROUPS = {
     "health_read" => %w[ health.read ],
-    "health_write" => %w[ health.write ]
+    "health_write" => %w[ health.write ],
+    "catalog_manage" => %w[ catalog.manage ],
+    "people_manage" => %w[ people.manage ]
   }.freeze
 
   belongs_to :household

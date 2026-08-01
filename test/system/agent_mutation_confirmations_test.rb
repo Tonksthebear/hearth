@@ -27,7 +27,7 @@ class AgentMutationConfirmationsTest < ApplicationSystemTestCase
       operation: "delete_meal", arguments: { id: meal.id }, proposal: grant
     )
     proposal, token = Agent::MutationProposal.propose!(
-      grant: grant,
+      grant: grant, capability: "health.write",
       operation: "delete_meal",
       arguments: { id: meal.id },
       preview: Agent::Mutation::Operations.preview(operation: "delete_meal", arguments: { id: meal.id }, context: grant),
@@ -68,7 +68,7 @@ class AgentMutationConfirmationsTest < ApplicationSystemTestCase
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: grant)
     proposal, token = Agent::MutationProposal.propose!(
-      grant: grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
+      grant: grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
       idempotency_key: "system-cancel-meal", deadline_at: 1.minute.from_now
     )
     connect_turbo_cable_stream_sources

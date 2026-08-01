@@ -25,7 +25,7 @@ class Agent::MutationDecisionsControllerTest < ActionDispatch::IntegrationTest
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
     proposal, token = Agent::MutationProposal.propose!(
-      grant: @grant, operation: "delete_meal", arguments: { id: meal.id },
+      grant: @grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id },
       preview: Agent::Mutation::Operations.preview(operation: "delete_meal", arguments: { id: meal.id }, context: @grant),
       expected_state: expected, idempotency_key: "controller-delete-meal", deadline_at: 1.minute.from_now
     )
@@ -44,7 +44,7 @@ class Agent::MutationDecisionsControllerTest < ActionDispatch::IntegrationTest
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
     proposal, = Agent::MutationProposal.propose!(
-      grant: @grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {},
+      grant: @grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id }, preview: {},
       expected_state: expected, idempotency_key: "controller-cancel-meal", deadline_at: 1.minute.from_now
     )
 
@@ -60,7 +60,7 @@ class Agent::MutationDecisionsControllerTest < ActionDispatch::IntegrationTest
     meal = meals(:sam_recipe_target_week)
     arguments = { id: meal.id }
     proposal, = Agent::MutationProposal.propose!(
-      grant: @grant, operation: "delete_meal", arguments: arguments, preview: {},
+      grant: @grant, capability: "health.write", operation: "delete_meal", arguments: arguments, preview: {},
       expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: @grant),
       idempotency_key: "controller-overdue-read", deadline_at: 1.minute.from_now
     )

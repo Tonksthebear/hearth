@@ -59,6 +59,7 @@ class Recipe < ApplicationRecord
   attr_accessor :cover_reference_invalid, :cover_uploaded_this_request, :remove_cover
 
   before_save :apply_cover_change
+  before_save :park_changed_nested_positions
   after_save :reconcile_instruction_ingredient_references
   after_commit :purge_replaced_cover, on: %i[ create update ]
   after_rollback :clear_cover_to_purge
@@ -291,6 +292,18 @@ class Recipe < ApplicationRecord
   end
 
   private
+    def park_changed_nested_positions
+      # Park changed rows beyond their per-recipe unique position indexes before
+      # autosave applies final 1-based positions, avoiding transient collisions.
+      [ active_ingredients, active_instructions ].each do |records|
+        records.select { |record| record.persisted? && record.will_save_change_to_position? }.each do |record|
+          desired_position = record.position
+          record.update_column(:position, record.id + 1_000_000)
+          record.position = desired_position
+        end
+      end
+    end
+
     def valid_instruction_ingredient_references
       active_by_key = active_ingredients.index_by(&:form_key)
       destroyed_keys = recipe_ingredients.select(&:marked_for_destruction?).map(&:form_key)
