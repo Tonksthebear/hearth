@@ -1,0 +1,15 @@
+manual_milk:
+  shopping_list: target_week
+  name: Milk
+  quantity: 1
+  unit: gallon
+  notes: For breakfast
+  user_managed_at: 2026-07-27 09:00:00
+
+completed_foil:
+  shopping_list: target_week
+  name: Aluminum foil
+  quantity: 1
+  unit: roll
+  user_managed_at: 2026-07-27 09:00:00
+  completed_at: 2026-07-27 10:00:00

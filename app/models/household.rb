@@ -5,6 +5,8 @@ class Household < ApplicationRecord
   has_many :meals, dependent: :destroy
   has_many :recipes, dependent: :destroy
   has_many :ingredients, dependent: :destroy
+  has_many :shopping_lists, dependent: :destroy
+  has_many :shopping_list_items, through: :shopping_lists, source: :items
   has_many :training_sessions, dependent: :destroy
   has_many :planned_workouts, dependent: :destroy
   has_many :workout_templates, dependent: :destroy

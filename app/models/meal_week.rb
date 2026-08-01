@@ -72,6 +72,14 @@ class MealWeek
     @people ||= household.people.order(:name)
   end
 
+  def shopping_list
+    @shopping_list ||= ShoppingList.existing_for(household:, date: start_date)
+  end
+
+  def unchecked_shopping_count
+    shopping_list&.unchecked_count.to_i
+  end
+
   def previous_date
     start_date - 7.days
   end

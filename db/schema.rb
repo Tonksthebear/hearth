@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_160000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -620,6 +620,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "shopping_list_item_sources", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "planned_meal_id", null: false
+    t.integer "recipe_ingredient_id", null: false
+    t.integer "shopping_list_item_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["planned_meal_id", "recipe_ingredient_id"], name: "index_shopping_sources_on_plan_and_ingredient", unique: true
+    t.index ["planned_meal_id"], name: "index_shopping_list_item_sources_on_planned_meal_id"
+    t.index ["recipe_ingredient_id"], name: "index_shopping_list_item_sources_on_recipe_ingredient_id"
+    t.index ["shopping_list_item_id"], name: "index_shopping_list_item_sources_on_shopping_list_item_id"
+  end
+
+  create_table "shopping_list_items", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "generated_key"
+    t.integer "ingredient_id"
+    t.string "name", null: false
+    t.text "notes"
+    t.string "quantity"
+    t.integer "shopping_list_id", null: false
+    t.string "unit"
+    t.datetime "updated_at", null: false
+    t.datetime "user_managed_at"
+    t.index ["ingredient_id"], name: "index_shopping_list_items_on_ingredient_id"
+    t.index ["shopping_list_id", "generated_key"], name: "index_shopping_items_on_list_and_generated_key", unique: true, where: "generated_key IS NOT NULL"
+    t.index ["shopping_list_id"], name: "index_shopping_list_items_on_shopping_list_id"
+  end
+
+  create_table "shopping_lists", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.datetime "updated_at", null: false
+    t.date "week_start", null: false
+    t.index ["household_id", "week_start"], name: "index_shopping_lists_on_household_id_and_week_start", unique: true
+    t.index ["household_id"], name: "index_shopping_lists_on_household_id"
+  end
+
   create_table "training_session_blocks", force: :cascade do |t|
     t.integer "actual_duration_seconds"
     t.datetime "created_at", null: false
@@ -855,6 +893,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
   add_foreign_key "recipe_instructions", "recipes"
   add_foreign_key "recipes", "households"
   add_foreign_key "sessions", "users"
+  add_foreign_key "shopping_list_item_sources", "planned_meals", on_delete: :cascade
+  add_foreign_key "shopping_list_item_sources", "recipe_ingredients", on_delete: :cascade
+  add_foreign_key "shopping_list_item_sources", "shopping_list_items", on_delete: :cascade
+  add_foreign_key "shopping_list_items", "ingredients"
+  add_foreign_key "shopping_list_items", "shopping_lists", on_delete: :cascade
+  add_foreign_key "shopping_lists", "households", on_delete: :cascade
   add_foreign_key "training_session_blocks", "training_sessions"
   add_foreign_key "training_session_exercises", "exercises", on_delete: :nullify
   add_foreign_key "training_session_exercises", "training_session_blocks"

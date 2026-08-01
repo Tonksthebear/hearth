@@ -30,7 +30,7 @@ class Person::TodayTest < ActiveSupport::TestCase
 
   test "fully materialized query count is bounded" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
-      assert_queries_count(14) do
+      assert_queries_count(15) do
         Person::Today.current(household: households(:home), person: people(:one))
           .sections
           .flat_map(&:items)

@@ -11,7 +11,11 @@
         Household plans and <%= @meal_week.person.name %>'s own meals are kept separate.
       </p>
     </div>
-    <%= link_to "Shopping list", shopping_list_path(date: @meal_week), class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
+    <% if @meal_week.unchecked_shopping_count.positive? %>
+      <%= link_to "Shopping list (#{@meal_week.unchecked_shopping_count})", shopping_list_path(date: @meal_week),
+        data: { turbo_prefetch: false },
+        class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
+    <% end %>
   </div>
 
   <nav aria-label="Meal week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">

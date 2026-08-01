@@ -19,7 +19,11 @@ Rails.application.routes.draw do
     resource :meal, only: :create, module: :planned_meal
   end
   resources :meals, only: %i[ new create show edit update destroy ]
-  resource :shopping_list, only: :show
+  resource :shopping_list, only: :show do
+    resources :items, controller: "shopping_list_items", only: %i[ create edit update destroy ] do
+      resource :completion, only: %i[ create destroy ], module: :shopping_list_item
+    end
+  end
   resource :person_context, only: :update
   resources :habits, only: %i[ index new create edit update ]
   resources :person_habits, only: %i[ create edit update ]

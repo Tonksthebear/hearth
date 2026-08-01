@@ -30,7 +30,7 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
 
     get recipe_path(recipes(:porridge))
     assert_select "nav[aria-label='Household and person context'] a[aria-current='page']", text: "Meals"
-    assert_select "nav[aria-label='Meals'] a[href=?]", shopping_list_path
+    assert_select "nav[aria-label='Meals'] a[href=?][data-turbo-prefetch='false']", shopping_list_path
     assert_select "nav[aria-label='Meals'] > div[class=?]",
       ApplicationController.helpers.yass(nav_tabs: :list)
     assert_select "nav[aria-label='Meals'] a[class=?]",
@@ -43,6 +43,30 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     assert_select "nav[aria-label='Activities'] a[href=?]", activity_library_path
     assert_select "nav[aria-label='Activities'] a[href=?]", activity_history_path
     assert_select "nav[aria-label='Activities'] a", text: "Overview", count: 0
+  end
+
+
+  test "every rendered shopping link opts out of Turbo prefetch" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_as users(:one)
+      list = ShoppingList.for(household: households(:home), date: "2026-07-27")
+      item = list.items.first
+
+      [
+        root_path,
+        recipe_path(recipes(:porridge)),
+        meal_week_path(date: "2026-07-27"),
+        household_week_path(date: "2026-07-27"),
+        shopping_list_path(date: "2026-07-27"),
+        edit_shopping_list_item_path(item, date: "2026-07-27")
+      ].each do |path|
+        get path
+        assert_response :success
+        assert_select "a[href*='shopping_list']" do |links|
+          assert links.all? { |link| link["data-turbo-prefetch"] == "false" }, "Expected every Shopping link on #{path} to disable prefetch"
+        end
+      end
+    end
   end
 
   test "every Activities destination marks the primary tab and the correct secondary tab" do
