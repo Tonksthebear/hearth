@@ -84,6 +84,22 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select "p", text: /does not provide medical advice/i
   end
 
+  test "recipe feedback history links to another household person's readable meal" do
+    sign_in_as users(:one)
+    item = meal_items(:sam_soup)
+    item.create_recipe_feedback!(body: "Sam's household-visible note")
+
+    get recipe_path(item.recipe)
+
+    assert_response :success
+    assert_select "a[href='#{meal_path(item.meal)}']", text: item.meal.eaten_on.to_fs(:long)
+
+    get meal_path(item.meal)
+    assert_response :success
+    assert_select "h1", text: item.meal.description
+    assert_select "a", text: "Edit meal", count: 0
+  end
+
   test "show eager loads instruction ingredient references" do
     sign_in_as users(:one)
     recipe = recipes(:porridge)

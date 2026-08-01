@@ -9,6 +9,7 @@ class Meal < ApplicationRecord
   scope :during, ->(date_range) { where(eaten_on: date_range) }
 
   validates :eaten_on, presence: true
+  validate :eaten_at_matches_eaten_on
   validate :person_belongs_to_household
   validate :planned_meal_belongs_to_household
   validate :planned_meal_is_visible_to_person
@@ -78,5 +79,11 @@ class Meal < ApplicationRecord
 
     def contains_an_item
       errors.add(:meal_items, "must include at least one item") if active_items.empty?
+    end
+
+    def eaten_at_matches_eaten_on
+      return unless eaten_at && eaten_on
+
+      errors.add(:eaten_at, "must be on the date eaten") unless eaten_at.to_date == eaten_on
     end
 end

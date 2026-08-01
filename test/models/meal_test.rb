@@ -49,6 +49,18 @@ class MealTest < ActiveSupport::TestCase
     assert_equal original, item.meal.description
   end
 
+  test "known time must match the required reporting date" do
+    meal = meals(:alex_recipe_target_week)
+
+    meal.eaten_at = Time.zone.local(2026, 1, 5, 8, 30)
+
+    assert_not meal.valid?
+    assert_includes meal.errors[:eaten_at], "must be on the date eaten"
+
+    meal.eaten_at = Time.zone.local(meal.eaten_on.year, meal.eaten_on.month, meal.eaten_on.day, 8, 30)
+    assert_predicate meal, :valid?
+  end
+
   test "rejects sources and people from another household" do
     other_household = Household.new(name: "Other")
     other_person = other_household.people.build(name: "Other person")

@@ -27,7 +27,8 @@ class PlannedMeal::MealsControllerTest < ActionDispatch::IntegrationTest
       assert_no_difference "Meal.count" do
         post planned_meal_meal_path(planned_meals(:adjacent_week))
       end
-      assert_response :unprocessable_entity
+      assert_redirected_to meal_week_path(date: planned_meals(:adjacent_week).planned_on)
+      assert_equal "That plan can no longer be logged.", flash[:alert]
 
       post planned_meal_meal_path(planned_meals(:sam_target_week))
       assert_response :not_found

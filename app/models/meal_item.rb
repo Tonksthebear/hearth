@@ -19,9 +19,8 @@ class MealItem < ApplicationRecord
   validate :source_belongs_to_household
   validate :feedback_requires_recipe
 
+  before_validation :remove_blank_recipe_feedback, prepend: true
   before_validation :capture_snapshot_label
-
-  attr_accessor :source_reference_invalid
 
   def source_id
     recipe_id || ingredient_id
@@ -48,7 +47,6 @@ class MealItem < ApplicationRecord
         (ingredient? && recipe.nil? && ingredient.present?) ||
         (free_text? && recipe.nil? && ingredient.nil?)
       errors.add(:base, "Choose exactly one recipe, ingredient, or free-text item.") unless valid
-      errors.add(:base, "The selected item is not available.") if source_reference_invalid
     end
 
     def source_belongs_to_household
@@ -61,5 +59,9 @@ class MealItem < ApplicationRecord
       return unless recipe_feedback && !recipe_feedback.marked_for_destruction?
 
       errors.add(:recipe_feedback, "is only available for recipe items") unless recipe?
+    end
+
+    def remove_blank_recipe_feedback
+      recipe_feedback.mark_for_destruction if recipe_feedback&.persisted? && recipe_feedback.body.blank?
     end
 end

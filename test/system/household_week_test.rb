@@ -19,6 +19,12 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       click_link_and_wait_for_path "Dinner with friends", meal_path(meals(:alex_ad_hoc_target_week))
       visit_and_wait_for_path household_week_path
 
+      click_link_and_wait_for_path meals(:sam_recipe_target_week).description, meal_path(meals(:sam_recipe_target_week))
+      assert_text people(:two).name
+      assert_no_link "Edit meal"
+      assert_no_button "Delete meal"
+      visit_and_wait_for_path household_week_path
+
       click_link_and_wait_for_path "Next week", household_week_path(date: "2026-08-03")
       assert_text "Following week"
       assert_no_text "Sunday balanced day"

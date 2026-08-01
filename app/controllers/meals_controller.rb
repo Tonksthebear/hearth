@@ -1,5 +1,6 @@
 class MealsController < ApplicationController
-  before_action :set_meal, only: %i[ show edit update destroy ]
+  before_action :set_visible_meal, only: :show
+  before_action :set_owned_meal, only: %i[ edit update destroy ]
   before_action :prepare_options, only: %i[ new create edit update ]
 
   def new
@@ -21,11 +22,13 @@ class MealsController < ApplicationController
 
     if structural_action?
       @meal.ensure_form_item
+      prepare_feedback_rows
       render_form_update
     elsif @meal.save
       redirect_to @meal, notice: "#{@meal.description} was logged for #{Current.person.name}.", status: :see_other
     else
       @meal.ensure_form_item
+      prepare_feedback_rows
       render :new, status: :unprocessable_entity
     end
   end
@@ -67,7 +70,13 @@ class MealsController < ApplicationController
   end
 
   private
-    def set_meal
+    def set_visible_meal
+      @meal = Current.household.meals
+        .includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ])
+        .find(params[:id])
+    end
+
+    def set_owned_meal
       @meal = Current.person.meals
         .includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ])
         .find(params[:id])

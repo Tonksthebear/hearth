@@ -8,10 +8,12 @@
       <h1 id="meal-heading" class="mt-2 text-3xl font-semibold tracking-tight text-gray-900 dark:text-white"><%= @meal.description %></h1>
       <% if @meal.eaten_at %><p class="mt-2 text-gray-600 dark:text-gray-400">Known time: <%= @meal.eaten_at.to_fs(:time) %></p><% end %>
     </div>
-    <div class="flex gap-3">
-      <%= link_to "Edit meal", edit_meal_path(@meal), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
-      <%= button_to "Delete meal", @meal, method: :delete, form: { data: { turbo_confirm: "Delete this meal event?" } }, class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
-    </div>
+    <% if @meal.person == Current.person %>
+      <div class="flex gap-3">
+        <%= link_to "Edit meal", edit_meal_path(@meal), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+        <%= button_to "Delete meal", @meal, method: :delete, form: { data: { turbo_confirm: "Delete this meal event?" } }, class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
+      </div>
+    <% end %>
   </div>
 
   <section aria-labelledby="meal-details-heading" class="mt-10 overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:inset-ring dark:inset-ring-white/10">

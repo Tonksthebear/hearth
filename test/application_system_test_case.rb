@@ -55,12 +55,12 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       return if page.has_link?(label, visible: :visible, wait: 0)
       return unless page.has_button?("Open sidebar", visible: :visible, wait: 0)
 
-      page.execute_script("arguments[0].click()", find_button("Open sidebar"))
+      find_button("Open sidebar").click
       assert_link label, visible: :visible, wait: 5
     end
 
     def click_element_and_wait_for_path(element, path)
-      page.execute_script("arguments[0].click()", element)
+      element.click
       assert_current_path path, wait: 5
       assert_no_selector "html[aria-busy='true']"
       assert page.document.has_css?("html[data-elements-ready='true']", visible: :all, wait: 5)
@@ -68,7 +68,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def click_button_and_wait_for_path(label, path)
       button = find_button(label)
-      page.execute_script("arguments[0].click()", button)
+      button.click
       page.has_current_path?(path, wait: 5)
       assert_current_path path
       assert_no_selector "html[aria-busy='true']"
@@ -77,7 +77,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def click_button_and_wait_for_text(label, value)
       button = find_button(label)
-      page.execute_script("arguments[0].click()", button)
+      button.click
       page.has_text?(value, wait: 5)
       assert_text value
       assert_no_selector "html[aria-busy='true']"
@@ -88,14 +88,14 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     end
 
     def click_element_and_wait_for_count(element, selector, count)
-      page.execute_script("arguments[0].click()", element)
+      element.click
       assert_selector selector, count: count, wait: 5
       assert_no_selector "html[aria-busy='true']"
     end
 
     def click_button_and_wait_for_absence(label, selector, text)
       button = find_button(label)
-      page.execute_script("arguments[0].click()", button)
+      button.click
       assert_no_selector selector, text: text, wait: 5
       assert_no_selector "html[aria-busy='true']"
     end
@@ -129,34 +129,24 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       if control.tag_name == "el-select"
         within control do
           button = find("button")
-          page.execute_script("arguments[0].click()", button)
-          unless page.has_selector?("el-option", visible: :visible, wait: 0)
-            page.execute_script("arguments[0].querySelector('el-options').showPopover()", control)
-          end
+          button.click
           selected_option = find("el-option", text: option, exact_text: true, visible: :visible, wait: 5)
-          page.execute_script("arguments[0].click()", selected_option)
+          selected_option.click
         end
         assert_text option, wait: 5
         assert_equal option, control.find("el-selectedcontent").text
       elsif control.matches_css?("[data-elements-autocomplete]")
         slim_select = control.sibling(".ss-main")
-        page.execute_script("arguments[0].click()", slim_select)
+        slim_select.click
         content = find(".ss-content[data-id='#{slim_select["data-id"]}']", visible: :visible, wait: 5)
         within content do
           search = find("input[type='search']", visible: :visible)
-          page.execute_script(<<~JAVASCRIPT, search, option)
-            arguments[0].value = arguments[1];
-            arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-          JAVASCRIPT
+          search.send_keys(option)
           assert_selector ".ss-option", text: option, exact_text: true, count: 1, visible: :visible, wait: 5
           assert_selector ".ss-option", count: 1, visible: :visible, wait: 5
+          search.send_keys(:arrow_down, :enter)
+          search.send_keys(:escape) if content.matches_css?(".ss-open")
         end
-        page.execute_script(<<~JAVASCRIPT, slim_select["data-id"], option, slim_select)
-          const content = document.querySelector(`.ss-content[data-id="${arguments[0]}"]`);
-          const selected = Array.from(content.querySelectorAll(".ss-option")).find((candidate) => candidate.textContent.trim() === arguments[1]);
-          selected.click();
-          if (content.classList.contains("ss-open")) arguments[2].click();
-        JAVASCRIPT
         assert_equal option, slim_select.find(".ss-single").text
         assert_equal option, control.find("option:checked", visible: :all).text
         assert_no_selector ".ss-content[data-id='#{slim_select["data-id"]}'].ss-open", wait: 5
@@ -176,15 +166,6 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       current_field = find_by_id(field_id)
       current_field.set("")
       current_field.send_keys(value)
-
-      unless page.has_field?(field_id, with: value, wait: 0)
-        current_field = find_by_id(field_id)
-        page.execute_script(<<~JAVASCRIPT, current_field, value)
-          arguments[0].value = arguments[1];
-          arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-          arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
-        JAVASCRIPT
-      end
 
       assert_field field_id, with: value, wait: 5
       assert_equal value, find_by_id(field_id).value

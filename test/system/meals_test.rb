@@ -34,10 +34,9 @@ class MealsTest < ApplicationSystemTestCase
 
       click_link_and_wait_for_path "Log meal", new_meal_path(date: WEEK_START)
       assert_field "Food or meal", focused: true
-      set_meal_text "Food or meal", "Late snack after a movie"
+      fill_in_and_wait_for_value "Food or meal", "Late snack after a movie"
 
-      page.execute_script("arguments[0].click()", find_button("Log meal"))
-      assert_text "Late snack after a movie was logged for #{people(:one).name}.", wait: 5
+      click_button_and_wait_for_text "Log meal", "Late snack after a movie was logged for #{people(:one).name}."
       assert_selector "h1", text: "Late snack after a movie"
       assert_equal recipe_count, Recipe.count
     end
@@ -47,7 +46,7 @@ class MealsTest < ApplicationSystemTestCase
     travel_to WEEK_START do
       sign_in_and_open_meals users(:one)
       click_link_and_wait_for_path "Log meal", new_meal_path(date: WEEK_START)
-      set_meal_text "Food or meal", "Side salad"
+      fill_in_and_wait_for_value "Food or meal", "Side salad"
 
       click_button_and_wait_for_count "Add recipe", "li[data-meal-item-kind]", 2
       recipe_control_id = within("li[data-meal-item-kind='recipe']") { find("label", text: "Recipe", match: :prefer_exact)[:for] }
@@ -64,12 +63,16 @@ class MealsTest < ApplicationSystemTestCase
       within "li[data-meal-item-kind='ingredient']" do
         fill_in "Item notes", with: "A handful"
       end
+      within "li[data-meal-item-kind='recipe']" do
+        fill_in "Recipe feedback (optional)", with: "Good base for breakfast."
+      end
 
       click_button "Log meal"
       assert_text "Side salad, #{recipes(:porridge).title}, and #{ingredients(:blueberries).name} was logged", wait: 5
       assert_link recipes(:porridge).title
       assert_text "1.5 servings"
       assert_text "Use oat milk"
+      assert_text "Good base for breakfast."
 
       meal = Meal.joins(:meal_items).find_by!(meal_items: { snapshot_label: "Side salad" })
       surviving_item = meals(:alex_recipe_target_week).meal_items.create!(
@@ -182,16 +185,6 @@ class MealsTest < ApplicationSystemTestCase
   end
 
   private
-    def set_meal_text(label, value)
-      field = find_field(label)
-      page.execute_script(<<~JAVASCRIPT, field, value)
-        arguments[0].value = arguments[1];
-        arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-        arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
-      JAVASCRIPT
-      assert_field field[:id], with: value, wait: 5
-    end
-
     def sign_in_and_open_meals(user)
       sign_in_via_browser user
       within "nav[aria-label='Household and person context']" do

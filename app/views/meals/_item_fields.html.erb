@@ -7,8 +7,6 @@
   <li class="px-4 py-6 sm:px-6" data-meal-item-kind="<%= form.object.source_kind %>">
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :source_kind %>
-    <%= form.hidden_field :position %>
-
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
