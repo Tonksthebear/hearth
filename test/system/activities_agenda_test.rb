@@ -11,6 +11,10 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       click_link_and_wait_for_path "Activities", activity_week_path
 
       assert_selector "[data-activity-date='2026-07-30']", text: "Today"
+      assert_selector "[data-activity-date='2026-07-30'] [data-activity-kind='workout'][data-activity-status]"
+      within "[data-activity-date='2026-07-30'] [data-activity-kind='workout']", match: :first do
+        assert_no_text "Planned workout"
+      end
       click_link_and_wait_for_path "Previous", activity_week_path(date: WEEK_START - 7.days)
       assert_selector "[data-activity-date='2026-07-20']"
       click_link_and_wait_for_path "Current week", activity_week_path

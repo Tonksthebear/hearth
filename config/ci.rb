@@ -66,6 +66,28 @@ production_database_assertion = <<~'RUBY'
   puts "Production databases verified: #{configs.transform_values(&:database).inspect}"
   puts "Production Active Storage verified: #{actual_storage_root}"
 RUBY
+active_storage_write_assertion = <<~'RUBY'
+  payload = "hearth release gate cover bytes\n"
+  household = Household.create!(name: "Release gate household", installation_key: 1)
+  recipe = household.recipes.create!(title: "Release gate recipe", provenance_status: :personal)
+  recipe.cover.attach(
+    io: StringIO.new(payload),
+    filename: "release-gate.png",
+    content_type: "image/png"
+  )
+  raise "Recipe cover was not attached" unless recipe.cover.attached?
+  puts "Production Active Storage write verified: #{recipe.cover.blob.key}"
+RUBY
+active_storage_read_assertion = <<~'RUBY'
+  payload = "hearth release gate cover bytes\n"
+  recipe = Recipe.find_by!(title: "Release gate recipe")
+  raise "Recipe cover attachment was not persisted" unless recipe.cover.attached?
+  raise "Recipe cover bytes changed across processes" unless recipe.cover.download == payload
+  recipe.cover.purge
+  recipe.destroy!
+  recipe.household.destroy!
+  puts "Production Active Storage independent-process byte round-trip verified"
+RUBY
 
 CI.run do
   step "Setup", "bin/setup", "--skip-server"
@@ -91,6 +113,10 @@ CI.run do
   step "Release gate: Migrate fresh production databases", "env", *production_database_env, "bin/rails", "db:migrate"
   step "Release gate: Verify production database isolation",
     "env", *production_database_env, "bin/rails", "runner", production_database_assertion
+  step "Release gate: Write production Active Storage bytes",
+    "env", *production_database_env, "bin/rails", "runner", active_storage_write_assertion
+  step "Release gate: Read production Active Storage bytes in a new process",
+    "env", *production_database_env, "bin/rails", "runner", active_storage_read_assertion
   step "Release gate: Precompile production assets",
     "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret",
     "bin/rails", "assets:precompile", "assets:clobber"

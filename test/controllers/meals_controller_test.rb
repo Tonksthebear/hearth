@@ -176,18 +176,41 @@ class MealsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{meal_path(meals(:alex_recipe_target_week))}']", count: 1
   end
 
-  test "show does not expose a meal from another household" do
+  test "other household meal training catalog and shopping records are not exposed" do
     sign_in_as users(:one)
     foreign_recipe = create_foreign_recipe
-    foreign_person = foreign_recipe.household.people.create!(name: "Foreign person")
+    foreign_household = foreign_recipe.household
+    foreign_person = foreign_household.people.create!(name: "Foreign person")
     foreign_meal = foreign_person.meals.create!(
-      household: foreign_recipe.household,
+      household: foreign_household,
       eaten_on: Date.new(2026, 7, 31),
       meal_items_attributes: [ { source_kind: :recipe, recipe: foreign_recipe } ]
     )
+    foreign_session = foreign_person.training_sessions.create!(
+      household: foreign_household,
+      snapshot_title: "Foreign workout",
+      performed_on: Date.new(2026, 7, 31),
+      started_at: Time.zone.local(2026, 7, 31, 8)
+    )
+    foreign_item = foreign_household.shopping_lists
+      .create!(week_start: Date.new(2026, 7, 27))
+      .items.create!(name: "Foreign groceries", user_managed_at: Time.current)
 
     get meal_path(foreign_meal)
+    assert_response :not_found
 
+    get recipe_path(foreign_recipe)
+    assert_response :not_found
+
+    get training_session_path(foreign_session)
+    assert_response :not_found
+
+    get edit_shopping_list_item_path(foreign_item)
+    assert_response :not_found
+
+    assert_no_changes -> { foreign_item.reload.completed_at } do
+      post shopping_list_item_completion_path(foreign_item)
+    end
     assert_response :not_found
   end
 

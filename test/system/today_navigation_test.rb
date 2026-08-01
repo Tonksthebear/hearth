@@ -75,4 +75,56 @@ class TodayNavigationTest < ApplicationSystemTestCase
       assert_equal :in_progress, plan.status
     end
   end
+
+
+  test "renders the daily summary on mobile and reaches a measured habit recording unit in one activation" do
+    browser = page.driver.browser
+    browser.execute_cdp(
+      "Emulation.setDeviceMetricsOverride",
+      width: 390,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false
+    )
+    browser.execute_cdp(
+      "Emulation.setEmulatedMedia",
+      features: [ { name: "prefers-color-scheme", value: "light" } ]
+    )
+
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      person_habits(:alex_sauna).habit_check_ins.destroy_all
+      sign_in_via_browser users(:one)
+
+      assert_equal 390, page.evaluate_script("window.innerWidth")
+      assert_selector "#today-summary-heading", text: "Today at a glance"
+      assert_selector "[data-today-summary-fact]", count: 3
+      assert_no_text "Planned meal"
+      assert_no_text "Simple habit"
+      assert_no_text "Measured habit"
+      summary_card = find("[data-today-summary-fact='meals']")
+      light_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", summary_card)
+
+      browser.execute_cdp(
+        "Emulation.setEmulatedMedia",
+        features: [ { name: "prefers-color-scheme", value: "dark" } ]
+      )
+      dark_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", summary_card)
+      assert_not_equal light_background, dark_background
+
+      within "[data-activity-kind='measured_habit']", text: habits(:sauna).name do
+        click_link "Record details"
+      end
+
+      target_id = "recovery-person-habit-#{person_habits(:alex_sauna).id}"
+      assert_current_path recovery_day_path, ignore_query: true, wait: 5
+      assert_selector "##{target_id}:focus", wait: 5
+      assert_equal target_id, page.evaluate_script("document.activeElement.id")
+      within "##{target_id}" do
+        assert_button "Record today's check-in"
+      end
+    end
+  ensure
+    browser&.execute_cdp("Emulation.setEmulatedMedia", features: [])
+    browser&.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
 end
