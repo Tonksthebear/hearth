@@ -92,4 +92,22 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to meal_week_path(date: "2026-07-27")
     assert_response :see_other
   end
+
+  test "does not destroy a plan that has been logged" do
+    sign_in_as users(:one)
+    planned_meal = planned_meals(:alex_target_week)
+    planned_meal.meals.create!(
+      person: people(:one),
+      household: households(:home),
+      eaten_on: planned_meal.planned_on,
+      meal_items_attributes: [ { source_kind: :free_text, snapshot_label: "Logged food", position: 1 } ]
+    )
+
+    assert_no_difference "PlannedMeal.count" do
+      delete planned_meal_path(planned_meal), params: { date: "2026-07-27" }
+    end
+
+    assert_redirected_to meal_week_path(date: "2026-07-27")
+    assert_equal "A plan that has been logged cannot be removed.", flash[:alert]
+  end
 end

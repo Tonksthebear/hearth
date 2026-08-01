@@ -22,7 +22,8 @@ production_database_env = [
 demo_assertion = <<~'RUBY'
   expected = {
     households: 1, people: 2, users: 1, recipes: 2, recipe_ingredients: 8,
-    recipe_instructions: 4, planned_meals: 2, meal_logs: 2, exercises: 2,
+    recipe_instructions: 4, planned_meals: 2, meals: 2, meal_items: 2,
+    recipe_feedbacks: 0, exercises: 2,
     workout_templates: 1, workout_blocks: 2, exercise_prescriptions: 2,
     training_sessions: 1, training_session_blocks: 2,
     training_session_exercises: 2, training_sets: 3, habits: 2,

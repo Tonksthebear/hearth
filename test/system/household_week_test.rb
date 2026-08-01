@@ -16,6 +16,15 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       assert_text "Post-meal movement"
       assert_text "Informational tracking only"
 
+      click_link_and_wait_for_path "Dinner with friends", meal_path(meals(:alex_ad_hoc_target_week))
+      visit_and_wait_for_path household_week_path
+
+      click_link_and_wait_for_path meals(:sam_recipe_target_week).description, meal_path(meals(:sam_recipe_target_week))
+      assert_text people(:two).name
+      assert_no_link "Edit meal"
+      assert_no_button "Delete meal"
+      visit_and_wait_for_path household_week_path
+
       click_link_and_wait_for_path "Next week", household_week_path(date: "2026-08-03")
       assert_text "Following week"
       assert_no_text "Sunday balanced day"
@@ -24,8 +33,8 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       assert_no_text "Following week"
 
       click_link_and_wait_for_path "Log a meal", meal_week_path(date: "2026-07-27")
-      select_and_wait "No catalog recipe", from: "Recipe eaten"
-      fill_in_and_wait_for_value "Ad hoc meal", "Week-view lunch"
+      click_link_and_wait_for_path "Log meal", new_meal_path(date: "2026-07-27")
+      fill_in_and_wait_for_value "Food or meal", "Week-view lunch"
       click_button_and_wait_for_text "Log meal", "Week-view lunch was logged for #{people(:one).name}."
       click_link_and_wait_for_path "Hearth", root_path
       assert_text "Week-view lunch"

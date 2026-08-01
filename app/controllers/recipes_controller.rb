@@ -13,6 +13,7 @@ class RecipesController < ApplicationController
   end
 
   def show
+    @recipe_feedbacks = @recipe.feedback_history
   end
 
   def new

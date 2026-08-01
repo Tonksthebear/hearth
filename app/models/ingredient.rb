@@ -1,6 +1,7 @@
 class Ingredient < ApplicationRecord
   belongs_to :household
   has_many :recipe_ingredients, dependent: :restrict_with_exception
+  has_many :meal_items, dependent: :restrict_with_exception
 
   before_validation :normalize_identity
 

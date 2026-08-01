@@ -1,5 +1,5 @@
 class MealWeek
-  attr_reader :household, :person, :start_date, :planned_meal, :meal_log
+  attr_reader :household, :person, :start_date, :planned_meal
 
   class << self
     def current(household:, person:, **)
@@ -14,12 +14,11 @@ class MealWeek
     end
   end
 
-  def initialize(household:, person:, date:, planned_meal: nil, meal_log: nil)
+  def initialize(household:, person:, date:, planned_meal: nil)
     @household = household
     @person = person
     @start_date = date.beginning_of_week(:monday)
     @planned_meal = planned_meal || household.planned_meals.build(planned_on: date)
-    @meal_log = meal_log || person.meal_logs.build(household: household, eaten_on: date)
   end
 
   def end_date
@@ -38,14 +37,14 @@ class MealWeek
     @planned_meals ||= household.planned_meals
       .during(date_range)
       .visible_to(person)
-      .includes(:person, :recipe)
+      .includes(:person, :recipe, :meals)
       .order(:planned_on, :created_at)
   end
 
-  def meal_logs
-    @meal_logs ||= person.meal_logs
+  def meals
+    @meals ||= person.meals
       .during(date_range)
-      .includes(:recipe)
+      .includes(meal_items: [ :recipe, :ingredient ])
       .order(:eaten_on, :created_at)
   end
 
@@ -53,8 +52,16 @@ class MealWeek
     planned_meals_by_date[day] || []
   end
 
-  def meal_logs_for(day)
-    meal_logs_by_date[day] || []
+  def meals_for(day)
+    meals_by_date[day] || []
+  end
+
+  def converted_meal_for(planned_meal)
+    converted_meals_by_plan_id[planned_meal.id]
+  end
+
+  def logging_date
+    Date.current.in?(date_range) ? Date.current : start_date
   end
 
   def recipes
@@ -82,7 +89,13 @@ class MealWeek
       @planned_meals_by_date ||= planned_meals.group_by(&:planned_on)
     end
 
-    def meal_logs_by_date
-      @meal_logs_by_date ||= meal_logs.group_by(&:eaten_on)
+    def meals_by_date
+      @meals_by_date ||= meals.group_by(&:eaten_on)
+    end
+
+    def converted_meals_by_plan_id
+      @converted_meals_by_plan_id ||= person.meals
+        .where(planned_meal_id: planned_meals.map(&:id))
+        .index_by(&:planned_meal_id)
     end
 end

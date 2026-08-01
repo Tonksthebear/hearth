@@ -50,33 +50,10 @@
       <% end %>
     </section>
 
-    <section aria-labelledby="log-meal-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
+    <section aria-labelledby="log-meal-heading" class="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50">
       <h2 id="log-meal-heading" class="text-xl font-semibold">Log what was eaten</h2>
-      <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Record a catalog recipe or an ad hoc meal for <%= @meal_week.person.name %>.</p>
-
-      <% if @meal_week.meal_log.errors.any? %>
-        <%= render "layouts/alert", id: "meal-log-errors", title: "The meal could not be logged:", messages: @meal_week.meal_log.errors.full_messages, class: "mt-4" %>
-      <% end %>
-
-      <%= form_with model: @meal_week.meal_log, class: "mt-5 grid gap-4" do |form| %>
-        <%= hidden_field_tag :date, @meal_week.to_param %>
-        <div>
-          <%= form.label :eaten_on, "Date eaten", class: :label %>
-          <%= form.date_field :eaten_on, class: :text_field %>
-        </div>
-        <div>
-          <%= form.label :recipe_id, "Recipe eaten", class: :label %>
-          <%= form.elements_autocomplete :recipe_id, @optional_recipe_options,
-            { value: @meal_week.meal_log.recipe_id },
-            { placeholder: "No catalog recipe" } %>
-        </div>
-        <div>
-          <%= form.label :ad_hoc_description, "Ad hoc meal", class: :label %>
-          <%= form.text_field :ad_hoc_description, placeholder: "For example: leftovers at a friend's house", class: :text_field %>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Use this only when no recipe is selected.</p>
-        </div>
-        <%= form.submit "Log meal", class: { btn: [ :base, { lg: :base }, { primary: :solid }, "justify-self-start" ] } %>
-      <% end %>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Record a complete meal with recipes, ingredients, free text, portions, and notes for <%= @meal_week.person.name %>.</p>
+      <%= link_to "Log meal", new_meal_path(date: @meal_week.logging_date), class: yass(btn: [ :base, { lg: :base }, { primary: :solid }, "mt-5" ]) %>
     </section>
   </div>
 
@@ -93,13 +70,22 @@
                   <li class="rounded-lg bg-primary-50 p-3 dark:bg-primary-500/10">
                     <div class="flex items-start justify-between gap-3">
                       <div>
-                        <p class="font-medium"><%= planned_meal.recipe.title %></p>
+                        <p class="font-medium"><%= link_to planned_meal.recipe.title, planned_meal.recipe, class: "underline" %></p>
                         <p class="text-sm text-gray-600 dark:text-gray-400"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
                       </div>
-                      <%= button_to "Remove", planned_meal_path(planned_meal), method: :delete,
-                        params: { date: @meal_week.to_param },
-                        form: { data: { turbo_confirm: "Remove this meal from the plan?" } },
-                        class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
+                      <div class="flex flex-col items-end gap-2">
+                        <% if (meal = @meal_week.converted_meal_for(planned_meal)) %>
+                          <%= link_to "View logged meal", meal, class: "text-sm font-semibold text-primary-800 underline dark:text-primary-300" %>
+                        <% elsif planned_meal.convertible_by?(@meal_week.person) %>
+                          <%= button_to "Log as eaten", planned_meal_meal_path(planned_meal), class: yass(btn: [ :base, { sm: :base }, { primary: :solid } ]) %>
+                        <% end %>
+                        <% if planned_meal.meals.empty? %>
+                          <%= button_to "Remove", planned_meal_path(planned_meal), method: :delete,
+                            params: { date: @meal_week.to_param },
+                            form: { data: { turbo_confirm: "Remove this meal from the plan?" } },
+                            class: "text-sm font-medium text-gray-700 underline hover:no-underline dark:text-gray-300" %>
+                        <% end %>
+                      </div>
                     </div>
                   </li>
                 <% end %>
@@ -111,18 +97,18 @@
 
           <div>
             <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Eaten</h3>
-            <% if @meal_week.meal_logs_for(day).any? %>
+            <% if @meal_week.meals_for(day).any? %>
               <ul class="mt-2 grid gap-2">
-                <% @meal_week.meal_logs_for(day).each do |meal_log| %>
+                <% @meal_week.meals_for(day).each do |meal| %>
                   <li class="rounded-lg bg-gray-100 dark:bg-white/5 p-3">
                     <div class="flex items-start justify-between gap-3">
                       <div>
-                        <p class="font-medium"><%= meal_log.description %></p>
-                        <p class="text-sm text-gray-600 dark:text-gray-400"><%= meal_log.recipe ? "Catalog recipe" : "Ad hoc meal" %></p>
+                        <p class="font-medium"><%= link_to meal.description, meal, class: "underline" %></p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400"><%= pluralize(meal.meal_items.size, "item") %></p>
                       </div>
-                      <%= button_to "Remove", meal_log_path(meal_log), method: :delete,
+                      <%= button_to "Remove", meal_path(meal), method: :delete,
                         params: { date: @meal_week.to_param },
-                        form: { data: { turbo_confirm: "Remove this meal log?" } },
+                        form: { data: { turbo_confirm: "Remove this meal?" } },
                         class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
                     </div>
                   </li>

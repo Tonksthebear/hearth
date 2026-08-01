@@ -102,6 +102,37 @@
     </div>
   </section>
 
+  <section aria-labelledby="recipe-feedback-heading" class="mt-12">
+    <div>
+      <h2 id="recipe-feedback-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Household recipe feedback</h2>
+      <p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400">Read-only notes from specific meals. Revise feedback from the meal event.</p>
+    </div>
+    <div class="group/feedback mt-5 flow-root rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800/50 dark:shadow-none dark:inset-ring dark:inset-ring-white/10">
+      <ul role="list" class="-mb-8">
+        <% @recipe_feedbacks.each_with_index do |feedback, index| %>
+          <li>
+            <div class="relative pb-8">
+              <% unless index == @recipe_feedbacks.length - 1 %><span aria-hidden="true" class="absolute top-5 left-5 -ml-px h-full w-0.5 bg-gray-200 dark:bg-white/10"></span><% end %>
+              <div class="relative flex items-start space-x-3">
+                <div class="relative px-1">
+                  <div class="flex size-8 items-center justify-center rounded-full bg-primary-50 ring-8 ring-white dark:bg-primary-500/10 dark:ring-gray-900"><%= icon "book-open", variant: :mini, class: "size-5 text-primary-600 dark:text-primary-400" %></div>
+                </div>
+                <div class="min-w-0 flex-1 py-1.5">
+                  <p class="text-sm text-gray-500 dark:text-gray-400"><span class="font-medium text-gray-900 dark:text-white"><%= feedback.person.name %></span> after <%= link_to feedback.eaten_on.to_fs(:long), feedback.meal, class: "font-medium text-primary-700 underline dark:text-primary-300" %></p>
+                  <p class="mt-2 whitespace-pre-wrap text-sm/6 text-gray-700 dark:text-gray-200"><%= feedback.body %></p>
+                </div>
+              </div>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+      <div class="hidden py-5 text-center group-not-has-[li]/feedback:block">
+        <p class="font-semibold text-gray-900 dark:text-white">No recipe feedback yet.</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Feedback can be added when editing a meal that includes this recipe.</p>
+      </div>
+    </div>
+  </section>
+
   <p class="mt-4 text-sm/6 text-gray-500 dark:text-gray-400">Source and provenance are attribution, not clinical endorsement. Hearth tracks household health information and does not provide medical advice.</p>
   <p class="mt-8"><%= link_to "Back to recipes", recipes_path, class: "font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300" %></p>
 </article>

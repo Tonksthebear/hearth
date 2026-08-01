@@ -23,12 +23,13 @@ class Person::Today
       planned_meals = household.planned_meals
         .during(date..date)
         .visible_to(person)
+        .where.not(id: person.meals.where.not(planned_meal_id: nil).select(:planned_meal_id))
         .includes(:person, :recipe)
         .order(:planned_on, :created_at)
         .to_a
-      meal_logs = person.meal_logs
+      meals = person.meals
         .during(date..date)
-        .includes(:recipe)
+        .includes(meal_items: [ :recipe, :ingredient ])
         .order(:eaten_on, :created_at)
         .to_a
 
@@ -44,14 +45,14 @@ class Person::Today
       end
       up_next.concat(activity_day.up_next)
 
-      completed = meal_logs.map do |meal_log|
+      completed = meals.map do |meal|
         Item.new(
-          kind: :meal_log,
-          record: meal_log,
-          title: meal_log.description,
-          description: "Meal logged",
+          kind: :meal,
+          record: meal,
+          title: meal.description,
+          description: "Recorded meal · #{meal.meal_items.size} #{'item'.pluralize(meal.meal_items.size)}",
           status: :logged,
-          destination: meal_log.recipe
+          destination: meal
         )
       end
       completed.concat(activity_day.done)

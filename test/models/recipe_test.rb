@@ -520,7 +520,7 @@ class RecipeTest < ActiveSupport::TestCase
     end
   end
 
-  test "cannot be destroyed while a plan or meal log references it" do
+  test "cannot be destroyed while a plan or meal item references it" do
     planned_recipe = recipes(:salad)
     logged_recipe = recipes(:observed_soup)
 

@@ -22,7 +22,8 @@ class Recipe < ApplicationRecord
     attachable.variant :hero, resize_to_fill: [ 1200, 1200 ]
   end
   has_many :planned_meals, dependent: :restrict_with_exception
-  has_many :meal_logs, dependent: :restrict_with_exception
+  has_many :meal_items, dependent: :restrict_with_exception
+  has_many :recipe_feedbacks, through: :meal_items
   has_many :recipe_ingredients, -> { order(:position) }, dependent: :destroy
   has_many :recipe_instructions, -> { order(:position) }, dependent: :destroy
   has_many :ingredients, through: :recipe_ingredients
@@ -240,6 +241,13 @@ class Recipe < ApplicationRecord
 
   def source_label
     source_name.presence || "From your household"
+  end
+
+  def feedback_history
+    recipe_feedbacks
+      .joins(meal_item: :meal)
+      .includes(meal_item: { meal: :person })
+      .order("meals.eaten_on DESC", "recipe_feedbacks.created_at DESC")
   end
 
   private

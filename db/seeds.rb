@@ -86,13 +86,13 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         meal.planned_on = week_start + 1.day
         meal.save!
       end
-      household.meal_logs.find_or_initialize_by(person: alex, recipe: oats).tap do |log|
-        log.eaten_on = week_start
-        log.save!
+      household.meals.find_or_initialize_by(person: alex, eaten_on: week_start).tap do |meal|
+        meal.meal_items.build(source_kind: :recipe, recipe: oats, position: 1) if meal.new_record?
+        meal.save!
       end
-      household.meal_logs.find_or_initialize_by(person: sam, recipe: nil, ad_hoc_description: "Vegetable soup and toast").tap do |log|
-        log.eaten_on = week_start
-        log.save!
+      household.meals.find_or_initialize_by(person: sam, eaten_on: week_start).tap do |meal|
+        meal.meal_items.build(source_kind: :free_text, snapshot_label: "Vegetable soup and toast", position: 1) if meal.new_record?
+        meal.save!
       end
 
       squat = household.exercises.find_or_create_by!(name: "Goblet squat") do |exercise|

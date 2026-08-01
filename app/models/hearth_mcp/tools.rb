@@ -35,7 +35,7 @@ module HearthMcp
           source_url: { type: [ "string", "null" ] },
           ingredients: RECORDS_SCHEMA
         },
-        "get_meal_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, planned_meals: RECORDS_SCHEMA, meal_logs: RECORDS_SCHEMA },
+        "get_meal_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, planned_meals: RECORDS_SCHEMA, meals: RECORDS_SCHEMA },
         "get_shopping_list" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, entries: RECORDS_SCHEMA },
         "get_activity_week" => { start_date: STRING_SCHEMA, end_date: STRING_SCHEMA, days: RECORDS_SCHEMA },
         "get_training_week" => {
@@ -49,7 +49,7 @@ module HearthMcp
         "get_recovery_day" => { date: STRING_SCHEMA, dates: { type: "array", items: STRING_SCHEMA }, entries: RECORDS_SCHEMA }
       }.freeze
       PAGED_TOOLS = %w[
-        list_people list_recipes list_planned_meals list_meal_logs list_planned_workouts
+        list_people list_recipes list_planned_meals list_meals list_planned_workouts
         list_exercises list_workout_templates list_training_sessions list_habits
         list_person_habits list_habit_check_ins
       ].freeze
@@ -199,7 +199,7 @@ module HearthMcp
         people = week.person_summaries.map do |summary|
           {
             person: Serializer.person(summary.person),
-            meal_logs: summary.meal_logs.map { |row| Serializer.meal_log(row) },
+            meals: summary.meals.map { |row| Serializer.meal(row) },
             training_sessions: summary.training_sessions.map { |row| Serializer.training_session(row) },
             habits: summary.habits.map do |habit|
               {
@@ -254,7 +254,7 @@ module HearthMcp
             start_date: week.start_date.iso8601,
             end_date: week.end_date.iso8601,
             planned_meals: week.planned_meals.map { |row| Serializer.planned_meal(row) },
-            meal_logs: week.meal_logs.map { |row| Serializer.meal_log(row) }
+            meals: week.meals.map { |row| Serializer.meal(row) }
           },
           server_context: server_context
         )
@@ -271,11 +271,12 @@ module HearthMcp
       end
     end
 
-    class ListMealLogs < Base
-      contract name: "list_meal_logs", description: "List observed meal logs for the selected person.", properties: PAGE_PROPERTIES
+    class ListMeals < Base
+      contract name: "list_meals", description: "List complete observed meal events for the selected person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        paginated_response(person(server_context).meal_logs.includes(:recipe), limit: limit, cursor: cursor,
-          server_context: server_context) { |row| Serializer.meal_log(row) }
+        scope = person(server_context).meals.includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ])
+        paginated_response(scope, limit: limit, cursor: cursor,
+          server_context: server_context) { |row| Serializer.meal(row) }
       end
     end
 
@@ -438,7 +439,7 @@ module HearthMcp
 
     ALL = [
       GetCurrentContext, ListPeople, GetToday, GetHouseholdWeek,
-      ListRecipes, GetRecipe, GetMealWeek, ListPlannedMeals, ListMealLogs, GetShoppingList,
+      ListRecipes, GetRecipe, GetMealWeek, ListPlannedMeals, ListMeals, GetShoppingList,
       GetActivityWeek, ListPlannedWorkouts, ListExercises, ListWorkoutTemplates,
       ListTrainingSessions, GetTrainingWeek, GetWeeklyDoseTargets,
       ListHabits, ListPersonHabits, ListHabitCheckIns, GetRecoveryDay
