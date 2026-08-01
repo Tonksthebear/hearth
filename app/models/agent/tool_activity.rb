@@ -22,8 +22,7 @@ class Agent::ToolActivity < ApplicationRecord
   validates :output_tokens, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validate :authorization_context_is_active, on: :create
 
-  after_create_commit :broadcast_created
-  after_update_commit :broadcast_updated
+  after_commit :broadcast_activity_list, on: %i[ create update ]
 
   class << self
     def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false, capability:, provenance: {})
@@ -100,14 +99,10 @@ class Agent::ToolActivity < ApplicationRecord
       end
     end
 
-    def broadcast_created
+    def broadcast_activity_list
       broadcast_update_to conversation,
         target: "agent_activities",
         partial: "agent/conversations/activities",
-        locals: { activities: conversation.tool_activities.order(:created_at, :id) }
-    end
-
-    def broadcast_updated
-      broadcast_created
+        locals: { activities: conversation.tool_activities.includes(:person, conversation: :profile).order(:created_at, :id) }
     end
 end

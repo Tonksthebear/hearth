@@ -23,6 +23,20 @@ class Agent::Turn::RuntimeTest < ActiveSupport::TestCase
     end
   end
 
+  test "a successful prompt remains successful when its agent exits immediately" do
+    conversation = Agent::Conversation.create!(
+      household: households(:home), person: people(:two), profile: agent_profiles(:hearth), title: "Runtime clean exit"
+    )
+    turn = conversation.enqueue_turn!(
+      body: "Finish and exit", browser_session: sessions(:browser), idempotency_key: "runtime-clean-exit"
+    )
+
+    with_runtime(mode: "exit_after_prompt") { |runtime| runtime.run_next }
+
+    assert_equal "succeeded", turn.reload.status, turn.error_message
+    assert_equal "finished before exit", conversation.messages.where(role: "agent").sole.body
+  end
+
   test "the runtime sends cancellation and records the terminal turn" do
     conversation = Agent::Conversation.create!(
       household: households(:home), person: people(:two), profile: agent_profiles(:hearth), title: "Runtime cancellation"
@@ -61,6 +75,29 @@ class Agent::Turn::RuntimeTest < ActiveSupport::TestCase
       assert_raises(Acp::Supervisor::Error) { supervisor.connection_for(conversation.sessions.sole) }
     ensure
       agent_profiles(:hearth).update!(enabled: true)
+    end
+  end
+
+  test "the runtime bounds supervisor housekeeping during a fast event stream" do
+    conversation = Agent::Conversation.create!(
+      household: households(:home), person: people(:two), profile: agent_profiles(:hearth), title: "Runtime bounded housekeeping"
+    )
+    conversation.enqueue_turn!(
+      body: "Stream quickly", browser_session: sessions(:browser), idempotency_key: "runtime-bounded-housekeeping"
+    )
+
+    with_runtime(mode: "tick_flood") do |runtime, supervisor|
+      tick_count = 0
+      original_tick = supervisor.method(:tick)
+      supervisor.define_singleton_method(:tick) do
+        tick_count += 1
+        original_tick.call
+      end
+
+      travel_to(Time.current) { runtime.run_next }
+
+      assert_equal 1, tick_count
+      assert_equal "x" * 50, conversation.messages.where(role: "agent").sole.body
     end
   end
 

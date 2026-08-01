@@ -69,11 +69,13 @@ class Agent::Turn::ProjectionTest < ActiveSupport::TestCase
       end
       assert_nil Agent::Message.find_by(external_id: "buffered-answer")
       @projection.flush!
+      apply_update("agent_message_chunk", "messageId" => "buffered-answer", "content" => { "type" => "text", "text" => "y" })
+      @projection.flush!
     end
 
     message = Agent::Message.find_by!(external_id: "buffered-answer")
-    assert_equal "x" * 100, message.body
-    assert_equal 1, broadcasts.count { |stream| stream["target"] == "agent_messages" }
+    assert_equal "#{'x' * 100}y", message.body
+    assert_equal 2, broadcasts.count { |stream| stream["target"] == "agent_messages" }
     assert broadcasts.none? { |stream| stream["target"] == ActionView::RecordIdentifier.dom_id(message) }
   end
 

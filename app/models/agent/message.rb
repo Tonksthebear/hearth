@@ -17,24 +17,35 @@ class Agent::Message < ApplicationRecord
   validates :body_digest, presence: true
   validates :source_kind, inclusion: { in: SOURCE_KINDS }
 
-  after_create_commit :broadcast_created
-  after_update_commit :broadcast_updated
+  after_commit :broadcast_transcript, on: %i[ create update ]
+  after_destroy_commit :expire_rendered_body_cache
 
   def rendered_body
-    Agent::Message::Markdown.new(body.to_s).to_html
+    return render_body if redacted_at?
+
+    Rails.cache.fetch(rendered_body_cache_key) { render_body.to_s }.html_safe
   end
 
   private
     def sensitive_body_columns = %i[ body ]
 
-    def broadcast_created
+    def broadcast_transcript
+      expire_rendered_body_cache(body_digest_before_last_save || body_digest) if saved_change_to_body? || saved_change_to_redacted_at?
       broadcast_update_to conversation,
         target: "agent_messages",
         partial: "agent/conversations/messages",
-        locals: { messages: conversation.messages.order(:created_at, :id) }
+        locals: { messages: conversation.messages.includes(:person, conversation: :profile).order(:created_at, :id) }
     end
 
-    def broadcast_updated
-      broadcast_created
+    def render_body
+      Agent::Message::Markdown.new(body.to_s).to_html
+    end
+
+    def rendered_body_cache_key(digest = body_digest)
+      [ "agent-message-markdown", 1, digest ]
+    end
+
+    def expire_rendered_body_cache(digest = body_digest)
+      Rails.cache.delete(rendered_body_cache_key(digest))
     end
 end

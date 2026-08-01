@@ -152,7 +152,24 @@ loop do
     prompt_id = message["id"]
     prompt = message.dig("params", "prompt")
     abort "unsupported attachment was written" if mode == "no_attachments" && prompt.any? { |block| %w[image resource].include?(block["type"]) }
-    if mode == "chat_stream"
+    if mode == "tick_flood"
+      50.times do
+        write.call(jsonrpc: "2.0", method: "session/update", params: {
+          sessionId: session_id,
+          update: { sessionUpdate: "agent_message_chunk", messageId: "tick-message", content: { type: "text", text: "x" } }
+        })
+        sleep 0.002
+      end
+      write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
+      prompt_id = nil
+    elsif mode == "exit_after_prompt"
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", messageId: "exit-message", content: { type: "text", text: "finished before exit" } }
+      })
+      write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
+      exit 0
+    elsif mode == "chat_stream"
       write.call(jsonrpc: "2.0", method: "session/update", params: {
         sessionId: session_id,
         update: { sessionUpdate: "agent_message_chunk", messageId: "live-message", content: { type: "text", text: "**Recorded fact:** " }, _meta: { hearth: { sourceKind: "hearth_fact" } } }
