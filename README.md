@@ -4,6 +4,18 @@ Hearth is a self-hosted household health app for meals, training, habits, and re
 
 The current alpha includes household setup and sign-in, multiple people, recipes and meal planning/logging, shopping views, workout templates and session logs, habits/recovery check-ins, and weekly operating views.
 
+## Daily household workflow
+
+Primary navigation stays intentionally small: **Today**, **Meals**, and **Activities**. Shopping lives under Meals rather than becoming another top-level destination.
+
+Today is the selected person's operating view. Its at-a-glance summary reports planned and eaten meals, workout and recovery progress, and concrete exceptions such as a skipped workout or incomplete nutrition details. “No exceptions” means only that the explicit plan and currently logged details contain no attention condition; it is not a readiness, health, or medical score. An empty day remains neutral.
+
+Due meals, workouts, and simple habits can be recorded directly from Today. A measured habit requires a value, so its single **Record details** activation opens and focuses the exact recording unit on Recovery instead of duplicating a measurement form on Today. Weekly planning and corrections remain in Meals and Activities.
+
+Today never mixes another person's operational rows into the selected person's list. Historical records may remain household-readable where the UI says so, while edits and daily mutations stay scoped to the selected/current person. Records from another installation are not readable or mutable.
+
+Recipe and nutrition screens retain source/provenance status. Nutrition totals describe only known snapshot data: incomplete or unavailable details are not treated as zero, and later catalog edits do not rewrite a logged meal. Recipe cover files live with all four SQLite databases in the mounted storage directory, so restart, backup, and restore procedures must preserve the complete volume.
+
 ## Nutrition tracking
 
 Hearth starts with an extensible reference catalog for energy, protein, carbohydrates, fat, fiber, and sodium. Ingredient values are recorded per 100 grams from the Recipes area. Blank means unknown; an explicitly entered zero remains a known zero. Recipe estimates use only explicit ingredient gram weights and serving counts, and source-provided per-serving facts override estimates one nutrient at a time.
