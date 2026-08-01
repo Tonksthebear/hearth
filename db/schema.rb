@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_220000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -132,6 +132,39 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.check_constraint "authentication_status IN ('unknown', 'required', 'authenticated', 'failed')", name: "agent_installations_authentication_status"
     t.check_constraint "protocol_version > 0", name: "agent_installations_positive_protocol"
     t.check_constraint "status IN ('observed', 'available', 'unavailable')", name: "agent_installations_status"
+  end
+
+  create_table "agent_knowledge_submissions", force: :cascade do |t|
+    t.integer "agent_grant_id", null: false
+    t.integer "agent_session_id", null: false
+    t.text "content", null: false
+    t.string "content_digest", null: false
+    t.text "content_preview", null: false
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "diagnostic"
+    t.datetime "dispatched_at"
+    t.integer "household_id", null: false
+    t.datetime "last_polled_at"
+    t.string "lorester_submission_id"
+    t.integer "message_id", null: false
+    t.string "origin", null: false
+    t.integer "person_id", null: false
+    t.json "provenance", default: {}, null: false
+    t.string "request_id", null: false
+    t.string "requested_intent", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "terminal_at"
+    t.datetime "updated_at", null: false
+    t.index ["agent_grant_id"], name: "index_agent_knowledge_submissions_on_agent_grant_id"
+    t.index ["agent_session_id", "request_id"], name: "index_agent_knowledge_submissions_on_session_and_request", unique: true
+    t.index ["agent_session_id"], name: "index_agent_knowledge_submissions_on_agent_session_id"
+    t.index ["conversation_id"], name: "index_agent_knowledge_submissions_on_conversation_id"
+    t.index ["household_id"], name: "index_agent_knowledge_submissions_on_household_id"
+    t.index ["lorester_submission_id"], name: "index_agent_knowledge_submissions_on_lorester_submission_id", unique: true, where: "lorester_submission_id IS NOT NULL"
+    t.index ["message_id"], name: "index_agent_knowledge_submissions_on_message_id"
+    t.index ["person_id"], name: "index_agent_knowledge_submissions_on_person_id"
+    t.check_constraint "status IN ('pending', 'accepted', 'materialized', 'admitted', 'processing', 'complete', 'failed', 'unavailable')", name: "agent_knowledge_submissions_status"
   end
 
   create_table "agent_messages", force: :cascade do |t|
@@ -266,7 +299,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.integer "household_id", null: false
     t.text "input_body"
     t.string "input_digest", null: false
-    t.integer "mutation_proposal_id"
+    t.integer "permission_subject_id"
+    t.string "permission_subject_type"
     t.integer "person_id", null: false
     t.datetime "redacted_at"
     t.integer "redacted_by_id"
@@ -280,10 +314,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.index ["conversation_id", "status"], name: "index_agent_permission_requests_on_conversation_id_and_status"
     t.index ["conversation_id"], name: "index_agent_permission_requests_on_conversation_id"
     t.index ["household_id"], name: "index_agent_permission_requests_on_household_id"
-    t.index ["mutation_proposal_id"], name: "index_agent_permission_requests_on_mutation_proposal_id", unique: true
+    t.index ["permission_subject_type", "permission_subject_id"], name: "index_agent_permission_requests_on_permission_subject", unique: true
     t.index ["person_id"], name: "index_agent_permission_requests_on_person_id"
     t.index ["redacted_by_id"], name: "index_agent_permission_requests_on_redacted_by_id"
     t.check_constraint "(input_body IS NOT NULL AND redacted_at IS NULL) OR (input_body IS NULL AND redacted_at IS NOT NULL)", name: "agent_permission_requests_redaction_state"
+    t.check_constraint "(permission_subject_type IS NULL AND permission_subject_id IS NULL) OR (permission_subject_type IN ('Agent::MutationProposal', 'Agent::KnowledgeSubmission') AND permission_subject_id IS NOT NULL)", name: "agent_permission_requests_known_subject"
     t.check_constraint "status IN ('pending', 'approved', 'denied', 'cancelled', 'expired')", name: "agent_permission_requests_status"
   end
 
@@ -349,6 +384,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.string "output_digest"
     t.integer "output_tokens"
     t.integer "person_id", null: false
+    t.json "provenance", default: {}, null: false
     t.datetime "redacted_at"
     t.integer "redacted_by_id"
     t.text "redaction_reason"
@@ -987,6 +1023,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
   add_foreign_key "agent_grants", "users", column: "issued_by_id"
   add_foreign_key "agent_installations", "agent_profiles", column: "profile_id"
   add_foreign_key "agent_installations", "households"
+  add_foreign_key "agent_knowledge_submissions", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_knowledge_submissions", "agent_grants"
+  add_foreign_key "agent_knowledge_submissions", "agent_messages", column: "message_id"
+  add_foreign_key "agent_knowledge_submissions", "agent_sessions"
+  add_foreign_key "agent_knowledge_submissions", "households"
+  add_foreign_key "agent_knowledge_submissions", "people"
   add_foreign_key "agent_messages", "agent_conversations", column: "conversation_id"
   add_foreign_key "agent_messages", "agent_sessions"
   add_foreign_key "agent_messages", "households"
@@ -1011,7 +1053,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
   add_foreign_key "agent_permission_decisions", "agent_permission_requests", column: "permission_request_id"
   add_foreign_key "agent_permission_decisions", "users", column: "decided_by_id"
   add_foreign_key "agent_permission_requests", "agent_conversations", column: "conversation_id"
-  add_foreign_key "agent_permission_requests", "agent_mutation_proposals", column: "mutation_proposal_id"
   add_foreign_key "agent_permission_requests", "agent_sessions"
   add_foreign_key "agent_permission_requests", "households"
   add_foreign_key "agent_permission_requests", "people"

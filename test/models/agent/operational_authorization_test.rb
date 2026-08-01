@@ -25,7 +25,7 @@ class Agent::OperationalAuthorizationTest < ActiveSupport::TestCase
 
     agent_session.update!(status: "starting")
     credential = agent_session.issue_runtime_grant!
-    assert_equal %w[health_read health_write], credential.grant.capability_groups
+    assert_equal %w[health_read knowledge_read knowledge_submit health_write], credential.grant.capability_groups
     assert_nil credential.grant.issued_by
     assert_equal 64, credential.grant.token_digest.length
     refute_equal credential.bearer, credential.grant.token_digest
@@ -65,6 +65,6 @@ class Agent::OperationalAuthorizationTest < ActiveSupport::TestCase
 
     assert_equal "cancelled", proposal.reload.status
     agent_session.update!(status: "starting")
-    assert_equal [ "health_read" ], agent_session.issue_runtime_grant!.grant.capability_groups
+    assert_equal %w[health_read knowledge_read knowledge_submit], agent_session.issue_runtime_grant!.grant.capability_groups
   end
 end

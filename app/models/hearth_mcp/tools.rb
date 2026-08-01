@@ -2,6 +2,7 @@ require "mcp"
 
 module HearthMcp
   module Tools
+    CAPABILITY = "health.read"
     class Base < MCP::Tool
       RECORD_SCHEMA = { type: "object" }.freeze
       RECORDS_SCHEMA = { type: "array", items: RECORD_SCHEMA }.freeze

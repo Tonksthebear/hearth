@@ -19,7 +19,7 @@ class Agent::ToolActivity < ApplicationRecord
   validate :authorization_context_is_active, on: :create
 
   class << self
-    def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false, capability: "health.read")
+    def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false, capability:, provenance: {})
       input_json = JSON.generate(arguments || {})
       output_json = JSON.generate(result)
       now = Time.current
@@ -36,12 +36,20 @@ class Agent::ToolActivity < ApplicationRecord
         output_body: nil,
         output_digest: Digest::SHA256.hexdigest(output_json),
         output_tokens: (output_json.bytesize / 4.0).ceil,
+        provenance: bounded_provenance(provenance),
         redacted_at: now,
         redaction_reason: "MCP health data is digest-only",
         started_at: now,
         completed_at: now
       )
     end
+
+    private
+      def bounded_provenance(value)
+        candidate = value.to_h.stringify_keys
+        candidate = candidate.fetch("provenance", candidate).to_h.stringify_keys
+        candidate.slice("contract_version", "source_commit", "submission_id", "state", "truncated")
+      end
   end
 
   def start!

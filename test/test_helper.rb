@@ -27,11 +27,31 @@ module ActiveSupport
         )
       end
 
+      def with_stubbed_method(object, method_name, replacement)
+        singleton = object.singleton_class
+        original_name = :"__hearth_original_#{method_name}_#{object.object_id}"
+        singleton.alias_method original_name, method_name
+        singleton.define_method(method_name) do |*arguments, **keywords, &block|
+          if replacement.respond_to?(:call)
+            replacement.call(*arguments, **keywords, &block)
+          else
+            replacement
+          end
+        end
+        yield
+      ensure
+        if singleton&.method_defined?(original_name)
+          singleton.alias_method method_name, original_name
+          singleton.remove_method original_name
+        end
+      end
+
       def clear_installation
         Agent::AuditEvent.delete_all
         Agent::MutationExecution.delete_all
         Agent::PermissionDecision.delete_all
-        Agent::PermissionRequest.update_all(mutation_proposal_id: nil)
+        Agent::PermissionRequest.update_all(permission_subject_type: nil, permission_subject_id: nil)
+        Agent::KnowledgeSubmission.delete_all
         Agent::MutationProposal.delete_all
         Agent::OperationalAuthorization.delete_all
         Agent::PermissionRequest.delete_all

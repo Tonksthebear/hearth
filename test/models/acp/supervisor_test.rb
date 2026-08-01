@@ -336,6 +336,23 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     Current.reset
   end
 
+  test "live supervisor tick sweeps elapsed shared permission requests after mutation expiry" do
+    request = agent_permission_requests(:pending)
+    request.update!(deadline_at: 1.second.ago)
+    Agent::Profile.update_all(enabled: false)
+
+    with_instance_root do |directory|
+      supervisor = Acp::Supervisor.new(instance_root: directory)
+      supervisor.start!
+      supervisor.tick
+
+      assert_equal "expired", request.reload.status
+      assert_nil request.decision
+    ensure
+      supervisor&.shutdown!
+    end
+  end
+
   test "authorization rotation detaches an attached ACP session" do
     with_supervisor do |supervisor|
       agent_session = supervisor.start_session(conversation: agent_conversations(:active))

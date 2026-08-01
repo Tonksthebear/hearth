@@ -27,7 +27,7 @@ class Agent::MutationRaceTest < ActiveSupport::TestCase
     Agent::AuditEvent.where(conversation: @conversation).delete_all
     Agent::MutationExecution.where(mutation_proposal: @agent_session.mutation_proposals).delete_all
     Agent::PermissionDecision.where(permission_request: @agent_session.permission_requests).delete_all
-    Agent::PermissionRequest.where(agent_session: @agent_session).update_all(mutation_proposal_id: nil)
+    Agent::PermissionRequest.where(agent_session: @agent_session).update_all(permission_subject_type: nil, permission_subject_id: nil)
     Agent::MutationProposal.where(agent_session: @agent_session).delete_all
     Agent::PermissionRequest.where(agent_session: @agent_session).delete_all
     Agent::OperationalAuthorization.where(agent_session: @agent_session).delete_all

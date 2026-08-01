@@ -44,12 +44,26 @@ output budget. The first request after expiry or exhaustion marks the persisted
 session as requiring MCP reauthorization; recovering or restarting it injects a fresh
 credential because ACP MCP configuration is immutable after session selection.
 
-Every ACP session starts with `health_read` only. An authenticated household user can
+Every ACP session starts with `health_read`, `knowledge_read`, and
+`knowledge_submit`. Knowledge submission is proposal authority only: conversation
+content remains in Hearth until a same-household user approves its durable permission
+request, and Lorester alone materializes the approved capture. An authenticated household user can
 enable short-lived operational access for the exact conversation, selected person, and
 browser session. Recovery then injects a fresh digest-only `health_read` + `health_write`
-grant. Consequential operations appear in Hearth for a one-time human decision before
+grant alongside the knowledge groups. Consequential operations appear in Hearth for a one-time human decision before
 execution; disabling access, changing person, signing out, disconnecting, or reaching
 the earliest deadline fails pending changes closed.
+
+To connect the local knowledge boundary, configure `LORESTER_VAULT` with the explicit
+managed vault, optionally set `LORESTER_EXECUTABLE` (default: `lorester`), and set
+`LORESTER_DATA_DIR` when the Lorester owner uses an external operational root. Hearth
+runs `lorester --json root --vault VAULT` under the same effective user, performs the
+required vault Hello on Lorester's resolved `0600` Unix socket, and then sends one
+typed version-1 knowledge operation. Hearth never receives a generic filesystem,
+Markdown, Git, shell, MOC, projection-database, or maintenance interface. Missing
+configuration, stopped transport, unavailable projection, stale projection, and
+incompatible contract remain distinct bounded results. Inbox status polling is limited
+to once per second; normal Lorester reconciliation and processing may take longer.
 
 The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
 not start the ACP runtime. Against an initialized installation, start or recover

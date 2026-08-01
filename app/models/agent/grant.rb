@@ -7,7 +7,9 @@ class Agent::Grant < ApplicationRecord
 
   CAPABILITY_GROUPS = {
     "health_read" => %w[ health.read ],
-    "health_write" => %w[ health.write ]
+    "health_write" => %w[ health.write ],
+    "knowledge_read" => %w[ knowledge.read ],
+    "knowledge_submit" => %w[ knowledge.submit ]
   }.freeze
 
   belongs_to :household
@@ -102,7 +104,7 @@ class Agent::Grant < ApplicationRecord
       secret = SecureRandom.urlsafe_base64(32)
       transaction do
         authorization = agent_session.active_operational_authorization
-        capability_groups = [ "health_read" ]
+        capability_groups = %w[ health_read knowledge_read knowledge_submit ]
         capability_groups << "health_write" if authorization
         grant = create!(
           household: agent_session.household,
