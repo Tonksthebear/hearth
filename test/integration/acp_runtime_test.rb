@@ -12,6 +12,26 @@ class AcpRuntimeTest < ActiveSupport::TestCase
 
   RUNTIME = Rails.root.join("bin/hearth-acp-runtime").to_s
   FAKE_AGENT = Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s
+  PROCESS_START_TIMEOUT = 20
+
+  def before_setup
+    @runtime_test_lock = File.open(
+      Rails.root.join("tmp/acp-runtime-integration.lock"),
+      File::RDWR | File::CREAT,
+      0o600
+    )
+    @runtime_test_lock.flock(File::LOCK_EX)
+    super
+  rescue
+    release_runtime_test_lock
+    raise
+  end
+
+  def after_teardown
+    super
+  ensure
+    release_runtime_test_lock
+  end
 
   test "uninitialized root fails before Rails boot and writes nothing" do
     Dir.mktmpdir("hearth-uninitialized-runtime") do |root|
@@ -39,7 +59,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       configure_runtime_profile
       port = available_port
       puma = start_puma(root, port)
-      wait_for_http(port)
+      wait_for_http(port, process: puma)
 
       release = File.join(root, "release")
       info_file = File.join(root, "agent-info.json")
@@ -56,14 +76,14 @@ class AcpRuntimeTest < ActiveSupport::TestCase
           "FAKE_AGENT_INFO_FILE" => info_file
         }
       )
-      agent_info = wait_for_json(info_file)
+      agent_info = wait_for_json(info_file, process: runtime)
 
       assert_equal runtime.pid, agent_info.fetch("ppid")
       refute_equal puma.pid, agent_info.fetch("ppid")
 
       puma.stop
       puma = start_puma(root, port)
-      wait_for_http(port)
+      wait_for_http(port, process: puma)
       File.write(release, "continue\n")
       runtime_result = runtime.wait
 
@@ -87,7 +107,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       configure_runtime_profile
       port = available_port
       puma = start_puma(root, port)
-      wait_for_http(port)
+      wait_for_http(port, process: puma)
       release = File.join(root, "guarded-release")
       evidence = File.join(root, "guarded-runtime-evidence.jsonl")
       external_session_id = "guarded-runtime-#{SecureRandom.hex(6)}"
@@ -124,6 +144,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       authorization.update!(expires_at: 8.seconds.from_now)
       credential = agent_session.issue_runtime_grant!
 
+      wait_for_http(port, process: puma)
       staged = mcp_call(port, credential.bearer, "delete_meal", {
         id: meal.id, idempotency_key: idempotency_key
       })
@@ -184,7 +205,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
           "FAKE_AGENT_INFO_FILE" => info_file
         }
       )
-      wait_for_json(info_file)
+      wait_for_json(info_file, process: runtime)
 
       writer = ProcessHarness.new(
         {
@@ -210,7 +231,10 @@ class AcpRuntimeTest < ActiveSupport::TestCase
         RUBY
         chdir: Rails.root.to_s
       ).start
-      wait_until { File.exist?(writer_ready) }
+      wait_until(timeout: PROCESS_START_TIMEOUT) do
+        flunk "writer exited before becoming ready: #{writer.stderr}" unless writer.alive?
+        File.exist?(writer_ready)
+      end
       File.write(release, "continue\n")
       runtime_result = runtime.wait
       writer_result = writer.wait
@@ -254,7 +278,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
           "FAKE_AGENT_INFO_FILE" => info_file
         }
       )
-      agent_pid = wait_for_json(info_file).fetch("pid")
+      agent_pid = wait_for_json(info_file, process: runtime).fetch("pid")
 
       runtime.terminate
       result = runtime.wait
@@ -337,6 +361,12 @@ class AcpRuntimeTest < ActiveSupport::TestCase
   end
 
   private
+    def release_runtime_test_lock
+      @runtime_test_lock&.flock(File::LOCK_UN)
+      @runtime_test_lock&.close
+      @runtime_test_lock = nil
+    end
+
     class ProcessHarness
       attr_reader :pid
 
@@ -437,8 +467,7 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       ProcessHarness.new(
         {
           "RAILS_ENV" => "test",
-          "DATABASE_URL" => test_database_url,
-          "SOLID_QUEUE_IN_PUMA" => "true"
+          "DATABASE_URL" => test_database_url
         },
         RbConfig.ruby,
         Rails.root.join("bin/rails").to_s,
@@ -531,8 +560,9 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       server&.close
     end
 
-    def wait_for_http(port, timeout: 10)
+    def wait_for_http(port, process:, timeout: PROCESS_START_TIMEOUT)
       wait_until(timeout: timeout) do
+        flunk "Puma exited before becoming ready: #{process.stderr}" unless process.alive?
         response = Net::HTTP.start("127.0.0.1", port, open_timeout: 0.2, read_timeout: 0.2) do |http|
           http.get("/up")
         end
@@ -550,9 +580,10 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       end
     end
 
-    def wait_for_json(path)
+    def wait_for_json(path, process:, timeout: PROCESS_START_TIMEOUT)
       value = nil
-      wait_until do
+      wait_until(timeout: timeout) do
+        flunk "process exited before writing #{path}: #{process.stderr}" unless process.alive?
         value = JSON.parse(File.read(path))
       rescue Errno::ENOENT, JSON::ParserError
         false

@@ -107,6 +107,14 @@ loop do
       ]
     when "sole_auth"
       [ { id: "fake-auth", name: "Fake authentication" } ]
+    when "credential_path_auth"
+      [
+        {
+          id: "fake-auth",
+          name: "Fake authentication",
+          description: "Uses /private/var/hearth-credential-canary/provider-token.json"
+        }
+      ]
     else
       []
     end
