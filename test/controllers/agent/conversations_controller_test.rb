@@ -49,4 +49,15 @@ class Agent::ConversationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "disabled profile conversations remain readable but cannot accept turns" do
+    conversation = agent_conversations(:active)
+    conversation.profile.update!(enabled: false)
+
+    get agent_conversation_path(conversation)
+
+    assert_response :success
+    assert_select "p", text: /read-only/
+    assert_select "form[action='#{agent_conversation_turns_path(conversation)}']", count: 0
+  end
 end

@@ -43,4 +43,17 @@ class Agent::TurnsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_nil turn.reload.cancel_requested_at
   end
+
+  test "a conversation with a disabled profile rejects new turns" do
+    conversation = agent_conversations(:active)
+    conversation.profile.update!(enabled: false)
+
+    assert_no_difference([ "Agent::Message.count", "Agent::Turn.count" ]) do
+      post agent_conversation_turns_path(conversation), params: {
+        turn: { body: "Do not enqueue", idempotency_key: "disabled-profile-turn" }
+      }
+    end
+
+    assert_response :not_found
+  end
 end

@@ -220,7 +220,10 @@ module Acp
     end
 
     def poll_event(timeout: 0)
-      @events.pop(timeout: Float(timeout))
+      event = @events.pop(timeout: Float(timeout))
+      raise failure if event.nil? && failure
+
+      event
     end
 
     def drain_events

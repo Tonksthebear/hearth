@@ -20,8 +20,7 @@
 
   <body class="h-full text-gray-900 dark:text-white" style="--sidebar-width: 18rem">
     <% if authenticated? %>
-      <% agent_stream_conversation = @conversation&.persisted? ? @conversation : @agent_session&.conversation %>
-      <%= turbo_stream_from agent_stream_conversation if agent_stream_conversation %>
+      <%= turbo_stream_from @agent_session.conversation if @agent_session %>
       <%= render Elements::SidebarComponent.new do |sidebar| %>
         <% sidebar.with_sidebar do %>
           <%= render "layouts/sidebar" %>

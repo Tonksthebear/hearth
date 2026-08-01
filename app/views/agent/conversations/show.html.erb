@@ -1,4 +1,5 @@
 <% content_for :title, "#{@conversation.title} · Coach · Hearth" %>
+<%= turbo_stream_from @conversation if @subscribe_conversation_stream %>
 
 <div class="mx-auto max-w-6xl">
   <div class="flex flex-col gap-4 border-b border-gray-200 pb-6 dark:border-white/10 sm:flex-row sm:items-start sm:justify-between">
@@ -27,7 +28,8 @@
         <%= render partial: "message", collection: @messages %>
       </ul>
 
-      <%= form_with url: agent_conversation_turns_path(@conversation), scope: :turn, class: "mt-8", data: { turbo_submits_with: "Sending…" } do |form| %>
+      <% if @conversation.accepts_turns? %>
+        <%= form_with url: agent_conversation_turns_path(@conversation), scope: :turn, class: "mt-8", data: { turbo_submits_with: "Sending…" } do |form| %>
         <%= form.hidden_field :idempotency_key, value: @turn_idempotency_key %>
         <div class="border-b border-gray-200 pb-px focus-within:border-b-2 focus-within:border-primary-600 focus-within:pb-0 dark:border-white/10 dark:focus-within:border-primary-500">
           <%= form.label :body, "Message the coach", class: "sr-only" %>
@@ -37,6 +39,9 @@
           <p id="coach-message-help" class="text-xs text-gray-500 dark:text-gray-400">Do not include secrets or information you do not want stored in this household.</p>
           <%= form.submit "Send", class: { btn: [ :base, { md: :base }, { primary: :solid } ] } %>
         </div>
+        <% end %>
+      <% else %>
+        <p class="mt-8 rounded-md bg-gray-100 p-4 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">This conversation is read-only because it is closed or its agent profile is disabled.</p>
       <% end %>
     </section>
 

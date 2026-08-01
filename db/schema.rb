@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_01_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_01_110000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -459,6 +459,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_010000) do
     t.integer "conversation_id", null: false
     t.datetime "created_at", null: false
     t.datetime "dispatched_at"
+    t.integer "dropped_event_count", default: 0, null: false
     t.string "error_message"
     t.datetime "heartbeat_at"
     t.integer "household_id", null: false
@@ -469,6 +470,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_010000) do
     t.string "stop_reason"
     t.datetime "updated_at", null: false
     t.integer "user_message_id", null: false
+    t.string "warning_message"
     t.index ["agent_session_id"], name: "index_agent_turns_on_agent_session_id"
     t.index ["browser_session_id", "idempotency_key"], name: "index_agent_turns_on_browser_session_id_and_idempotency_key", unique: true
     t.index ["browser_session_id"], name: "index_agent_turns_on_browser_session_id"
@@ -478,6 +480,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_010000) do
     t.index ["person_id"], name: "index_agent_turns_on_person_id"
     t.index ["status", "lease_expires_at"], name: "index_agent_turns_on_status_and_lease_expires_at"
     t.index ["user_message_id"], name: "index_agent_turns_on_user_message_id"
+    t.check_constraint "dropped_event_count >= 0", name: "agent_turns_dropped_event_count"
     t.check_constraint "status IN ('pending', 'claimed', 'running', 'succeeded', 'failed', 'cancelled')", name: "agent_turns_status"
   end
 

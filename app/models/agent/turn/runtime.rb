@@ -1,6 +1,7 @@
 class Agent::Turn::Runtime
   POLL_INTERVAL = 0.1
   HEARTBEAT_INTERVAL = 2.seconds
+  PROJECTION_FLUSH_INTERVAL = 0.1.seconds
 
   def initialize(supervisor:, owner:, stopping: -> { false })
     @supervisor = supervisor
@@ -20,6 +21,7 @@ class Agent::Turn::Runtime
     turn.attach!(agent_session) unless turn.agent_session_id == agent_session.id
     connection = @supervisor.connection_for(agent_session)
     projection = Agent::Turn::Projection.new(turn.reload)
+    dropped_event_count = connection.dropped_event_count
     result = Queue.new
     turn.dispatch!
     prompt_thread = Thread.new do
@@ -30,9 +32,15 @@ class Agent::Turn::Runtime
     end
 
     next_heartbeat = Time.current + HEARTBEAT_INTERVAL
+    next_projection_flush = Time.current
     until result.length.positive?
       event = connection.poll_event(timeout: POLL_INTERVAL)
       projection.apply!(event) if event
+      if Time.current >= next_projection_flush
+        projection.flush!
+        next_projection_flush = Time.current + PROJECTION_FLUSH_INTERVAL
+      end
+      @supervisor.tick
       turn.reload
       if turn.cancellation_requested? && !turn.cancel_sent_at?
         @supervisor.cancel(agent_session)
@@ -48,6 +56,11 @@ class Agent::Turn::Runtime
     end
     while (event = connection.poll_event(timeout: 0))
       projection.apply!(event)
+    end
+    projection.flush!
+    dropped_events = connection.dropped_event_count - dropped_event_count
+    if dropped_events.positive?
+      turn.record_warning!("The agent produced updates faster than Hearth could persist them; #{dropped_events} updates were omitted.", dropped_events: dropped_events)
     end
     outcome, value = result.pop
     outcome == :ok ? turn.succeed!(stop_reason: value&.fetch("stopReason", nil)) : turn.fail!(value)

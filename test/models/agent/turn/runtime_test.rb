@@ -1,4 +1,5 @@
 require "test_helper"
+require "timeout"
 
 class Agent::Turn::RuntimeTest < ActiveSupport::TestCase
   FAKE_AGENT = Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s
@@ -40,7 +41,55 @@ class Agent::Turn::RuntimeTest < ActiveSupport::TestCase
     end
   end
 
+  test "the runtime keeps supervisor housekeeping active while a prompt is running" do
+    conversation = Agent::Conversation.create!(
+      household: households(:home), person: people(:two), profile: agent_profiles(:hearth), title: "Runtime housekeeping"
+    )
+    turn = conversation.enqueue_turn!(
+      body: "Keep ticking", browser_session: sessions(:browser), idempotency_key: "runtime-housekeeping"
+    )
+
+    with_runtime(mode: "cancel") do |runtime, supervisor|
+      runner = Thread.new { runtime.run_next }
+      wait_until { turn.reload.status == "running" }
+      agent_profiles(:hearth).update!(enabled: false)
+      runner.join(3)
+
+      refute runner.alive?, "runtime did not observe supervisor housekeeping"
+      assert_equal "disconnected", conversation.sessions.sole.reload.status
+      assert_equal "failed", turn.reload.status
+      assert_raises(Acp::Supervisor::Error) { supervisor.connection_for(conversation.sessions.sole) }
+    ensure
+      agent_profiles(:hearth).update!(enabled: true)
+    end
+  end
+
+  test "the runtime surfaces bounded connection event loss" do
+    conversation = Agent::Conversation.create!(
+      household: households(:home), person: people(:two), profile: agent_profiles(:hearth), title: "Runtime overflow"
+    )
+    turn = conversation.enqueue_turn!(
+      body: "Stream quickly", browser_session: sessions(:browser), idempotency_key: "runtime-overflow"
+    )
+
+    with_runtime(mode: "streaming") { |runtime| runtime.run_next }
+
+    assert_equal "succeeded", turn.reload.status
+    assert_operator turn.dropped_event_count, :>, 0
+    assert_match(/updates were omitted/, turn.warning_message)
+  end
+
   private
+    def wait_until(timeout: 3)
+      Timeout.timeout(timeout) do
+        loop do
+          return if yield
+
+          sleep 0.02
+        end
+      end
+    end
+
     def with_runtime(mode: "normal", stopping: -> { false })
       Dir.mktmpdir("hearth-turn-runtime") do |root|
         FileUtils.mkdir_p(File.join(root, ".hearth"))
@@ -59,7 +108,7 @@ class Agent::Turn::RuntimeTest < ActiveSupport::TestCase
         end
         supervisor = Acp::Supervisor.new(instance_root: root, connection_factory: factory).start!
         runtime = Agent::Turn::Runtime.new(supervisor: supervisor, owner: "test-runtime", stopping: stopping)
-        yield runtime
+        yield runtime, supervisor
       ensure
         supervisor&.shutdown!
       end

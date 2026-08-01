@@ -48,6 +48,7 @@ class AgentConversationsLiveTest < ApplicationSystemTestCase
     assert_text "Review the week", wait: 10
     assert_text "Hearth weekly record", wait: 10
     assert_text "Succeeded", wait: 10
+    assert_text "Warning: Ignored a malformed ACP citation update.", wait: 10
     turn = latest_turn
     assert_equal 1, Agent::Turn.uncached { Agent::Turn.where(idempotency_key: turn.idempotency_key).count }
 
@@ -75,7 +76,10 @@ class AgentConversationsLiveTest < ApplicationSystemTestCase
     turn = latest_turn
     assert_equal "running", turn.status, "runtime did not reach permission wait: #{turn.error_message}\n#{File.read(@runtime_log)}"
     session = turn.agent_session
-    click_link_and_wait_for_path "Today", root_path
+    other_conversation = Agent::Conversation.create!(
+      household: households(:home), person: people(:two), profile: agent_profiles(:hearth), title: "Another coach conversation"
+    )
+    visit_and_wait_for_path agent_conversation_path(other_conversation)
     connect_turbo_cable_stream_sources
     Current.session = browser_session
     Current.household = households(:home)
@@ -150,7 +154,7 @@ class AgentConversationsLiveTest < ApplicationSystemTestCase
 
     assert_equal "failed", latest_turn.status
     assert_selector "#agent_turn_status", text: "Failed", wait: 10
-    assert_selector "#agent_turn_status .sr-only", text: /Error:/
+    assert_selector "#agent_turn_status p", text: /Error:/, visible: true
     refresh
     assert_selector "#agent_turn_status", text: "Failed"
     assert_agent_is_child_of_runtime(runtime_pid)

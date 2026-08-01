@@ -28,16 +28,13 @@ class Agent::Message < ApplicationRecord
     def sensitive_body_columns = %i[ body ]
 
     def broadcast_created
-      broadcast_append_to conversation,
+      broadcast_update_to conversation,
         target: "agent_messages",
-        partial: "agent/conversations/message",
-        locals: { message: self }
+        partial: "agent/conversations/messages",
+        locals: { messages: conversation.messages.order(:created_at, :id) }
     end
 
     def broadcast_updated
-      broadcast_replace_to conversation,
-        target: self,
-        partial: "agent/conversations/message",
-        locals: { message: self }
+      broadcast_created
     end
 end

@@ -157,6 +157,7 @@ loop do
         sessionId: session_id,
         update: { sessionUpdate: "agent_message_chunk", messageId: "live-message", content: { type: "text", text: "**Recorded fact:** " }, _meta: { hearth: { sourceKind: "hearth_fact" } } }
       })
+      sleep 0.2
       write.call(jsonrpc: "2.0", method: "session/update", params: {
         sessionId: session_id,
         update: { sessionUpdate: "tool_call", toolCallId: "live-tool", title: "Review weekly records", kind: "search", status: "in_progress", rawInput: { private: "digest-only" } }
@@ -168,6 +169,10 @@ loop do
       write.call(jsonrpc: "2.0", method: "session/update", params: {
         sessionId: session_id,
         update: { sessionUpdate: "citation", id: "live-citation", title: "Hearth weekly record", sourceKind: "hearth_fact" }
+      })
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "citation", id: "unsafe-citation", title: "Unsafe citation", url: "javascript:alert(1)" }
       })
       write.call(jsonrpc: "2.0", method: "session/update", params: {
         sessionId: session_id,

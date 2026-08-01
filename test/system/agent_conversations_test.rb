@@ -20,6 +20,7 @@ class AgentConversationsTest < ApplicationSystemTestCase
       click_button "Send"
       assert_text "Summarize my recorded week", wait: 5
       assert_text "Pending", wait: 5
+      within("#agent_messages > li", text: "Summarize my recorded week") { assert_no_text "Hearth Fact" }
     end
 
     turn = Agent::Turn.order(:id).last
@@ -44,6 +45,7 @@ class AgentConversationsTest < ApplicationSystemTestCase
       "messageId" => "system-answer",
       "content" => { "type" => "text", "text" => "**Persisted answer**" }
     }))
+    projection.flush!
     projection.apply!(event(session, "plan", {
       "entries" => [ { "content" => "Use the persisted record", "status" => "completed" } ]
     }))

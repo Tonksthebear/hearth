@@ -48,6 +48,10 @@ class Agent::Conversation < ApplicationRecord
     turns.find_by(browser_session: browser_session, idempotency_key: idempotency_key) || raise
   end
 
+  def accepts_turns?
+    status == "active" && profile.enabled?
+  end
+
   def close!
     return self if status == "closed"
     raise ActiveRecord::RecordInvalid, self unless status == "active"

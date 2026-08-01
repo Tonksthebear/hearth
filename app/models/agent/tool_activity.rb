@@ -101,16 +101,13 @@ class Agent::ToolActivity < ApplicationRecord
     end
 
     def broadcast_created
-      broadcast_append_to conversation,
+      broadcast_update_to conversation,
         target: "agent_activities",
-        partial: "agent/conversations/activity",
-        locals: { activity: self }
+        partial: "agent/conversations/activities",
+        locals: { activities: conversation.tool_activities.order(:created_at, :id) }
     end
 
     def broadcast_updated
-      broadcast_replace_to conversation,
-        target: self,
-        partial: "agent/conversations/activity",
-        locals: { activity: self }
+      broadcast_created
     end
 end

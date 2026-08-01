@@ -31,11 +31,12 @@ class Agent::ConversationsController < ApplicationController
     @plan = @conversation.plan
     @turn = @conversation.turns.order(created_at: :desc).first
     @turn_idempotency_key = SecureRandom.uuid
+    @subscribe_conversation_stream = @agent_session&.conversation != @conversation
   end
 
   private
     def scoped_conversations
-      Current.person.agent_conversations.where(household: Current.household, profile: scoped_profiles)
+      Current.person.agent_conversations.where(household: Current.household)
     end
 
     def scoped_profiles

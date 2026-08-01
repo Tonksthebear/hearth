@@ -1,7 +1,9 @@
 class Agent::TurnsController < ApplicationController
   def create
     conversation = scoped_conversations.find(params.expect(:conversation_id))
-    turn = conversation.enqueue_turn!(
+    raise ActiveRecord::RecordNotFound unless conversation.accepts_turns?
+
+    conversation.enqueue_turn!(
       body: turn_params[:body],
       browser_session: Current.session,
       idempotency_key: turn_params[:idempotency_key]
@@ -13,11 +15,7 @@ class Agent::TurnsController < ApplicationController
 
   private
     def scoped_conversations
-      Current.person.agent_conversations.where(
-        household: Current.household,
-        status: "active",
-        profile: Current.household.agent_profiles.where(enabled: true)
-      )
+      Current.person.agent_conversations.where(household: Current.household)
     end
 
     def turn_params

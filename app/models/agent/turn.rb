@@ -16,6 +16,7 @@ class Agent::Turn < ApplicationRecord
   validates :idempotency_key, presence: true, uniqueness: { scope: :browser_session_id }
   validates :status, inclusion: { in: STATUSES }
   validates :error_message, length: { maximum: ERROR_LIMIT }, allow_nil: true
+  validates :warning_message, length: { maximum: ERROR_LIMIT }, allow_nil: true
   validate :user_message_matches_context
 
   after_commit :broadcast_status
@@ -96,6 +97,14 @@ class Agent::Turn < ApplicationRecord
 
   def fail!(error)
     finish!("failed", error_message: error.message.to_s.first(ERROR_LIMIT))
+  end
+
+  def record_warning!(message, dropped_events: 0)
+    with_lock do
+      messages = [ warning_message, message.to_s ].compact_blank.uniq.join(" ").first(ERROR_LIMIT)
+      update!(warning_message: messages, dropped_event_count: dropped_event_count + dropped_events)
+    end
+    self
   end
 
   def terminal? = status.in?(TERMINAL_STATUSES)

@@ -23,7 +23,9 @@ initialized implicitly, and `Procfile.dev` is intentionally unchanged.
 
 For the Coach UI, start the durable queue consumer without a selected
 conversation. It conditionally claims pending `Agent::Turn` rows, serializes
-prompt work in the runtime, and persists typed projections before broadcasting:
+prompt work in the runtime, coalesces streamed message and activity updates on a
+bounded interval, and persists typed projections before broadcasting stable list
+targets:
 
 ```sh
 RAILS_ENV=development bin/hearth-acp-runtime --root /path/to/initialized-instance
@@ -117,8 +119,10 @@ A supported agent:
 - allows the client to deny `session/request_permission` without deadlock;
 - correlates request IDs while allowing streamed notifications and agent-to-client requests;
 - retains the latest 128 streamed notifications per connection, counts older
-  notifications dropped from that diagnostic buffer, and never disconnects an
-  otherwise healthy turn merely because the diagnostic consumer is slower;
+  notifications dropped from that buffer, and persists a visible turn warning
+  if a live consumer cannot keep up;
+- ignores malformed citation or activity projections without aborting an
+  otherwise successful prompt, while persisting a bounded visible warning;
 - returns bounded errors for malformed frames, oversized frames, timeouts, and early exit; and
 - releases its process tree when the supervising client exits.
 

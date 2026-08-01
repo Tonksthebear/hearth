@@ -1,6 +1,17 @@
 require "test_helper"
 
 class Agent::TurnTest < ActiveSupport::TestCase
+  test "conversation turn eligibility combines lifecycle and profile state" do
+    conversation = agent_conversations(:active)
+
+    assert_predicate conversation, :accepts_turns?
+    conversation.profile.update!(enabled: false)
+    refute_predicate conversation, :accepts_turns?
+    conversation.profile.update!(enabled: true)
+    conversation.update!(status: "closed", closed_at: Time.current)
+    refute_predicate conversation, :accepts_turns?
+  end
+
   test "enqueue persists the exact user message and one idempotent pending turn" do
     conversation = agent_conversations(:active)
     browser_session = sessions(:browser)

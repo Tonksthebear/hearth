@@ -16,6 +16,8 @@ class Agent::Turn::Projection
     @turn = turn
     @conversation = turn.conversation
     @agent_session = turn.agent_session
+    @message_buffers = {}
+    @tool_buffers = {}
   end
 
   def apply!(event)
@@ -23,26 +25,49 @@ class Agent::Turn::Projection
     return unless event.dig("params", "sessionId") == @agent_session.external_session_id
 
     update = event.dig("params", "update").to_h
-    case update["sessionUpdate"]
-    when "agent_message_chunk" then append_message!(update)
-    when "tool_call" then upsert_tool!(update)
-    when "tool_call_update" then update_tool!(update)
-    when "plan" then replace_plan!(update)
-    when "citation" then upsert_citation!(update)
+    kind = update["sessionUpdate"]
+    case kind
+    when "agent_message_chunk" then buffer_message!(update)
+    when "tool_call", "tool_call_update" then buffer_tool!(update)
+    when "plan" then project_safely(kind) { replace_plan!(update) }
+    when "citation" then project_safely(kind) { upsert_citation!(update) }
     end
   end
 
+  def flush!
+    buffers = @message_buffers
+    @message_buffers = {}
+    buffers.each do |external_id, buffer|
+      project_safely("agent_message_chunk") { append_message!(external_id, buffer) }
+    end
+    tools = @tool_buffers
+    @tool_buffers = {}
+    tools.each_value { |update| project_safely("tool_call") { upsert_tool!(update) } }
+  end
+
   private
-    def append_message!(update)
+    def buffer_message!(update)
       text = update.dig("content", "text").to_s
       return if text.empty?
 
       external_id = update["messageId"].presence || "turn-#{@turn.id}-agent"
+      hearth_metadata = update.dig("_meta", "hearth")
+      buffer = @message_buffers[external_id] ||= {
+        text: +"",
+        source_kind: normalized_source_kind(hearth_metadata&.fetch("sourceKind", nil)),
+        provenance: bounded_provenance(hearth_metadata),
+        citations: []
+      }
+      buffer[:text] << text
+      buffer[:source_kind] = normalized_source_kind(hearth_metadata["sourceKind"]) if hearth_metadata&.key?("sourceKind")
+      buffer[:citations].concat(Array(update.dig("_meta", "citations")))
+    end
+
+    def append_message!(external_id, buffer)
       message = @conversation.messages.find_by(agent_session: @agent_session, external_id: external_id)
-      source_kind = normalized_source_kind(update.dig("_meta", "hearth", "sourceKind"))
       if message
-        body = message.body.to_s + text
-        message.update!(body: body, body_digest: Digest::SHA256.hexdigest(body), source_kind: source_kind)
+        body = message.body.to_s + buffer[:text]
+        message.update!(body: body, body_digest: Digest::SHA256.hexdigest(body), source_kind: buffer[:source_kind])
       else
         message = @conversation.messages.create!(
           household: @turn.household,
@@ -50,13 +75,13 @@ class Agent::Turn::Projection
           agent_session: @agent_session,
           external_id: external_id,
           role: "agent",
-          body: text,
-          body_digest: Digest::SHA256.hexdigest(text),
-          source_kind: source_kind,
-          provenance: bounded_provenance(update.dig("_meta", "hearth"))
+          body: buffer[:text],
+          body_digest: Digest::SHA256.hexdigest(buffer[:text]),
+          source_kind: buffer[:source_kind],
+          provenance: buffer[:provenance]
         )
       end
-      Array(update.dig("_meta", "citations")).each { |citation| upsert_citation!(citation.merge("messageId" => external_id)) }
+      buffer[:citations].each { |citation| upsert_citation!(citation.merge("messageId" => external_id)) }
       message
     end
 
@@ -64,19 +89,24 @@ class Agent::Turn::Projection
       external_id = update["toolCallId"].presence || update["id"].presence
       return unless external_id
 
-      input = JSON.generate(update["rawInput"] || {})
       activity = @conversation.tool_activities.find_or_initialize_by(agent_session: @agent_session, external_id: external_id)
+      input_digest = if update.key?("rawInput")
+        Digest::SHA256.hexdigest(JSON.generate(update["rawInput"] || {}))
+      else
+        activity.input_digest || Digest::SHA256.hexdigest("{}")
+      end
+      status = TOOL_STATUSES.fetch(update["status"].to_s, activity.status.presence || "running")
       activity.assign_attributes(
         household: @turn.household,
         person: @turn.person,
         source: "acp",
         tool_name: nil,
         capability: "acp.tool",
-        display_title: update["title"].to_s.first(160).presence || "Agent activity",
-        kind: update["kind"].to_s.first(80).presence || "tool",
-        status: TOOL_STATUSES.fetch(update["status"].to_s, "running"),
+        display_title: update["title"].to_s.first(160).presence || activity.display_title || "Agent activity",
+        kind: update["kind"].to_s.first(80).presence || activity.kind || "tool",
+        status: status,
         input_body: nil,
-        input_digest: Digest::SHA256.hexdigest(input),
+        input_digest: input_digest,
         redacted_at: activity.redacted_at || Time.current,
         redaction_reason: "ACP tool input is digest-only",
         started_at: activity.started_at || Time.current
@@ -85,17 +115,11 @@ class Agent::Turn::Projection
       activity.save!
     end
 
-    def update_tool!(update)
+    def buffer_tool!(update)
       external_id = update["toolCallId"].presence || update["id"].presence
-      activity = @conversation.tool_activities.find_by(agent_session: @agent_session, external_id: external_id)
-      return upsert_tool!(update) unless activity
+      return unless external_id
 
-      status = TOOL_STATUSES.fetch(update["status"].to_s, activity.status)
-      activity.update!(
-        display_title: update["title"].to_s.first(160).presence || activity.display_title,
-        status: status,
-        completed_at: status.in?(%w[ succeeded failed cancelled ]) ? Time.current : activity.completed_at
-      )
+      @tool_buffers[external_id] = @tool_buffers.fetch(external_id, {}).merge(update)
     end
 
     def replace_plan!(update)
@@ -137,5 +161,12 @@ class Agent::Turn::Projection
 
     def bounded_provenance(value)
       value.to_h.stringify_keys.slice("source", "sourceId", "retrievedAt")
+    end
+
+    def project_safely(kind)
+      yield
+    rescue ActiveRecord::RecordInvalid, JSON::GeneratorError
+      @turn.record_warning!("Ignored a malformed ACP #{kind.to_s.humanize.downcase} update.")
+      nil
     end
 end
