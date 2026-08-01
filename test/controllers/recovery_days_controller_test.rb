@@ -1,6 +1,10 @@
 require "test_helper"
 
 class RecoveryDaysControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    person_habits(:alex_sauna).update!(Date.current.strftime("%A").downcase => true)
+  end
+
   test "renders targets, current-person values, and inactive history without an action" do
     sign_in_as users(:one)
 

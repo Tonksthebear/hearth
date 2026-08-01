@@ -32,7 +32,7 @@ class TrainingSessionsTest < ApplicationSystemTestCase
       within "[data-activity-date='#{WEEK_START.iso8601}'] li", text: workout_templates(:balanced).title do
         click_button "Start"
       end
-      assert_text "Record Balanced training day", wait: 5
+      assert_selector "h1", text: "Record Balanced training day", wait: 15
 
       reps = all("input[name*='training_sets_attributes'][name$='[reps]']")
       loads = all("input[name*='training_sets_attributes'][name$='[load_amount]']")

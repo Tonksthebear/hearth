@@ -1,6 +1,10 @@
 require "test_helper"
 
 class HabitCheckInsControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    person_habits(:alex_sauna).update!(Date.current.strftime("%A").downcase => true)
+  end
+
   test "creates today's check-in for Current person while ignoring a forged date" do
     sign_in_as users(:one)
     habit = households(:home).habits.create!(name: "Stretch")

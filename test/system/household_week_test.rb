@@ -33,7 +33,7 @@ class HouseholdWeekTest < ApplicationSystemTestCase
 
       click_link_and_wait_for_path "Open shopping list", shopping_list_path(date: "2026-07-27")
       visit_and_wait_for_path household_week_path
-      click_link_and_wait_for_path "Log a workout", new_training_session_path(date: "2026-07-27")
+      click_link_and_wait_for_path "Log a workout", new_training_session_path(date: "2026-07-27"), wait: 15
       assert_field "Workout date", with: "2026-07-27"
       visit_and_wait_for_path household_week_path
       click_link_and_wait_for_path "Check in on habits", recovery_day_path

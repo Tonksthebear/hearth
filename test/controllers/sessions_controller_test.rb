@@ -93,4 +93,19 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "p", people(:one).name
     assert_select "p", text: people(:without_login).name, count: 0
   end
+
+  test "new authentication clears selected person context without an explicit sign out" do
+    sign_in_as users(:two)
+    patch person_context_path, params: { person_id: people(:without_login).id }
+
+    post session_path, params: {
+      email_address: users(:one).email_address,
+      password: "password"
+    }
+    get root_path
+
+    assert_select "h1", "Today"
+    assert_select "p", people(:one).name
+    assert_select "p", text: people(:without_login).name, count: 0
+  end
 end

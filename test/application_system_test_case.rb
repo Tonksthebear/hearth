@@ -4,7 +4,15 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   include ActiveJob::TestHelper
   include ActiveSupport::Testing::TimeHelpers
 
-  driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ]
+  unless ENV["HEARTH_SYSTEM_TEST_BROWSER_VERIFIED"] == "150.0.7871.124"
+    raise "Run system tests through bin/system-test-browser; regular headless Chrome drops physical input events."
+  end
+  chrome_headless_shell = ENV.fetch("HEARTH_CHROME_HEADLESS_SHELL")
+  driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ] do |options|
+    options.binary = chrome_headless_shell
+    options.add_argument("--lang=en-US")
+    options.add_argument("--no-sandbox") if ENV["CI"]
+  end
 
   private
     def sign_in_via_browser(user)
@@ -34,11 +42,11 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       assert page.document.has_css?("html[data-elements-ready='true']", visible: :all, wait: 5)
     end
 
-    def click_link_and_wait_for_path(label, path, **options)
+    def click_link_and_wait_for_path(label, path, wait: 5, **options)
       open_sidebar_if_needed(label)
       link = find_link(label, **options)
       link.click
-      assert_current_path path, wait: 5
+      assert_current_path path, wait: wait
       assert_no_selector "html[aria-busy='true']"
       assert page.document.has_css?("html[data-elements-ready='true']", visible: :all, wait: 5)
     end
@@ -98,11 +106,8 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def set_date_and_wait(label, value)
       field = find_field(label)
-      page.execute_script(<<~JAVASCRIPT, field, value)
-        arguments[0].value = arguments[1];
-        arguments[0].dispatchEvent(new Event("input", { bubbles: true }));
-        arguments[0].dispatchEvent(new Event("change", { bubbles: true }));
-      JAVASCRIPT
+      field.native.clear
+      field.send_keys(Date.iso8601(value).strftime("%m%d%Y"))
       assert_field field[:id], with: value, wait: 5
     end
 
@@ -158,13 +163,9 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def set_and_wait(field, value)
       field_id = field[:id]
-
-      3.times do
-        current_field = find_by_id(field_id)
-        current_field.set("")
-        value.each_char { |character| current_field.send_keys(character) }
-        break if page.has_field?(field_id, with: value, wait: 1)
-      end
+      current_field = find_by_id(field_id)
+      current_field.set("")
+      current_field.send_keys(value)
 
       assert_field field_id, with: value, wait: 5
       assert_equal value, find_by_id(field_id).value

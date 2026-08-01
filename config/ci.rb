@@ -73,7 +73,7 @@ CI.run do
   step "Security: Brakeman code analysis", "bin/brakeman", "--quiet", "--no-pager", "--exit-on-warn", "--exit-on-error"
 
   step "Tests: Rails", "bin/rails", "test"
-  step "Tests: System", "bin/rails", "test:system"
+  step "Tests: System", "bin/system-test-browser", "bin/rails", "test:system"
 
   step "Release gate: Prepare isolated demo databases", "env", *demo_database_env, "bin/rails", "db:prepare"
   step "Release gate: Seed demo data", "env", *demo_database_env, "bin/rails", "db:seed"
@@ -86,7 +86,9 @@ CI.run do
   step "Release gate: Verify production database isolation",
     "env", *production_database_env, "bin/rails", "runner", production_database_assertion
   step "Release gate: Precompile production assets",
-    "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret", "bin/rails", "assets:precompile"
+    "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret",
+    "bin/rails", "assets:precompile", "assets:clobber"
+  step "Release gate: Restore dynamic test assets", "bin/rails", "tailwindcss:build"
   step "Release gate: Eager load production",
     "env", "RAILS_ENV=production", "SECRET_KEY_BASE=release-gate-secret",
     "bin/rails", "runner", "Rails.application.eager_load!; puts \"Production eager load verified\""
