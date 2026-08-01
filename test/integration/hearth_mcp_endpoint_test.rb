@@ -73,6 +73,19 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     assert called["error"] || called.dig("result", "isError")
   end
 
+  test "intentionally unavailable administration is undispatchable without domain writes" do
+    counts = [ Person.count, Household.count, User.count, Agent::MutationProposal.count ]
+
+    %w[delete_person create_household update_password].each.with_index do |name, index|
+      called = mcp_post(id: 60 + index, method: "tools/call", params: {
+        name: name, arguments: { id: people(:two).id, idempotency_key: "unavailable-#{index}" }
+      })
+      assert called["error"] || called.dig("result", "isError"), called.inspect
+    end
+
+    assert_equal counts, [ Person.count, Household.count, User.count, Agent::MutationProposal.count ]
+  end
+
   test "exact-context operational consent rotates to typed writes and executes an idempotent meal aggregate" do
     enable_operational_writes
 

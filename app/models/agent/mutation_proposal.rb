@@ -35,6 +35,10 @@ class Agent::MutationProposal < ApplicationRecord
 
   class << self
     def propose!(grant:, capability:, operation:, arguments:, preview:, expected_state:, idempotency_key:, deadline_at:)
+      if Agent::Mutation::ManagementOperations.handles?(operation) &&
+          capability != HearthMcp::ManagementTools.capability_for(operation)
+        raise ArgumentError, "Management operation capability does not match its tool contract"
+      end
       input_body = JSON.generate(arguments.deep_stringify_keys)
       input_digest = input_digest_for(arguments)
       expected_state_digest = Digest::SHA256.hexdigest(JSON.generate(expected_state))
@@ -323,18 +327,27 @@ class Agent::MutationProposal < ApplicationRecord
 
       errors.add(:preview, "must be no larger than 64 KiB") if JSON.generate(preview).bytesize > PREVIEW_MAX_BYTES
       validate_management_preview if preview["capability"].in?(%w[catalog.manage people.manage])
-      preview.each_pair do |key, value|
-        next unless key.to_s.in?(%w[summary before_summary after_summary]) && value.is_a?(String)
-        errors.add(:preview, "summary values must be at most 200 characters") if value.length > PREVIEW_SUMMARY_MAX_LENGTH
+      if preview_strings(preview).any? { |value| value.length > PREVIEW_SUMMARY_MAX_LENGTH }
+        errors.add(:preview, "summary values must be at most 200 characters")
       end
     end
 
     def validate_management_preview
       valid = preview.keys.sort == MANAGEMENT_PREVIEW_KEYS.sort &&
         preview["version"] == 1 && preview["operation"] == operation &&
+        preview["capability"] == HearthMcp::ManagementTools.capability_for(operation) &&
         preview["aggregate"].is_a?(Hash) && preview["scalar_changes"].is_a?(Array) && preview["children"].is_a?(Hash) &&
         preview.dig("basis", "input_digest") == input_digest &&
         preview.dig("basis", "expected_state_digest") == expected_state_digest
       errors.add(:preview, "must match the version 1 management diff contract") unless valid
+    end
+
+    def preview_strings(value)
+      case value
+      when Hash then value.values.flat_map { |nested| preview_strings(nested) }
+      when Array then value.flat_map { |nested| preview_strings(nested) }
+      when String then [ value ]
+      else []
+      end
     end
 end

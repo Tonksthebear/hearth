@@ -19,8 +19,10 @@ class HearthMcp::ManagementToolsTest < ActiveSupport::TestCase
     HearthMcp::ManagementTools::ALL.each do |tool|
       assert_closed_schema tool.to_h.fetch(:inputSchema), tool.tool_name
     end
-    forbidden = %w[delete_person create_household create_user update_password delete_recipe update_record delete_record]
-    assert_empty forbidden & HearthMcp::ManagementTools::ALL.map(&:tool_name)
+    destructive = HearthMcp::ManagementTools::ALL.filter_map do |tool|
+      tool.tool_name if tool.to_h.dig(:annotations, :destructiveHint)
+    end
+    assert_equal %w[update_recipe update_workout_template update_habit], destructive
   end
 
   test "capability groups expose only their stable unions and runtime grants remain management free" do
@@ -64,6 +66,30 @@ class HearthMcp::ManagementToolsTest < ActiveSupport::TestCase
 
     assert_equal 10, Agent::MutationProposal.where(idempotency_key: 10.times.map { |index| "management-stage-#{index}" }).count
     assert_equal counts, domain_counts
+  end
+
+  test "mismatched capabilities deny calls before proposal creation" do
+    catalog = issue_grant(%w[catalog_manage])
+    people = issue_grant(%w[people_manage])
+    health = issue_grant(%w[health_write])
+    proposal_count = Agent::MutationProposal.count
+
+    denied = [
+      HearthMcp::ManagementTools::PEOPLE.first.call(
+        name: "Denied", idempotency_key: "catalog-cannot-create-person", server_context: { grant: catalog }
+      ),
+      HearthMcp::ManagementTools::CATALOG.first.call(
+        **recipe_arguments, idempotency_key: "people-cannot-create-recipe", server_context: { grant: people }
+      ),
+      HearthMcp::ManagementTools::PEOPLE.first.call(
+        name: "Denied", idempotency_key: "health-cannot-create-person", server_context: { grant: health }
+      )
+    ]
+
+    assert denied.all?(&:error?)
+    assert_match(/people\.manage authorization is required/, denied.first.content.sole[:text])
+    assert_match(/catalog\.manage authorization is required/, denied.second.content.sole[:text])
+    assert_equal proposal_count, Agent::MutationProposal.count
   end
 
   private

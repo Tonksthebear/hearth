@@ -293,6 +293,8 @@ class Recipe < ApplicationRecord
 
   private
     def park_changed_nested_positions
+      # Park changed rows beyond their per-recipe unique position indexes before
+      # autosave applies final 1-based positions, avoiding transient collisions.
       [ active_ingredients, active_instructions ].each do |records|
         records.select { |record| record.persisted? && record.will_save_change_to_position? }.each do |record|
           desired_position = record.position

@@ -3,22 +3,22 @@ module Agent::Mutation::ManagementOperations
     create_person update_person create_recipe update_recipe create_exercise update_exercise
     create_workout_template update_workout_template create_habit update_habit
   ].freeze
-  RECORD_CLASSES = [ Person, Recipe, Exercise, WorkoutTemplate, Habit ].freeze
-  SCALAR_KEYS = {
-    "person" => %w[name],
-    "recipe" => %w[title description yield serving_count source_name source_url provenance_status],
-    "exercise" => %w[name modality movement_pattern equipment guidance],
-    "workout_template" => %w[title description source_name source_url provenance_status],
-    "habit" => %w[name description]
+  CREATE_OPERATIONS = {
+    "person" => "create_person", "recipe" => "create_recipe", "exercise" => "create_exercise",
+    "workout_template" => "create_workout_template", "habit" => "create_habit"
   }.freeze
+  NESTED_KEYS = {
+    "recipe" => %w[ingredients instructions], "workout_template" => %w[blocks], "habit" => %w[metrics]
+  }.freeze
+  SCALAR_KEYS = CREATE_OPERATIONS.to_h do |type, operation|
+    properties = HearthMcp::ManagementTools::DEFINITIONS.fetch(operation).fetch(2)
+    [ type, properties.keys.map(&:to_s) - %w[id] - NESTED_KEYS.fetch(type, []) ]
+  end.freeze
 
   class << self
     def handles?(operation) = operation.to_s.in?(OPERATIONS)
 
-    def management_record?(record) = RECORD_CLASSES.any? { |klass| record.is_a?(klass) }
-
     def validate_arguments!(operation:, arguments:)
-      raise ArgumentError, "Unsupported management operation" unless handles?(operation)
       arguments = arguments.deep_stringify_keys
       if operation.include?("recipe") && arguments["ingredients"]
         keys = arguments["ingredients"].map { |row| row["key"] }
@@ -52,8 +52,6 @@ module Agent::Mutation::ManagementOperations
         apply_workout(operation, arguments, context)
       when "create_habit", "update_habit"
         apply_habit(operation, arguments, context)
-      else
-        raise ArgumentError, "Unsupported management operation"
       end
     end
 
@@ -112,7 +110,7 @@ module Agent::Mutation::ManagementOperations
       {
         "version" => 1,
         "operation" => operation,
-        "capability" => operation.end_with?("person") ? "people.manage" : "catalog.manage",
+        "capability" => HearthMcp::ManagementTools.capability_for(operation),
         "aggregate" => { "type" => type, "id" => record&.id, "label" => after["name"] || after["title"] },
         "summary" => "#{operation.humanize}: #{change_count} reviewable change#{'s' unless change_count == 1}",
         "before_summary" => projection_summary(before),
@@ -236,35 +234,24 @@ module Agent::Mutation::ManagementOperations
             projected
           end
         end
+        project_recipe_reference_removals(after) if type == "recipe" && arguments.key?("ingredients") && !arguments.key?("instructions")
         after
       end
 
+      def project_recipe_reference_removals(after)
+        active_keys = Array(after["ingredients"]).map { |row| row["key"] }
+        Array(after["instructions"]).each do |instruction|
+          instruction["ingredient_keys"] = Array(instruction["ingredient_keys"]) & active_keys
+        end
+      end
+
       def child_names(type)
-        { "recipe" => %w[ingredients instructions], "workout_template" => %w[blocks], "habit" => %w[metrics] }.fetch(type, [])
+        NESTED_KEYS.fetch(type, [])
       end
 
       def child_diffs(before, after)
         diffs = (before.keys | after.keys).select { |key| before[key].is_a?(Array) || after[key].is_a?(Array) }.to_h do |key|
-          old_rows = Array(before[key])
-          new_rows = Array(after[key])
-          old_by_key = old_rows.index_by { |row| child_identity(row) }
-          new_by_key = new_rows.index_by { |row| child_identity(row) }
-          added = (new_by_key.keys - old_by_key.keys).map { |identity| compact_child(new_by_key.fetch(identity)) }
-          removed = (old_by_key.keys - new_by_key.keys).map { |identity| compact_child(old_by_key.fetch(identity)) }
-          shared = old_by_key.keys & new_by_key.keys
-          updated = shared.filter_map do |identity|
-            old_row, new_row = old_by_key.fetch(identity), new_by_key.fetch(identity)
-            changes = (old_row.keys | new_row.keys).filter_map do |field|
-              next if field == "position" || old_row[field] == new_row[field]
-              { "field" => field, "before" => summarized(old_row[field]), "after" => summarized(new_row[field]) }
-            end
-            { "identity" => identity, "changes" => changes } if changes.any?
-          end
-          reordered = shared.filter_map do |identity|
-            old_position, new_position = old_by_key[identity]["position"], new_by_key[identity]["position"]
-            { "identity" => identity, "from" => old_position, "to" => new_position } if old_position != new_position
-          end
-          [ key, { "added" => added, "removed" => removed, "updated" => updated, "reordered" => reordered } ]
+          [ key, diff_rows(Array(before[key]), Array(after[key])) ]
         end
         if before["blocks"].is_a?(Array) || after["blocks"].is_a?(Array)
           old_blocks = Array(before["blocks"]).index_by { |row| child_identity(row) }
@@ -316,8 +303,9 @@ module Agent::Mutation::ManagementOperations
       end
 
       def summarized(value)
-        text = value.is_a?(String) ? value : value.as_json.to_json
-        text.length > Agent::MutationProposal::PREVIEW_SUMMARY_MAX_LENGTH ? "#{text.first(197)}..." : text
+        return value unless value.is_a?(String)
+
+        value.length > Agent::MutationProposal::PREVIEW_SUMMARY_MAX_LENGTH ? "#{value.first(197)}..." : value
       end
   end
 end

@@ -247,6 +247,31 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     assert_nil proposal.execution
   end
 
+  test "weekly dose target snapshots retain stale guards for every target column" do
+    arguments = { weekly_zone2_minutes_target: 120 }
+    expected = Agent::Mutation::Operations.expected_state(
+      operation: "update_weekly_dose_targets", arguments: arguments, proposal: @grant
+    )
+    assert_equal %w[
+      weekly_strength_sessions_target weekly_structured_minutes_target
+      weekly_vigorous_minutes_target weekly_zone2_minutes_target
+    ], expected.keys.grep(/weekly_/).sort
+
+    proposal, token = Agent::MutationProposal.propose!(
+      grant: @grant, capability: "health.write", operation: "update_weekly_dose_targets",
+      arguments: arguments, preview: {}, expected_state: expected,
+      idempotency_key: "weekly-target-stale", deadline_at: 1.minute.from_now
+    )
+    people(:two).update!(weekly_zone2_minutes_target: 999)
+
+    assert_raises(ActiveRecord::StaleObjectError) do
+      proposal.decide!(outcome: "approved", by: users(:two), token: token)
+    end
+    assert_equal 999, people(:two).reload.weekly_zone2_minutes_target
+    assert_equal "failed", proposal.reload.status
+    assert_nil proposal.execution
+  end
+
   test "typed plan, training, target, habit configuration, and check-in paths stay person scoped" do
     plan_result = Agent::Mutation::Operations.execute!(
       operation: "create_planned_meal",

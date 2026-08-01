@@ -99,7 +99,7 @@ module HearthMcp
 
     class Base < MCP::Tool
       class << self
-        def mutation_contract(name:, description:, properties:, required: [])
+        def mutation_contract(name:, description:, properties:, required: [], destructive: nil)
           tool_name name
           self.description "#{description} Consequential calls first stage a durable pending proposal; then request ACP permission with this operation and the same idempotency key."
           input_schema(
@@ -109,7 +109,12 @@ module HearthMcp
             additionalProperties: false
           )
           output_schema RESULT_SCHEMA
-          annotations(read_only_hint: false, destructive_hint: name.start_with?("delete_"), idempotent_hint: true, open_world_hint: false)
+          annotations(
+            read_only_hint: false,
+            destructive_hint: destructive.nil? ? name.start_with?("delete_") : destructive,
+            idempotent_hint: true,
+            open_world_hint: false
+          )
         end
 
         def perform(operation, idempotency_key:, server_context:, capability: "health.write", always_stage: false, **arguments)

@@ -35,14 +35,23 @@ module Agent::Mutation::Operations
       context = proposal
       before = expected_state(operation: operation, arguments: arguments, proposal: proposal)
       record = dispatch(operation, arguments.deep_stringify_keys, context)
-      after = operation.start_with?("delete_") ? {} : snapshot(record)
+      after = if operation.start_with?("delete_")
+        {}
+      elsif Agent::Mutation::ManagementOperations.handles?(operation)
+        Agent::Mutation::ManagementOperations.snapshot(record)
+      else
+        snapshot(record)
+      end
       { before: before, after: after, result: result_for(record) }
     end
 
     def expected_state(operation:, arguments:, proposal:)
       arguments = arguments.deep_stringify_keys
       record = record_for(operation, arguments, proposal)
-      record ? snapshot(record) : {}
+      return {} unless record
+
+      Agent::Mutation::ManagementOperations.handles?(operation) ?
+        Agent::Mutation::ManagementOperations.snapshot(record) : snapshot(record)
     end
 
     def preview(operation:, arguments:, context:)
@@ -323,7 +332,6 @@ module Agent::Mutation::Operations
       def snapshot(record)
         return record if record.is_a?(Hash)
         return {} unless record
-        return Agent::Mutation::ManagementOperations.snapshot(record) if Agent::Mutation::ManagementOperations.management_record?(record)
         case record
         when Meal
           record.as_json.except("created_at", "updated_at").merge(

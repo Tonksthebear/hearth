@@ -100,7 +100,10 @@ module HearthMcp
     class Base < MutationTools::Base
       class << self
         def management_contract(name:, capability:, description:, properties:, required: [])
-          mutation_contract(name:, description:, properties:, required:)
+          mutation_contract(
+            name:, description:, properties:, required:,
+            destructive: name.in?(%w[update_recipe update_workout_template update_habit])
+          )
           define_singleton_method(:call) do |server_context:, idempotency_key:, **arguments|
             perform(name, idempotency_key:, server_context:, capability:, always_stage: true, **arguments)
           end
@@ -120,6 +123,10 @@ module HearthMcp
       "create_habit" => [ "catalog.manage", "Create one complete habit definition.", HABIT, %w[name metrics] ],
       "update_habit" => [ "catalog.manage", "Update one complete habit definition.", HABIT.merge(id: ID), %w[id] ]
     }.freeze
+
+    def self.capability_for(operation)
+      DEFINITIONS.fetch(operation).first
+    end
 
     ALL = DEFINITIONS.map do |name, (capability, description, properties, required)|
       Class.new(Base) { management_contract(name:, capability:, description:, properties:, required:) }
