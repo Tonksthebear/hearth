@@ -27,7 +27,7 @@ class Agent::MutationProposal < ApplicationRecord
     :confirmation_nonce, :confirmation_digest, :idempotency_key, :deadline_at, presence: true
   validates :status, inclusion: { in: STATUSES }
   validate :exact_context
-  validate :reviewable_preview_is_bounded
+  validate :reviewable_preview_is_bounded, on: :create
 
   scope :pending, -> { where(status: "pending") }
 

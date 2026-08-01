@@ -79,7 +79,7 @@ class Agent::MutationManagementOperationsTest < ActiveSupport::TestCase
     kept = recipe.recipe_ingredients.find_by!(display_name: "Stock")
     arguments = {
       id: recipe.id,
-      ingredients: [ { id: kept.id, key: kept.form_key, name: kept.display_name } ]
+      ingredients: [ { id: kept.id, key: "stock", name: kept.display_name } ]
     }
 
     proposal, token = stage("update_recipe", arguments, "reference-preview-update")
@@ -89,6 +89,27 @@ class Agent::MutationManagementOperationsTest < ActiveSupport::TestCase
 
     proposal.decide!(outcome: "approved", by: users(:two), token: token)
     assert_equal [ kept.id ], recipe.reload.recipe_instructions.sole.referenced_recipe_ingredient_ids
+  end
+
+  test "workout preview accepts long prescription text without duplicating prescriptions in the block diff" do
+    workout = households(:home).workout_templates.joins(workout_blocks: :exercise_prescriptions).first
+    block = workout.workout_blocks.joins(:exercise_prescriptions).first
+    prescription = block.exercise_prescriptions.first
+    notes = "x" * 300
+    arguments = {
+      id: workout.id,
+      blocks: [ {
+        id: block.id, title: block.title, block_kind: block.block_kind, dose_class: block.dose_class,
+        prescriptions: [ prescription.attributes.symbolize_keys.slice(*prescription_keys).merge(notes:) ]
+      } ]
+    }
+
+    proposal, = stage("update_workout_template", arguments, "long-prescription-preview")
+    prescription_changes = proposal.preview.dig("children", "blocks.#{block.id}.prescriptions")
+
+    assert_empty proposal.preview.dig("children", "blocks", "updated")
+    assert_equal 200, prescription_changes.fetch("updated").sole.fetch("changes").find { |change| change["field"] == "notes" }.fetch("after").length
+    assert_equal "pending", proposal.status
   end
 
   test "workout and habit child drift each make their staged aggregate stale" do
@@ -315,6 +336,14 @@ class Agent::MutationManagementOperationsTest < ActiveSupport::TestCase
   end
 
   private
+    def prescription_keys
+      %i[
+        id exercise_id performance_kind sets_count rep_min rep_max work_seconds rest_seconds
+        target_distance_amount target_distance_unit target_count target_count_unit per_side tempo_cue
+        target_heart_rate_min target_heart_rate_max target_heart_rate_unit target_rpe target_rir load_guidance notes dose_class
+      ]
+    end
+
     def stage(operation, arguments, key)
       expected = Agent::Mutation::Operations.expected_state(operation:, arguments:, proposal: @grant)
       Agent::MutationProposal.propose!(

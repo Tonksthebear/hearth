@@ -239,7 +239,9 @@ module Agent::Mutation::ManagementOperations
       end
 
       def project_recipe_reference_removals(after)
-        active_keys = Array(after["ingredients"]).map { |row| row["key"] }
+        active_keys = Array(after["ingredients"]).map do |row|
+          row["id"] ? "ingredient-#{row['id']}" : row["key"]
+        end
         Array(after["instructions"]).each do |instruction|
           instruction["ingredient_keys"] = Array(instruction["ingredient_keys"]) & active_keys
         end
@@ -277,7 +279,7 @@ module Agent::Mutation::ManagementOperations
           "updated" => shared.filter_map do |identity|
             old_row, new_row = old_by_key.fetch(identity), new_by_key.fetch(identity)
             changes = (old_row.keys | new_row.keys).filter_map do |field|
-              next if field == "position" || old_row[field] == new_row[field]
+              next if field.in?(%w[position prescriptions]) || old_row[field] == new_row[field]
               { "field" => field, "before" => summarized(old_row[field]), "after" => summarized(new_row[field]) }
             end
             { "identity" => identity, "changes" => changes } if changes.any?

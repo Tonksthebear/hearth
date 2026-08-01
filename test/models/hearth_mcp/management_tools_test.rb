@@ -92,6 +92,26 @@ class HearthMcp::ManagementToolsTest < ActiveSupport::TestCase
     assert_equal proposal_count, Agent::MutationProposal.count
   end
 
+  test "schema-valid unsourced verified recipe fails through the management tool path" do
+    grant = issue_grant(%w[catalog_manage])
+    recipe_count = Recipe.count
+    result = HearthMcp::ManagementTools::CATALOG.find { |tool| tool.tool_name == "create_recipe" }.call(
+      title: "Unsourced verified recipe", provenance_status: "verified",
+      ingredients: [ { key: "stock", name: "Stock" } ],
+      instructions: [ { body: "Warm", ingredient_keys: [ "stock" ] } ],
+      idempotency_key: "tool-unsourced-verified-recipe", server_context: { grant: grant }
+    )
+
+    refute result.error?
+    proposal = Agent::MutationProposal.find(result.structured_content.fetch(:proposal_id))
+    assert_raises(ActiveRecord::RecordInvalid) do
+      proposal.decide!(outcome: "approved", by: users(:two), token: proposal.confirmation_token)
+    end
+    assert_equal "failed", proposal.reload.status
+    assert_nil proposal.execution
+    assert_equal recipe_count, Recipe.count
+  end
+
   private
     def issue_grant(groups)
       Agent::Grant.issue!(
