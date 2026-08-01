@@ -48,7 +48,8 @@ class TodayNavigationTest < ApplicationSystemTestCase
       within "[data-activity-kind='workout']", text: workout_templates(:balanced).title do
         click_button "Start"
       end
-      assert_text "Workout started.", wait: 5
+      assert_current_path %r{/training_sessions/\d+/edit\z}, wait: 15
+      assert_text "Workout started."
       assert_current_path edit_training_session_path(plan.reload.training_session), wait: 5
       assert_equal :in_progress, plan.status
     end
