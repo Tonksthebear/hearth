@@ -18,6 +18,21 @@ class Agent::Session < ApplicationRecord
     foreign_key: :agent_session_id,
     dependent: :restrict_with_exception,
     inverse_of: :agent_session
+  has_many :operational_authorizations,
+    class_name: "Agent::OperationalAuthorization",
+    foreign_key: :agent_session_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :agent_session
+  has_many :mutation_proposals,
+    class_name: "Agent::MutationProposal",
+    foreign_key: :agent_session_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :agent_session
+  has_many :permission_requests,
+    class_name: "Agent::PermissionRequest",
+    foreign_key: :agent_session_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :agent_session
 
   validates :external_session_id,
     presence: true,
@@ -55,8 +70,38 @@ class Agent::Session < ApplicationRecord
     Agent::Grant.issue_runtime!(agent_session: self)
   end
 
+  def active_operational_authorization(at: Time.current)
+    operational_authorizations.active_at(at).order(revision: :desc).detect { |authorization| authorization.active?(at) }
+  end
+
+  def rotate_runtime_authorization!(reason)
+    grants.where(revoked_at: nil).find_each { |grant| grant.revoke!(reason: reason) }
+    require_mcp_reauthorization!
+    self
+  end
+
+  def cancel_pending_mutations!(reason:)
+    mutation_proposals.pending.find_each { |proposal| proposal.cancel!(reason: reason) }
+  end
+
+  def expire_pending_mutations!
+    mutation_proposals.pending.where(deadline_at: ..Time.current).find_each(&:expire_if_needed!)
+  end
+
   def begin_recovery!
     update!(status: "starting") if status == "disconnected"
+    self
+  end
+
+  def detach_for_authorization_rotation!
+    transaction do
+      update!(
+        status: "disconnected",
+        disconnected_at: Time.current,
+        mcp_authorization_status: "reauthorization_required"
+      )
+      revoke_grants!("runtime authorization rotated")
+    end
     self
   end
 
@@ -104,6 +149,8 @@ class Agent::Session < ApplicationRecord
         mcp_authorization_status: "reauthorization_required"
       )
       revoke_grants!(reason)
+      revoke_operational_authorizations!(reason)
+      cancel_pending_mutations!(reason: reason)
     end
     self
   end
@@ -156,6 +203,8 @@ class Agent::Session < ApplicationRecord
     transaction do
       transition_from!(%w[ starting connected disconnected ], to: "closed", closed_at: Time.current)
       revoke_grants!("agent session closed")
+      revoke_operational_authorizations!("agent session closed")
+      cancel_pending_mutations!(reason: "agent session closed")
     end
     self
   end
@@ -201,6 +250,12 @@ class Agent::Session < ApplicationRecord
 
     def revoke_grants!(reason)
       grants.where(revoked_at: nil).find_each { |grant| grant.revoke!(reason: reason) }
+    end
+
+    def revoke_operational_authorizations!(reason)
+      operational_authorizations.where(revoked_at: nil).find_each do |authorization|
+        authorization.revoke!(reason: reason)
+      end
     end
 
     def sanitized_recovery_error(error)

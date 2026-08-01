@@ -48,6 +48,25 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     end
   end
 
+  test "routes permission requests through the configured exact-session callback" do
+    observed = nil
+    with_connection do |connection|
+      connection.configure_permission_handler! do |params|
+        observed = params
+        reject = params.fetch("options").find { |option| option["kind"] == "reject_once" }
+        { outcome: { outcome: "selected", optionId: reject.fetch("optionId") } }
+      end
+      connection.initialize_connection
+      connection.new_session
+
+      result = connection.prompt([ { type: "text", text: "request permission" } ])
+
+      assert_equal "fake-session", observed.fetch("sessionId")
+      assert_equal "fake-tool", observed.dig("toolCall", "toolCallId")
+      assert_equal "end_turn", result.fetch("stopReason")
+    end
+  end
+
   test "correlates out of order responses while both requests are live" do
     with_connection(mode: "out_of_order") do |connection|
       connection.initialize_connection

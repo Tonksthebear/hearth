@@ -54,6 +54,7 @@ module Acp
         authentication_status: installation.authentication_status,
         mcp_authorization_status: "not_configured"
       )
+      configure_permission_handler(connection, agent_session)
       credential = agent_session.issue_runtime_grant!
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       result = connection.new_session
@@ -85,6 +86,7 @@ module Acp
 
       authenticate!(connection, installation, authentication_method)
       agent_session.begin_recovery!
+      configure_permission_handler(connection, agent_session)
       credential = agent_session.issue_runtime_grant!
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       observe_session_list(agent_session, connection)
@@ -126,6 +128,9 @@ module Acp
       ensure_started!
       disconnect_disabled_profiles
       reap_failed_connections
+      expire_operational_authorizations
+      rotate_stale_authorizations
+      expire_pending_mutations
       attached_ids = @connections_mutex.synchronize { @connections.keys }
       Agent::Session.recoverable
         .joins(conversation: :profile)
@@ -190,6 +195,69 @@ module Acp
           environment: profile.environment_from,
           mcp_servers: []
         )
+      end
+
+      def configure_permission_handler(connection, agent_session)
+        connection.configure_permission_handler! do |params|
+          resolve_permission(agent_session, params)
+        end
+      end
+
+      def resolve_permission(agent_session, params)
+        return permission_rejection(params) unless params["sessionId"] == agent_session.external_session_id
+        tool_call_id = params.dig("toolCall", "toolCallId")
+        return permission_rejection(params) if tool_call_id.blank?
+        raw_input = params.dig("toolCall", "rawInput")
+        return permission_rejection(params) unless raw_input.is_a?(Hash)
+        idempotency_key = raw_input["idempotency_key"]
+        return permission_rejection(params) if idempotency_key.blank?
+
+        proposal = agent_session.mutation_proposals.pending.find_by(idempotency_key: idempotency_key)
+        return permission_rejection(params) unless proposal
+
+        request = proposal.permission_request
+        request.update!(external_request_id: tool_call_id) if request.external_request_id.start_with?("mutation-")
+        deadline = [ proposal.deadline_at, Acp::Connection::DEFAULT_TIMEOUT.seconds.from_now ].min
+        loop do
+          proposal.reload.expire_if_needed!
+          break unless proposal.status == "pending"
+          break if Time.current >= deadline
+          sleep 0.05
+        end
+        proposal.cancel!(reason: "ACP permission wait ended", status: "expired") if proposal.status == "pending"
+
+        kind = proposal.status.in?(%w[ approved executed ]) ? "allow_once" : "reject_once"
+        option = params["options"]&.find { |candidate| candidate["kind"] == kind }
+        option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+      end
+
+      def permission_rejection(params)
+        option = params["options"]&.find { |candidate| candidate["kind"] == "reject_once" }
+        option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+      end
+
+      def rotate_stale_authorizations
+        stale_ids = Agent::Session.where(
+          id: @connections_mutex.synchronize { @connections.keys },
+          mcp_authorization_status: "reauthorization_required"
+        ).pluck(:id)
+        detached = @connections_mutex.synchronize do
+          stale_ids.to_h { |session_id| [ session_id, @connections.delete(session_id) ] }
+        end
+        detached.each do |session_id, connection|
+          connection.stop
+          Agent::Session.find(session_id).detach_for_authorization_rotation!
+        end
+      end
+
+      def expire_operational_authorizations
+        Agent::OperationalAuthorization.where(revoked_at: nil).where(expires_at: ..Time.current).find_each do |authorization|
+          authorization.revoke!(reason: "operational access expired")
+        end
+      end
+
+      def expire_pending_mutations
+        Agent::MutationProposal.pending.where(deadline_at: ..Time.current).find_each(&:expire_if_needed!)
       end
 
       def mcp_servers_for(connection, credential)

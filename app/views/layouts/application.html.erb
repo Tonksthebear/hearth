@@ -20,6 +20,7 @@
 
   <body class="h-full text-gray-900 dark:text-white" style="--sidebar-width: 18rem">
     <% if authenticated? %>
+      <%= turbo_stream_from @agent_session.conversation if @agent_session %>
       <%= render Elements::SidebarComponent.new do |sidebar| %>
         <% sidebar.with_sidebar do %>
           <%= render "layouts/sidebar" %>
@@ -44,6 +45,8 @@
           </div>
         </div>
       <% end %>
+      <%= render "agent/operational_authorizations/control", agent_session: @agent_session, authorization: @agent_operational_authorization if @agent_session %>
+      <%= render "agent/mutation_proposals/center", proposal: @agent_mutation_proposal, confirmation_token: @agent_mutation_proposal&.confirmation_token %>
     <% else %>
       <main class="min-h-full">
         <%= render "layouts/flash" %>

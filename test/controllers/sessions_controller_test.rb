@@ -69,6 +69,29 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert Agent::AuditEvent.exists?(audit_event.id)
   end
 
+  test "destroy revokes operational authorization and pending mutations" do
+    sign_in_as users(:two)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    agent_session = Agent::Session.create!(
+      household: Current.household,
+      person: Current.person,
+      conversation: agent_conversations(:active),
+      installation: agent_installations(:local),
+      browser_session: Current.session,
+      external_session_id: "logout-operational-session",
+      status: "connected",
+      authentication_status: "authenticated",
+      mcp_authorization_status: "authorized"
+    )
+    authorization = Agent::OperationalAuthorization.authorize!(agent_session: agent_session, reason: "Daily operations")
+
+    delete session_path
+
+    assert_not_nil authorization.reload.revoked_at
+    assert_nil authorization.browser_session_id
+  end
+
   test "returns to the protected page after authentication" do
     get root_path
     assert_redirected_to new_session_path

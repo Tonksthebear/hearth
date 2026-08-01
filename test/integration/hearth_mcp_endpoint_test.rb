@@ -73,6 +73,45 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     assert called["error"] || called.dig("result", "isError")
   end
 
+  test "exact-context operational consent rotates to typed writes and executes an idempotent meal aggregate" do
+    Current.session = sessions(:browser)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    @agent_session = Agent::Session.create!(
+      household: Current.household,
+      person: Current.person,
+      conversation: agent_conversations(:active),
+      installation: agent_installations(:local),
+      browser_session: Current.session,
+      status: "starting",
+      authentication_status: "authenticated",
+      mcp_authorization_status: "not_configured"
+    )
+    @credential = @agent_session.issue_runtime_grant!
+    Agent::OperationalAuthorization.authorize!(agent_session: @agent_session, reason: "Daily operations")
+    @credential = @agent_session.issue_runtime_grant!
+
+    listed = mcp_post(id: 30, method: "tools/list", params: {})
+    names = listed.dig("result", "tools").pluck("name")
+    assert_includes names, "create_meal"
+    refute_includes names, "update_record"
+
+    arguments = {
+      eaten_on: "2026-07-31",
+      meal_items: [ { source_kind: "free_text", snapshot_label: "MCP meal" } ],
+      idempotency_key: "endpoint-create-meal"
+    }
+    first = mcp_post(id: 31, method: "tools/call", params: { name: "create_meal", arguments: arguments })
+    second = mcp_post(id: 32, method: "tools/call", params: { name: "create_meal", arguments: arguments })
+
+    assert_equal "executed", first.dig("result", "structuredContent", "status"), first.inspect
+    assert_equal first.dig("result", "structuredContent", "result", "id"), second.dig("result", "structuredContent", "result", "id")
+    assert_equal 1, people(:two).meals.where(notes: nil).joins(:meal_items).where(meal_items: { snapshot_label: "MCP meal" }).count
+    assert_equal [ "health.write", "health.write" ], Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:capability)
+  ensure
+    Current.reset
+  end
+
   test "records tool errors as failed and charges their call budget" do
     called = mcp_post(id: 6, method: "tools/call", params: {
       name: "get_recipe",

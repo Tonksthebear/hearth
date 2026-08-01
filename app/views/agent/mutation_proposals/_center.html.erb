@@ -1,0 +1,33 @@
+<div id="agent_confirmation_center">
+  <% if proposal %>
+    <% if proposal.status == "pending" %>
+      <%= render Elements::DialogComponent.new(id: "agent-mutation-confirmation-#{proposal.id}", open: true) do |dialog| %>
+        <div class="sm:flex sm:items-start">
+          <div class="mx-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-warning-100 sm:mx-0 sm:size-10 dark:bg-warning-500/10">
+            <%= icon "key", class: "size-6 text-warning-600 dark:text-warning-400" %>
+          </div>
+          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+            <%= dialog.title "Confirm agent operation for #{proposal.person.name}" %>
+            <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              <%= dialog.description proposal.preview["effect"] %>
+              <p class="mt-2 text-xs">Decision due <%= time_tag proposal.deadline_at, proposal.deadline_at.to_fs(:short) %></p>
+            </div>
+            <% if confirmation_token %>
+              <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row-reverse">
+                <%= button_to "Approve once", agent_mutation_proposal_decision_path(proposal), params: { outcome: "approved", confirmation_token: confirmation_token }, class: "inline-flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary-500 sm:w-auto" %>
+                <%= button_to "Deny", agent_mutation_proposal_decision_path(proposal), params: { outcome: "denied", confirmation_token: confirmation_token }, class: "inline-flex w-full justify-center rounded-md bg-danger-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-danger-500 sm:w-auto" %>
+                <%= button_to "Cancel", agent_mutation_proposal_decision_path(proposal), method: :delete, class: "inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 sm:w-auto dark:bg-white/10 dark:text-white dark:ring-white/5 dark:hover:bg-white/20" %>
+              </div>
+            <% else %>
+              <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">This one-time request is no longer actionable. Ask the agent to create a fresh proposal.</p>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% elsif proposal.status != "executed" %>
+      <div class="fixed top-4 right-4 z-40 max-w-sm rounded-lg bg-white p-4 text-sm shadow-lg dark:bg-gray-800" role="status">
+        Agent operation <%= proposal.status.humanize.downcase %>.
+      </div>
+    <% end %>
+  <% end %>
+</div>

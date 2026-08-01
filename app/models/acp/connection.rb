@@ -37,7 +37,7 @@ module Acp
     def initialize(argv:, cwd:, environment: {}, mcp_servers: [], timeout: DEFAULT_TIMEOUT,
       max_line_bytes: DEFAULT_MAX_LINE_BYTES, queue_size: DEFAULT_QUEUE_SIZE,
       queue_timeout: DEFAULT_QUEUE_TIMEOUT, termination_grace: DEFAULT_TERMINATION_GRACE,
-      on_fatal: ->(_error) { })
+      on_fatal: ->(_error) { }, on_permission: nil)
       raise ConfigurationError, "agent argv is required" if argv.blank?
       raise ConfigurationError, "agent argv must contain only strings" unless argv.all? { |argument| argument.is_a?(String) }
       raise ConfigurationError, "cwd must be absolute" unless Pathname.new(cwd).absolute?
@@ -53,6 +53,7 @@ module Acp
       @queue_timeout = Float(queue_timeout)
       @termination_grace = Float(termination_grace)
       @on_fatal = on_fatal
+      @on_permission = on_permission
       @outbound = SizedQueue.new(Integer(queue_size))
       @events = SizedQueue.new(Integer(queue_size))
       @pending = {}
@@ -138,6 +139,11 @@ module Acp
       raise ConfigurationError, "MCP configuration is immutable after session selection" if @session_id
 
       @mcp_servers = normalize_mcp_servers(servers)
+      self
+    end
+
+    def configure_permission_handler!(&handler)
+      @on_permission = handler
       self
     end
 
@@ -371,8 +377,7 @@ module Acp
 
       def handle_agent_request(message)
         result = if message["method"] == "session/request_permission"
-          option = message.dig("params", "options")&.find { |candidate| candidate["kind"] == "reject_once" }
-          option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+          handle_permission_request(message.fetch("params", {}))
         end
 
         if result
@@ -383,6 +388,19 @@ module Acp
             message: "Method not supported by Hearth"
           })
         end
+      end
+
+      def handle_permission_request(params)
+        return reject_permission(params) unless @on_permission
+
+        @on_permission.call(params)
+      rescue StandardError
+        reject_permission(params)
+      end
+
+      def reject_permission(params)
+        option = params["options"]&.find { |candidate| candidate["kind"] == "reject_once" }
+        option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
       end
 
       def session_params

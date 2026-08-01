@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -159,6 +159,90 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
     t.check_constraint "role IN ('user', 'agent', 'system')", name: "agent_messages_role"
   end
 
+  create_table "agent_mutation_executions", force: :cascade do |t|
+    t.json "after_state", default: {}, null: false
+    t.json "before_state", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "executed_at", null: false
+    t.integer "executed_by_id"
+    t.string "idempotency_key", null: false
+    t.string "input_digest", null: false
+    t.integer "mutation_proposal_id", null: false
+    t.string "operation", null: false
+    t.string "outcome", null: false
+    t.json "result", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["executed_by_id"], name: "index_agent_mutation_executions_on_executed_by_id"
+    t.index ["idempotency_key", "input_digest"], name: "index_agent_mutation_executions_on_idempotency_and_input", unique: true
+    t.index ["mutation_proposal_id"], name: "index_agent_mutation_executions_on_mutation_proposal_id", unique: true
+    t.check_constraint "outcome IN ('succeeded', 'failed')", name: "agent_mutation_executions_outcome"
+  end
+
+  create_table "agent_mutation_proposals", force: :cascade do |t|
+    t.integer "agent_session_id", null: false
+    t.datetime "approved_at"
+    t.integer "approved_by_id"
+    t.string "confirmation_digest", null: false
+    t.string "confirmation_nonce", null: false
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "deadline_at", null: false
+    t.datetime "executed_at"
+    t.integer "executed_by_id"
+    t.string "expected_state_digest", null: false
+    t.text "failure_reason"
+    t.integer "household_id", null: false
+    t.string "idempotency_key", null: false
+    t.text "input_body", null: false
+    t.string "input_digest", null: false
+    t.string "operation", null: false
+    t.integer "person_id", null: false
+    t.json "preview", default: {}, null: false
+    t.integer "requested_by_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "terminal_at"
+    t.datetime "updated_at", null: false
+    t.index ["agent_session_id", "idempotency_key"], name: "index_agent_mutation_proposals_on_session_and_idempotency", unique: true
+    t.index ["agent_session_id"], name: "index_agent_mutation_proposals_on_agent_session_id"
+    t.index ["approved_by_id"], name: "index_agent_mutation_proposals_on_approved_by_id"
+    t.index ["confirmation_digest"], name: "index_agent_mutation_proposals_on_confirmation_digest", unique: true
+    t.index ["confirmation_nonce"], name: "index_agent_mutation_proposals_on_confirmation_nonce", unique: true
+    t.index ["conversation_id", "status"], name: "index_agent_mutation_proposals_on_conversation_and_status"
+    t.index ["conversation_id"], name: "index_agent_mutation_proposals_on_conversation_id"
+    t.index ["executed_by_id"], name: "index_agent_mutation_proposals_on_executed_by_id"
+    t.index ["household_id"], name: "index_agent_mutation_proposals_on_household_id"
+    t.index ["person_id"], name: "index_agent_mutation_proposals_on_person_id"
+    t.index ["requested_by_id"], name: "index_agent_mutation_proposals_on_requested_by_id"
+    t.check_constraint "status IN ('pending', 'approved', 'denied', 'cancelled', 'expired', 'executed', 'failed')", name: "agent_mutation_proposals_status"
+  end
+
+  create_table "agent_operational_authorizations", force: :cascade do |t|
+    t.integer "agent_session_id", null: false
+    t.datetime "authorized_at", null: false
+    t.integer "authorized_by_id", null: false
+    t.integer "browser_session_id"
+    t.json "capability_groups", default: ["health_write"], null: false
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.integer "household_id", null: false
+    t.integer "person_id", null: false
+    t.text "reason", null: false
+    t.integer "revision", default: 1, null: false
+    t.text "revocation_reason"
+    t.datetime "revoked_at"
+    t.datetime "updated_at", null: false
+    t.index ["agent_session_id", "revoked_at"], name: "index_agent_operational_authorizations_on_session_and_active"
+    t.index ["agent_session_id"], name: "index_agent_operational_authorizations_on_agent_session_id"
+    t.index ["authorized_by_id"], name: "index_agent_operational_authorizations_on_authorized_by_id"
+    t.index ["browser_session_id", "revoked_at"], name: "index_agent_operational_authorizations_on_browser_and_active"
+    t.index ["browser_session_id"], name: "index_agent_operational_authorizations_on_browser_session_id"
+    t.index ["conversation_id"], name: "index_agent_operational_authorizations_on_conversation_id"
+    t.index ["household_id"], name: "index_agent_operational_authorizations_on_household_id"
+    t.index ["person_id"], name: "index_agent_operational_authorizations_on_person_id"
+    t.check_constraint "revision > 0", name: "agent_operational_authorizations_positive_revision"
+  end
+
   create_table "agent_permission_decisions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "decided_by_id", null: false
@@ -176,15 +260,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
     t.string "capability", null: false
     t.integer "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.datetime "deadline_at"
     t.string "external_request_id", null: false
     t.integer "household_id", null: false
     t.text "input_body"
     t.string "input_digest", null: false
+    t.integer "mutation_proposal_id"
     t.integer "person_id", null: false
     t.datetime "redacted_at"
     t.integer "redacted_by_id"
     t.text "redaction_reason"
     t.string "status", default: "pending", null: false
+    t.datetime "terminal_at"
     t.string "tool_name", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_session_id", "external_request_id"], name: "index_agent_permission_requests_on_session_and_external_id", unique: true
@@ -192,10 +279,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
     t.index ["conversation_id", "status"], name: "index_agent_permission_requests_on_conversation_id_and_status"
     t.index ["conversation_id"], name: "index_agent_permission_requests_on_conversation_id"
     t.index ["household_id"], name: "index_agent_permission_requests_on_household_id"
+    t.index ["mutation_proposal_id"], name: "index_agent_permission_requests_on_mutation_proposal_id", unique: true
     t.index ["person_id"], name: "index_agent_permission_requests_on_person_id"
     t.index ["redacted_by_id"], name: "index_agent_permission_requests_on_redacted_by_id"
     t.check_constraint "(input_body IS NOT NULL AND redacted_at IS NULL) OR (input_body IS NULL AND redacted_at IS NOT NULL)", name: "agent_permission_requests_redaction_state"
-    t.check_constraint "status IN ('pending', 'approved', 'denied', 'cancelled')", name: "agent_permission_requests_status"
+    t.check_constraint "status IN ('pending', 'approved', 'denied', 'cancelled', 'expired')", name: "agent_permission_requests_status"
   end
 
   create_table "agent_profiles", force: :cascade do |t|
@@ -799,9 +887,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_150000) do
   add_foreign_key "agent_messages", "households"
   add_foreign_key "agent_messages", "people"
   add_foreign_key "agent_messages", "users", column: "redacted_by_id"
+  add_foreign_key "agent_mutation_executions", "agent_mutation_proposals", column: "mutation_proposal_id"
+  add_foreign_key "agent_mutation_executions", "users", column: "executed_by_id"
+  add_foreign_key "agent_mutation_proposals", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_mutation_proposals", "agent_sessions"
+  add_foreign_key "agent_mutation_proposals", "households"
+  add_foreign_key "agent_mutation_proposals", "people"
+  add_foreign_key "agent_mutation_proposals", "users", column: "approved_by_id"
+  add_foreign_key "agent_mutation_proposals", "users", column: "executed_by_id"
+  add_foreign_key "agent_mutation_proposals", "users", column: "requested_by_id"
+  add_foreign_key "agent_operational_authorizations", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_operational_authorizations", "agent_sessions"
+  add_foreign_key "agent_operational_authorizations", "households"
+  add_foreign_key "agent_operational_authorizations", "people"
+  add_foreign_key "agent_operational_authorizations", "sessions", column: "browser_session_id", on_delete: :nullify
+  add_foreign_key "agent_operational_authorizations", "users", column: "authorized_by_id"
   add_foreign_key "agent_permission_decisions", "agent_permission_requests", column: "permission_request_id"
   add_foreign_key "agent_permission_decisions", "users", column: "decided_by_id"
   add_foreign_key "agent_permission_requests", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_permission_requests", "agent_mutation_proposals", column: "mutation_proposal_id"
   add_foreign_key "agent_permission_requests", "agent_sessions"
   add_foreign_key "agent_permission_requests", "households"
   add_foreign_key "agent_permission_requests", "people"

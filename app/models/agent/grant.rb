@@ -101,6 +101,9 @@ class Agent::Grant < ApplicationRecord
       locator = SecureRandom.hex(16)
       secret = SecureRandom.urlsafe_base64(32)
       transaction do
+        authorization = agent_session.active_operational_authorization
+        capability_groups = [ "health_read" ]
+        capability_groups << "health_write" if authorization
         grant = create!(
           household: agent_session.household,
           person: agent_session.person,
@@ -109,8 +112,8 @@ class Agent::Grant < ApplicationRecord
           browser_session: agent_session.browser_session,
           token_locator: locator,
           token_digest: Digest::SHA256.hexdigest(secret),
-          capability_groups: [ "health_read" ],
-          expires_at: RUNTIME_EXPIRES_IN.from_now,
+          capability_groups: capability_groups,
+          expires_at: [ RUNTIME_EXPIRES_IN.from_now, authorization&.expires_at ].compact.min,
           calls_limit: RUNTIME_CALLS_LIMIT,
           output_tokens_limit: RUNTIME_OUTPUT_TOKENS_LIMIT
         )

@@ -1,6 +1,13 @@
 Rails.application.routes.draw do
   resource :mcp, only: %i[ show create destroy ]
 
+  namespace :agent do
+    resources :operational_authorizations, only: %i[ create destroy ]
+    resources :mutation_proposals, only: [] do
+      resource :decision, only: %i[ create destroy ], controller: :mutation_decisions
+    end
+  end
+
   namespace :setup do
     resource :household, only: %i[ new create ]
   end
