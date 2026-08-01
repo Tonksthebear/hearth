@@ -1,0 +1,48 @@
+<%= form_with model: ingredient, class: "mt-8 space-y-10" do |form| %>
+  <% if ingredient.errors.any? %>
+    <%= render "layouts/alert", id: "ingredient-errors", title: "Please correct the following:", messages: ingredient.errors.full_messages %>
+  <% end %>
+
+  <fieldset class="border-b border-gray-900/10 pb-10 dark:border-white/10">
+    <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Values per 100 grams</legend>
+    <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Leave unknown values blank. Enter 0 when the amount is known to be zero.</p>
+    <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <%= form.fields_for :ingredient_nutrient_values do |value_form| %>
+        <% nutrient = value_form.object.nutrient %>
+        <div>
+          <%= value_form.hidden_field :id if value_form.object.persisted? %>
+          <%= value_form.hidden_field :nutrient_id %>
+          <%= value_form.label :amount_per_100_grams, "#{nutrient.name} (#{nutrient.unit})", class: :label %>
+          <div class="mt-2"><%= value_form.number_field :amount_per_100_grams, min: 0, step: :any, class: :text_field %></div>
+        </div>
+      <% end %>
+    </div>
+  </fieldset>
+
+  <fieldset class="border-b border-gray-900/10 pb-10 dark:border-white/10">
+    <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Source details</legend>
+    <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div>
+        <%= form.label :nutrition_provenance_status, "Provenance", class: :label %>
+        <div class="mt-2"><%= form.elements_select :nutrition_provenance_status, Ingredient.nutrition_provenance_statuses.keys.map { |status| [ status.humanize, status ] }, {}, required: true %></div>
+      </div>
+      <div>
+        <%= form.label :nutrition_source_name, "Source name", class: :label %>
+        <div class="mt-2"><%= form.text_field :nutrition_source_name, class: :text_field %></div>
+      </div>
+      <div>
+        <%= form.label :food_data_central_id, "USDA FoodData Central ID", class: :label %>
+        <div class="mt-2"><%= form.text_field :food_data_central_id, class: :text_field %></div>
+        <p class="mt-1 text-xs/5 text-gray-500 dark:text-gray-400">Optional identity only. Imports are run explicitly by the server operator.</p>
+      </div>
+    </div>
+    <dl class="mt-6 grid gap-2 text-sm text-gray-600 dark:text-gray-400">
+      <% Ingredient::PROVENANCE_DESCRIPTIONS.each do |status, description| %><div><dt class="inline font-semibold"><%= status.humanize %>:</dt> <dd class="inline"><%= description %></dd></div><% end %>
+    </dl>
+  </fieldset>
+
+  <div class="flex items-center justify-end gap-4">
+    <%= link_to "Cancel", ingredients_path, class: "text-sm/6 font-semibold text-gray-900 dark:text-white" %>
+    <%= form.submit "Save nutrition", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+  </div>
+<% end %>

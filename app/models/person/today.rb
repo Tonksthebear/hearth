@@ -2,7 +2,7 @@ class Person::Today
   Item = Data.define(:kind, :record, :title, :description, :status, :destination)
   Section = Data.define(:key, :title, :description, :items)
 
-  attr_reader :household, :person, :date, :activity_day, :sections
+  attr_reader :household, :person, :date, :activity_day, :sections, :shopping_list, :nutrition_summary
 
   class << self
     def current(household:, person:)
@@ -15,7 +15,12 @@ class Person::Today
     @person = household.people.find(person.id)
     @date = date
     @activity_day = ActivityDay.new(household: household, person: @person, date: date)
+    @shopping_list = ShoppingList.existing_for(household:, date:)
     @sections = build_sections.freeze
+  end
+
+  def unchecked_shopping_count
+    shopping_list&.unchecked_count.to_i
   end
 
   private
@@ -29,9 +34,10 @@ class Person::Today
         .to_a
       meals = person.meals
         .during(date..date)
-        .includes(meal_items: [ :recipe, :ingredient ])
+        .includes(meal_items: [ :recipe, :ingredient, :meal_item_nutrient_values ])
         .order(:eaten_on, :created_at)
         .to_a
+      @nutrition_summary = Meal::NutritionSummary.new(meals)
 
       up_next = planned_meals.map do |meal|
         Item.new(

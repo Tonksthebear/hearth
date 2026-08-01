@@ -6,7 +6,22 @@
     <h1 class="mt-2 text-3xl font-semibold tracking-tight">Today</h1>
     <p class="mt-2 text-gray-600 dark:text-gray-400"><%= @today.date.to_fs(:long) %> · Your household tracking plan, not medical advice.</p>
   </div>
-  <%= link_to "Household overview", household_week_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+  <div class="flex flex-wrap gap-2">
+    <% if @today.unchecked_shopping_count.positive? %>
+      <%= link_to "Shopping list (#{@today.unchecked_shopping_count})", shopping_list_path(date: @today.date),
+        data: { turbo_prefetch: false },
+        class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
+    <% end %>
+    <%= link_to "Household overview", household_week_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+  </div>
+</div>
+
+<div class="mt-10">
+  <%= render "shared/nutrition_summary",
+    summary: @today.nutrition_summary,
+    id: "today-nutrition-heading",
+    title: "Known nutrition today",
+    description: "Concise context from logged meal snapshots; this is tracking information, not medical advice." %>
 </div>
 
 <div class="mt-10 space-y-10">

@@ -30,12 +30,20 @@ class Person::TodayTest < ActiveSupport::TestCase
 
   test "fully materialized query count is bounded" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
-      assert_queries_count(14) do
+      assert_queries_count(15) do
         Person::Today.current(household: households(:home), person: people(:one))
           .sections
           .flat_map(&:items)
           .each { |item| [ item.title, item.description, item.status ] }
       end
     end
+  end
+
+
+  test "prepares concise selected-person nutrition from snapshots" do
+    today = Person::Today.new(household: households(:home), person: people(:one), date: Date.new(2026, 7, 27))
+
+    assert_equal "estimated", today.nutrition_summary.status
+    assert_equal BigDecimal("9.2625"), today.nutrition_summary.totals.find { |total| total.key == "protein" }.amount
   end
 end

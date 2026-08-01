@@ -16,6 +16,7 @@ Rails.application.routes.draw do
   resources :passwords, param: :token, only: %i[ new create edit update ]
   resources :people, only: %i[ index show new create edit update ]
   resources :recipes, only: %i[ index show new create edit update ]
+  resources :ingredients, only: %i[ index edit update ]
   resources :exercises, except: :destroy
   resources :workout_templates, except: :destroy
   resources :training_sessions, only: %i[ new create show edit update destroy ]
@@ -26,7 +27,11 @@ Rails.application.routes.draw do
     resource :meal, only: :create, module: :planned_meal
   end
   resources :meals, only: %i[ new create show edit update destroy ]
-  resource :shopping_list, only: :show
+  resource :shopping_list, only: :show do
+    resources :items, controller: "shopping_list_items", only: %i[ create edit update destroy ] do
+      resource :completion, only: %i[ create destroy ], module: :shopping_list_item
+    end
+  end
   resource :person_context, only: :update
   resources :habits, only: %i[ index new create edit update ]
   resources :person_habits, only: %i[ create edit update ]

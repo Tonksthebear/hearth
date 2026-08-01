@@ -11,13 +11,25 @@
         Household plans and <%= @meal_week.person.name %>'s own meals are kept separate.
       </p>
     </div>
-    <%= link_to "Shopping list", shopping_list_path(date: @meal_week), class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
+    <% if @meal_week.unchecked_shopping_count.positive? %>
+      <%= link_to "Shopping list (#{@meal_week.unchecked_shopping_count})", shopping_list_path(date: @meal_week),
+        data: { turbo_prefetch: false },
+        class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
+    <% end %>
   </div>
 
   <nav aria-label="Meal week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
     <%= link_to "Previous week", meal_week_path(date: @meal_week.previous_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
     <%= link_to "Next week", meal_week_path(date: @meal_week.next_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
   </nav>
+
+  <div class="mt-8">
+    <%= render "shared/nutrition_summary",
+      summary: @meal_week.nutrition_summary,
+      id: "week-nutrition-heading",
+      title: "Known nutrition this week",
+      description: "Selected-person totals from historical meal snapshots; incomplete values stay visibly partial." %>
+  </div>
 
   <div class="mt-8 grid gap-6 lg:grid-cols-2">
     <section aria-labelledby="plan-meal-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
@@ -61,6 +73,13 @@
     <% @meal_week.days.each do |day| %>
       <section aria-labelledby="day-<%= day.iso8601 %>" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
         <h2 id="day-<%= day.iso8601 %>" class="text-lg font-semibold"><%= day.to_fs(:long) %></h2>
+        <% day_nutrition = @meal_week.nutrition_for(day) %>
+        <% if day_nutrition.totals.any? %>
+          <dl class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+            <% day_nutrition.totals.each do |total| %><div><dt class="inline font-medium"><%= total.name %></dt> <dd class="inline"><%= total.formatted_amount %></dd></div><% end %>
+            <div><dt class="sr-only">Nutrition status</dt><dd class="inline font-medium"><%= day_nutrition.status.humanize %></dd></div>
+          </dl>
+        <% end %>
         <div class="mt-4 grid gap-5 sm:grid-cols-2">
           <div>
             <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Planned</h3>

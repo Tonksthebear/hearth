@@ -26,7 +26,10 @@ class ApplicationController < ActionController::Base
     end
 
     def primary_navigation_area
-      return :meals if %w[meal_weeks planned_meals planned_meal/meals meals recipes shopping_lists].include?(controller_path)
+      return :meals if %w[
+        meal_weeks planned_meals planned_meal/meals meals recipes shopping_lists
+        shopping_list_items shopping_list_item/completions
+      ].include?(controller_path)
       return :activities if %w[
         activity_weeks activity_libraries activity_histories planned_workouts planned_workout/skips
         training_weeks weekly_dose_targets training_sessions
@@ -43,7 +46,7 @@ class ApplicationController < ActionController::Base
         [
           [ "Week", meal_week_path, %w[meal_weeks planned_meals planned_meal/meals meals] ],
           [ "Recipes", recipes_path, %w[recipes] ],
-          [ "Shopping", shopping_list_path, %w[shopping_lists] ]
+          [ "Shopping", shopping_list_path, %w[shopping_lists shopping_list_items shopping_list_item/completions], { turbo_prefetch: false } ]
         ]
       when :activities
         [
@@ -55,8 +58,8 @@ class ApplicationController < ActionController::Base
         []
       end
 
-      items.map do |label, path, controllers|
-        { label: label, path: path, active: controllers.include?(controller_path) }.freeze
+      items.map do |label, path, controllers, data|
+        { label: label, path: path, active: controllers.include?(controller_path), data: data }.freeze
       end.freeze
     end
 

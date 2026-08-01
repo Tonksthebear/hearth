@@ -14,6 +14,8 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
   RECIPE_VERSION = 20260731130000
   RECONCILIATION_VERSION = 20260731140000
   MEAL_EVENTS_VERSION = 20260731150000
+  SHOPPING_VERSION = 20260731160000
+  NUTRITION_VERSION = 20260731170000
   GUARDED_MUTATIONS_VERSION = 20260731210000
 
   class IsolatedMigrationBase < ActiveRecord::Base
@@ -32,7 +34,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
 
     assert_empty duplicates, "migration versions must have exactly one owner, found duplicates: #{duplicates.inspect}"
 
-    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, GUARDED_MUTATIONS_VERSION ].each do |version|
+    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION ].each do |version|
       assert_equal 1, versions.count(version.to_s), "expected migration version #{version} to have exactly one owner"
     end
   end
@@ -66,7 +68,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       context.migrate
 
       assert_supported_final_state(connection)
-      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, GUARDED_MUTATIONS_VERSION ],
+      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION ],
         context.get_all_versions.select { |version| version >= RUNTIME_VERSION }
       schema_dump(pool)
     end
@@ -241,6 +243,13 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       assert connection.columns(:recipe_ingredients).find { |column| column.name == "ingredient_id" }.null == false
       assert connection.columns(:agent_sessions).find { |column| column.name == "external_session_id" }.null
       assert connection.columns(:agent_grants).find { |column| column.name == "issued_by_id" }.null
+      expected_nutrients = Nutrient::DEFAULTS.map { |row| row.values_at(:key, :name, :unit, :category, :display_order).map(&:to_s) }
+      actual_nutrients = connection.select_rows(<<~SQL.squish).map { |row| row.map(&:to_s) }
+        SELECT key, name, unit, category, display_order
+        FROM nutrients
+        ORDER BY display_order
+      SQL
+      assert_equal expected_nutrients, actual_nutrients
     end
 
     def seed_legacy_recipe_rows(connection)

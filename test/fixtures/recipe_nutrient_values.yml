@@ -1,0 +1,4 @@
+porridge_energy:
+  recipe: porridge
+  nutrient: energy
+  amount: 250

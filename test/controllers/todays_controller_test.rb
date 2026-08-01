@@ -1,6 +1,18 @@
 require "test_helper"
 
 class TodaysControllerTest < ActionDispatch::IntegrationTest
+  test "renders concise same-day nutrition snapshot context" do
+    sign_in_as users(:one)
+    travel_to Time.zone.local(2026, 7, 27, 12) do
+      get root_path
+
+      assert_response :success
+      assert_select "#today-nutrition-heading", text: "Known nutrition today"
+      assert_select "section", text: /Protein.*9\.26 g/m
+      assert_select "p", text: /not medical advice/i
+    end
+  end
+
   test "fresh anonymous root redirects to setup" do
     clear_installation
 
@@ -38,6 +50,24 @@ class TodaysControllerTest < ActionDispatch::IntegrationTest
   test "root is the sole Today route" do
     assert_raises ActionController::RoutingError do
       Rails.application.routes.recognize_path("/today")
+    end
+  end
+
+  test "Today reads an existing current list without creating or reconciling" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_as users(:one)
+      counts = [ ShoppingList.count, ShoppingListItem.count, ShoppingListItemSource.count ]
+
+      get root_path
+
+      assert_response :success
+      assert_select "a[href=?][data-turbo-prefetch='false']", shopping_list_path(date: "2026-07-30"), text: /Shopping list \(1\)/
+      assert_equal counts, [ ShoppingList.count, ShoppingListItem.count, ShoppingListItemSource.count ]
+
+      shopping_lists(:target_week).destroy!
+      get root_path
+      assert_select "a", text: /Shopping list \(/, count: 0
+      refute ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
     end
   end
 end

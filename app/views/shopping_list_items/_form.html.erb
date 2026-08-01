@@ -1,0 +1,37 @@
+<%= form_with model: shopping_list_item,
+  url: shopping_list_item.persisted? ? shopping_list_item_path(shopping_list_item) : shopping_list_items_path,
+  class: "mt-6" do |form| %>
+  <%= hidden_field_tag :date, shopping_list.week_start.iso8601 %>
+
+  <% if shopping_list_item.errors.any? %>
+    <%= render "layouts/alert", id: "shopping-list-item-errors", title: "Please correct the following:", messages: shopping_list_item.errors.full_messages %>
+  <% end %>
+
+  <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
+    <div class="sm:col-span-3">
+      <%= form.label :name, class: :label %>
+      <div class="mt-2"><%= form.text_field :name, required: true, autofocus: true, class: :text_field %></div>
+    </div>
+    <div class="sm:col-span-1">
+      <%= form.label :quantity, class: :label %>
+      <div class="mt-2"><%= form.text_field :quantity, class: :text_field %></div>
+    </div>
+    <div class="sm:col-span-2">
+      <%= form.label :unit, class: :label %>
+      <div class="mt-2"><%= form.text_field :unit, placeholder: "bags, cups, g", class: :text_field %></div>
+    </div>
+    <div class="sm:col-span-6">
+      <%= form.label :notes, class: :label %>
+      <div class="mt-2"><%= form.text_area :notes, rows: 3, class: :text_field %></div>
+    </div>
+  </div>
+
+  <div class="mt-6 flex items-center gap-4">
+    <%= form.submit shopping_list_item.persisted? ? "Save item" : "Add item", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+    <% if shopping_list_item.persisted? %>
+      <%= link_to "Cancel", shopping_list_path(date: shopping_list.week_start),
+        data: { turbo_prefetch: false },
+        class: "text-sm font-semibold text-gray-900 underline dark:text-white" %>
+    <% end %>
+  </div>
+<% end %>

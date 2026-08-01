@@ -72,13 +72,13 @@ class MealsController < ApplicationController
   private
     def set_visible_meal
       @meal = Current.household.meals
-        .includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ])
+        .includes(meal_items: [ :recipe, :ingredient, :recipe_feedback, :meal_item_nutrient_values ])
         .find(params[:id])
     end
 
     def set_owned_meal
       @meal = Current.person.meals
-        .includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ])
+        .includes(meal_items: [ :recipe, :ingredient, :recipe_feedback, :meal_item_nutrient_values ])
         .find(params[:id])
     end
 

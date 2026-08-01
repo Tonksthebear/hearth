@@ -6,6 +6,7 @@ porridge:
   source_name: Hearth Test Kitchen
   source_url: https://example.com/porridge
   provenance_status: verified
+  serving_count: 2
 
 salad:
   household: home
@@ -14,6 +15,7 @@ salad:
   yield: 4 servings
   source_name: Family Notebook
   provenance_status: adapted
+  serving_count: 2
 
 observed_soup:
   household: home

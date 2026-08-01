@@ -15,7 +15,7 @@ class HouseholdWeeksControllerTest < ActionDispatch::IntegrationTest
       assert_select "a[href=?]", household_week_path(date: "2026-07-20"), text: "Previous week"
       assert_select "a[href=?]", household_week_path(date: "2026-08-03"), text: "Next week"
       assert_select "a[href=?]", meal_week_path(date: "2026-07-27"), text: /Log a meal/
-      assert_select "a[href=?]", shopping_list_path(date: "2026-07-27"), text: "Open shopping list"
+      assert_select "a[href=?][data-turbo-prefetch='false']", shopping_list_path(date: "2026-07-27"), text: "Open shopping list"
       assert_select "a[href=?]", new_training_session_path(date: "2026-07-27"), text: "Log a workout"
       assert_select "a[href=?]", recovery_day_path, text: "Check in on habits"
       assert_select "p", text: /does not provide medical advice, diagnosis, or treatment/

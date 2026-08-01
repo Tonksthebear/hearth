@@ -12,6 +12,8 @@ demo_database_env = [
   "CABLE_DATABASE_URL=sqlite3:#{release_root}/demo_cable.sqlite3"
 ].freeze
 production_database_env = [
+  "-u", "HEARTH_DEMO_DATA",
+  "-u", "HEARTH_DEMO_PASSWORD",
   "RAILS_ENV=production",
   "SECRET_KEY_BASE=release-gate-secret",
   "DATABASE_URL=sqlite3:#{release_root}/production.sqlite3",
@@ -23,7 +25,8 @@ demo_assertion = <<~'RUBY'
   expected = {
     households: 1, people: 2, users: 1, recipes: 2, recipe_ingredients: 8,
     recipe_instructions: 4, planned_meals: 2, meals: 2, meal_items: 2,
-    recipe_feedbacks: 0, exercises: 2,
+    recipe_feedbacks: 0, nutrients: 6, ingredient_nutrient_values: 6,
+    recipe_nutrient_values: 0, meal_item_nutrient_values: 0, exercises: 2,
     workout_templates: 1, workout_blocks: 2, exercise_prescriptions: 2,
     training_sessions: 1, training_session_blocks: 2,
     training_session_exercises: 2, training_sets: 3, habits: 2,
@@ -55,6 +58,8 @@ production_database_assertion = <<~'RUBY'
   missing_tables = active_storage_tables.reject { |table| ActiveRecord::Base.connection.table_exists?(table) }
   raise "Missing Active Storage tables: #{missing_tables.inspect}" if missing_tables.any?
   raise "Unexpected Active Storage service" unless Rails.application.config.active_storage.service == :local
+  raise "Expected six reference nutrients" unless Nutrient.count == 6
+  raise "Demo household leaked into production prepare" if Household.exists? || User.exists?
   expected_storage_root = Rails.root.join("storage").to_s
   actual_storage_root = ActiveStorage::Blob.service.root.to_s
   raise "Active Storage root changed: #{actual_storage_root}" unless actual_storage_root == expected_storage_root

@@ -28,7 +28,9 @@ class Meal < ApplicationRecord
   end
 
   def add_item(source_kind = :free_text)
-    item = meal_items.build(source_kind:, position: active_items.size + 1)
+    attributes = { source_kind:, position: active_items.size + 1 }
+    attributes.merge!(portion_amount: 1, portion_unit: "servings") if source_kind.to_s == "recipe"
+    item = meal_items.build(attributes)
     item.build_recipe_feedback if item.recipe?
     normalize_positions
     item
@@ -55,6 +57,10 @@ class Meal < ApplicationRecord
 
   def feedback_items
     active_items.select(&:recipe?)
+  end
+
+  def nutrition_summary
+    @nutrition_summary ||= Meal::NutritionSummary.new(active_items)
   end
 
   private

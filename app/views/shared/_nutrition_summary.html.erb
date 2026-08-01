@@ -1,0 +1,26 @@
+<section aria-labelledby="<%= id %>">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 id="<%= id %>" class="text-base/7 font-semibold text-gray-900 dark:text-white"><%= title %></h2>
+      <% if local_assigns[:description].present? %><p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400"><%= description %></p><% end %>
+    </div>
+    <% tone = summary.status.to_sym %>
+    <span class="<%= yass(nutrition_badge: [ :base, :sm, tone ]) %>">
+      <span aria-hidden="true" class="<%= yass(nutrition_badge_dot: [ :base, tone ]) %>"></span>
+      <span class="sr-only">Nutrition status:</span> <%= summary.status.humanize %>
+    </span>
+  </div>
+
+  <% if summary.totals.any? %>
+    <dl class="mt-5 <%= yass(nutrition_stats: :container) %>">
+      <% summary.totals.each do |total| %>
+        <div class="<%= yass(nutrition_stats: :item) %>">
+          <dt class="<%= yass(nutrition_stats: :label) %>"><%= total.name %></dt>
+          <dd class="<%= yass(nutrition_stats: :value) %>"><%= total.formatted_amount %></dd>
+        </div>
+      <% end %>
+    </dl>
+  <% else %>
+    <p class="mt-4 text-sm/6 text-gray-500 dark:text-gray-400">No calculable nutrition is available. Missing data is not counted as zero.</p>
+  <% end %>
+</section>

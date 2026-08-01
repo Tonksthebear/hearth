@@ -20,6 +20,8 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     assert_equal people(:one), planned_meal.person
     assert_redirected_to meal_week_path(date: "2026-07-27")
     assert_response :see_other
+    assert ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
+    assert ShoppingListItemSource.exists?(planned_meal: planned_meal)
   end
 
   test "invalid scoped ids render the complete week without creating a shared plan" do
@@ -85,12 +87,15 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as users(:one)
     planned_meal = planned_meals(:alex_target_week)
 
+    list = ShoppingList.for(household: households(:home), date: planned_meal.planned_on)
     assert_difference "PlannedMeal.count", -1 do
       delete planned_meal_path(planned_meal), params: { date: "2026-07-27" }
     end
 
     assert_redirected_to meal_week_path(date: "2026-07-27")
     assert_response :see_other
+    refute ShoppingListItemSource.exists?(planned_meal_id: planned_meal.id)
+    assert list.reload.persisted?
   end
 
   test "does not destroy a plan that has been logged" do

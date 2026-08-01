@@ -245,6 +245,29 @@ class RecipeTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], recipe.recipe_instructions.map(&:position)
   end
 
+
+  test "imports canonical grams servings and explicit nutrient facts" do
+    recipe = Recipe.import!(household: households(:home), attributes: valid_import_attributes.deep_merge(
+      import_key: "meals:nutrition-import",
+      serving_count: 2,
+      recipe_ingredients_attributes: [ { name: "First", amount: "1", gram_weight: 125 } ],
+      recipe_nutrient_values_attributes: [ { key: "protein", amount: 6.175 } ]
+    ))
+
+    assert_equal BigDecimal("2"), recipe.serving_count
+    assert_equal BigDecimal("125"), recipe.recipe_ingredients.sole.gram_weight
+    assert_equal BigDecimal("6.175"), recipe.recipe_nutrient_values.sole.amount
+
+    updated = Recipe.import!(household: households(:home), attributes: valid_import_attributes.deep_merge(
+      import_key: "meals:nutrition-import",
+      serving_count: 4,
+      recipe_ingredients_attributes: [ { name: "First", amount: "1", gram_weight: 250 } ],
+      recipe_nutrient_values_attributes: [ { key: "energy", amount: 300 } ]
+    ))
+    assert_equal recipe, updated
+    assert_equal [ "energy" ], updated.reload.recipe_nutrient_values.includes(:nutrient).map { |value| value.nutrient.key }
+  end
+
   test "rejects malformed imports atomically" do
     malformed_payloads = [
       nil,

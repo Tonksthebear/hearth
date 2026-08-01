@@ -482,14 +482,49 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.check_constraint "installation_key = 1", name: "households_single_installation"
   end
 
+  create_table "ingredient_nutrient_values", force: :cascade do |t|
+    t.decimal "amount_per_100_grams", precision: 14, scale: 6, null: false
+    t.datetime "created_at", null: false
+    t.integer "ingredient_id", null: false
+    t.integer "nutrient_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ingredient_id", "nutrient_id"], name: "idx_on_ingredient_id_nutrient_id_3bd58c685a", unique: true
+    t.index ["ingredient_id"], name: "index_ingredient_nutrient_values_on_ingredient_id"
+    t.index ["nutrient_id"], name: "index_ingredient_nutrient_values_on_nutrient_id"
+    t.check_constraint "amount_per_100_grams >= 0", name: "ingredient_nutrient_values_nonnegative_amount"
+  end
+
   create_table "ingredients", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "food_data_central_id"
     t.integer "household_id", null: false
     t.string "name", null: false
     t.string "normalized_name", null: false
+    t.string "nutrition_provenance_status"
+    t.string "nutrition_source_name"
     t.datetime "updated_at", null: false
     t.index ["household_id", "normalized_name"], name: "index_ingredients_on_household_id_and_normalized_name", unique: true
     t.index ["household_id"], name: "index_ingredients_on_household_id"
+    t.check_constraint "nutrition_provenance_status IS NULL OR nutrition_provenance_status IN ('personal', 'verified', 'adapted', 'observed')", name: "ingredients_nutrition_provenance_status"
+  end
+
+  create_table "meal_item_nutrient_values", force: :cascade do |t|
+    t.decimal "amount", precision: 14, scale: 6, null: false
+    t.datetime "created_at", null: false
+    t.integer "meal_item_id", null: false
+    t.integer "nutrient_id"
+    t.string "snapshot_calculation_kind", null: false
+    t.string "snapshot_key", null: false
+    t.string "snapshot_name", null: false
+    t.string "snapshot_provenance_status"
+    t.string "snapshot_source_name"
+    t.string "snapshot_unit", null: false
+    t.datetime "updated_at", null: false
+    t.index ["meal_item_id", "snapshot_key"], name: "index_meal_item_nutrients_on_item_and_snapshot_key", unique: true
+    t.index ["meal_item_id"], name: "index_meal_item_nutrient_values_on_meal_item_id"
+    t.index ["nutrient_id"], name: "index_meal_item_nutrient_values_on_nutrient_id"
+    t.check_constraint "amount >= 0", name: "meal_item_nutrient_values_nonnegative_amount"
+    t.check_constraint "snapshot_calculation_kind IN ('explicit', 'estimated')", name: "meal_item_nutrient_values_calculation_kind"
   end
 
   create_table "meal_items", force: :cascade do |t|
@@ -497,6 +532,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.integer "ingredient_id"
     t.integer "meal_id", null: false
     t.text "notes"
+    t.boolean "nutrition_complete", default: false, null: false
+    t.boolean "nutrition_estimated", default: false, null: false
     t.decimal "portion_amount", precision: 10, scale: 3
     t.string "portion_unit"
     t.integer "position", null: false
@@ -529,6 +566,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.index ["person_id"], name: "index_meals_on_person_id"
     t.index ["planned_meal_id", "person_id"], name: "index_meals_on_planned_meal_and_person", unique: true, where: "planned_meal_id IS NOT NULL"
     t.index ["planned_meal_id"], name: "index_meals_on_planned_meal_id"
+  end
+
+  create_table "nutrients", force: :cascade do |t|
+    t.string "category", null: false
+    t.datetime "created_at", null: false
+    t.integer "display_order", null: false
+    t.string "key", null: false
+    t.string "name", null: false
+    t.string "unit", null: false
+    t.datetime "updated_at", null: false
+    t.index ["display_order"], name: "index_nutrients_on_display_order", unique: true
+    t.index ["key"], name: "index_nutrients_on_key", unique: true
+    t.check_constraint "display_order > 0", name: "nutrients_positive_display_order"
   end
 
   create_table "people", force: :cascade do |t|
@@ -630,6 +680,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.datetime "created_at", null: false
     t.string "display_name", null: false
     t.text "display_quantity"
+    t.decimal "gram_weight", precision: 10, scale: 3
     t.integer "ingredient_id", null: false
     t.text "notes"
     t.integer "position", null: false
@@ -643,6 +694,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.index ["recipe_id", "position"], name: "index_recipe_ingredients_on_recipe_id_and_position", unique: true
     t.index ["recipe_id"], name: "index_recipe_ingredients_on_recipe_id"
     t.check_constraint "(quantity_numerator IS NULL AND quantity_denominator IS NULL) OR (quantity_numerator IS NOT NULL AND quantity_denominator IS NOT NULL)", name: "recipe_ingredients_quantity_pair"
+    t.check_constraint "gram_weight IS NULL OR gram_weight > 0", name: "recipe_ingredients_positive_gram_weight"
     t.check_constraint "position > 0", name: "recipe_ingredients_positive_position"
     t.check_constraint "quantity_denominator IS NULL OR quantity_denominator > 0", name: "recipe_ingredients_positive_quantity_denominator"
   end
@@ -683,12 +735,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.check_constraint "temperature_unit IS NULL OR temperature_unit IN ('F', 'C')", name: "recipe_instructions_temperature_unit"
   end
 
+  create_table "recipe_nutrient_values", force: :cascade do |t|
+    t.decimal "amount", precision: 14, scale: 6, null: false
+    t.datetime "created_at", null: false
+    t.integer "nutrient_id", null: false
+    t.integer "recipe_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["nutrient_id"], name: "index_recipe_nutrient_values_on_nutrient_id"
+    t.index ["recipe_id", "nutrient_id"], name: "index_recipe_nutrient_values_on_recipe_id_and_nutrient_id", unique: true
+    t.index ["recipe_id"], name: "index_recipe_nutrient_values_on_recipe_id"
+    t.check_constraint "amount >= 0", name: "recipe_nutrient_values_nonnegative_amount"
+  end
+
   create_table "recipes", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "household_id", null: false
     t.string "import_key"
     t.string "provenance_status", null: false
+    t.decimal "serving_count", precision: 10, scale: 3
     t.string "source_name"
     t.string "source_url"
     t.string "title", null: false
@@ -698,6 +763,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.index ["household_id", "provenance_status"], name: "index_recipes_on_household_id_and_provenance_status"
     t.index ["household_id"], name: "index_recipes_on_household_id"
     t.check_constraint "provenance_status IN ('personal', 'verified', 'adapted', 'observed')", name: "recipes_provenance_status"
+    t.check_constraint "serving_count IS NULL OR serving_count > 0", name: "recipes_positive_serving_count"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -707,6 +773,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.string "user_agent"
     t.integer "user_id", null: false
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "shopping_list_item_sources", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "planned_meal_id", null: false
+    t.integer "recipe_ingredient_id", null: false
+    t.integer "shopping_list_item_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["planned_meal_id", "recipe_ingredient_id"], name: "index_shopping_sources_on_plan_and_ingredient", unique: true
+    t.index ["planned_meal_id"], name: "index_shopping_list_item_sources_on_planned_meal_id"
+    t.index ["recipe_ingredient_id"], name: "index_shopping_list_item_sources_on_recipe_ingredient_id"
+    t.index ["shopping_list_item_id"], name: "index_shopping_list_item_sources_on_shopping_list_item_id"
+  end
+
+  create_table "shopping_list_items", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "generated_key"
+    t.integer "ingredient_id"
+    t.string "name", null: false
+    t.text "notes"
+    t.string "quantity"
+    t.integer "shopping_list_id", null: false
+    t.string "unit"
+    t.datetime "updated_at", null: false
+    t.datetime "user_managed_at"
+    t.index ["ingredient_id"], name: "index_shopping_list_items_on_ingredient_id"
+    t.index ["shopping_list_id", "generated_key"], name: "index_shopping_items_on_list_and_generated_key", unique: true, where: "generated_key IS NOT NULL"
+    t.index ["shopping_list_id"], name: "index_shopping_list_items_on_shopping_list_id"
+  end
+
+  create_table "shopping_lists", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.datetime "updated_at", null: false
+    t.date "week_start", null: false
+    t.index ["household_id", "week_start"], name: "index_shopping_lists_on_household_id_and_week_start", unique: true
+    t.index ["household_id"], name: "index_shopping_lists_on_household_id"
   end
 
   create_table "training_session_blocks", force: :cascade do |t|
@@ -931,7 +1035,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
   add_foreign_key "habit_check_ins", "person_habits"
   add_foreign_key "habit_metrics", "habits"
   add_foreign_key "habits", "households"
+  add_foreign_key "ingredient_nutrient_values", "ingredients"
+  add_foreign_key "ingredient_nutrient_values", "nutrients"
   add_foreign_key "ingredients", "households"
+  add_foreign_key "meal_item_nutrient_values", "meal_items"
+  add_foreign_key "meal_item_nutrient_values", "nutrients", on_delete: :nullify
   add_foreign_key "meal_items", "ingredients"
   add_foreign_key "meal_items", "meals", on_delete: :cascade
   add_foreign_key "meal_items", "recipes"
@@ -959,8 +1067,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
   add_foreign_key "recipe_instruction_ingredients", "recipe_instructions", column: ["recipe_instruction_id", "recipe_id"], primary_key: ["id", "recipe_id"]
   add_foreign_key "recipe_instruction_ingredients", "recipes"
   add_foreign_key "recipe_instructions", "recipes"
+  add_foreign_key "recipe_nutrient_values", "nutrients"
+  add_foreign_key "recipe_nutrient_values", "recipes"
   add_foreign_key "recipes", "households"
   add_foreign_key "sessions", "users"
+  add_foreign_key "shopping_list_item_sources", "planned_meals", on_delete: :cascade
+  add_foreign_key "shopping_list_item_sources", "recipe_ingredients", on_delete: :cascade
+  add_foreign_key "shopping_list_item_sources", "shopping_list_items", on_delete: :cascade
+  add_foreign_key "shopping_list_items", "ingredients"
+  add_foreign_key "shopping_list_items", "shopping_lists", on_delete: :cascade
+  add_foreign_key "shopping_lists", "households", on_delete: :cascade
   add_foreign_key "training_session_blocks", "training_sessions"
   add_foreign_key "training_session_exercises", "exercises", on_delete: :nullify
   add_foreign_key "training_session_exercises", "training_session_blocks"

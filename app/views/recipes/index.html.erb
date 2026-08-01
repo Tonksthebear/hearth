@@ -8,7 +8,10 @@
       <h1 id="recipes-heading" class="mt-2 text-3xl font-semibold tracking-tight">Recipes</h1>
       <p class="mt-2 max-w-2xl text-gray-600 dark:text-gray-400">Find something useful to cook from your household catalog.</p>
     </div>
-    <%= link_to "Add recipe", new_recipe_path, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
+    <div class="flex gap-3">
+      <%= link_to "Ingredient nutrition", ingredients_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+      <%= link_to "Add recipe", new_recipe_path, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
+    </div>
   </div>
 
   <%= form_with url: recipes_path, method: :get, class: "mt-8 flex flex-col gap-3 sm:flex-row sm:items-end" do |form| %>
