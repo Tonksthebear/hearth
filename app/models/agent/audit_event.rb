@@ -1,7 +1,7 @@
 class Agent::AuditEvent < ApplicationRecord
   include Agent::Contextual
 
-  ALLOWED_METADATA_KEYS = %w[ capability capability_groups reason source tool_name ].freeze
+  ALLOWED_METADATA_KEYS = %w[ capability capability_groups operation reason source tool_name ].freeze
 
   belongs_to :household
   belongs_to :person

@@ -31,7 +31,7 @@ Hearth permits exactly one household. Demo data therefore consumes the installat
 
 Requirements are Ruby 3.4.2, SQLite, and the packages needed by the bundled gems. JavaScript uses importmap; there is no Node build.
 
-The supervised ACP runtime and authenticated read-only MCP catalog are documented in
+The supervised ACP runtime and authenticated guarded MCP operations are documented in
 [docs/acp-supported-agent-contract.md](docs/acp-supported-agent-contract.md).
 `bin/hearth-acp-runtime` is the production-shaped, standalone ACP process host.
 It requires an already initialized directory containing `.hearth/instance.yml`,
@@ -43,6 +43,13 @@ Runtime grants expire after 15 minutes or 200 tool calls, with a 200,000-token
 output budget. The first request after expiry or exhaustion marks the persisted
 session as requiring MCP reauthorization; recovering or restarting it injects a fresh
 credential because ACP MCP configuration is immutable after session selection.
+
+Every ACP session starts with `health_read` only. An authenticated household user can
+enable short-lived operational access for the exact conversation, selected person, and
+browser session. Recovery then injects a fresh digest-only `health_read` + `health_write`
+grant. Consequential operations appear in Hearth for a one-time human decision before
+execution; disabling access, changing person, signing out, disconnecting, or reaching
+the earliest deadline fails pending changes closed.
 
 The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
 not start the ACP runtime. Against an initialized installation, start or recover

@@ -22,6 +22,7 @@ class ApplicationController < ActionController::Base
         { label: "Activities", path: activity_week_path, icon_name: "bolt", active: primary_navigation_area == :activities }
       ].freeze
       @secondary_navigation = secondary_navigation_items
+      prepare_agent_operations
     end
 
     def primary_navigation_area
@@ -60,5 +61,23 @@ class ApplicationController < ActionController::Base
       items.map do |label, path, controllers, data|
         { label: label, path: path, active: controllers.include?(controller_path), data: data }.freeze
       end.freeze
+    end
+
+    def prepare_agent_operations
+      @agent_session = Agent::Session
+        .joins(:conversation)
+        .where(
+          browser_session: Current.session,
+          household: Current.household,
+          person: Current.person,
+          status: %w[starting connected],
+          agent_conversations: { status: "active" }
+        )
+        .order(created_at: :desc)
+        .first
+      return unless @agent_session
+
+      @agent_operational_authorization = @agent_session.active_operational_authorization
+      @agent_mutation_proposal = @agent_session.mutation_proposals.pending.order(created_at: :desc).first
     end
 end

@@ -25,6 +25,21 @@ class HearthMcp::CatalogTest < ActiveSupport::TestCase
     end
   end
 
+  test "publishes closed operation-specific mutation contracts without a generic record tool" do
+    names = HearthMcp::MutationTools::ALL.map(&:tool_name)
+    assert_includes names, "create_meal"
+    assert_includes names, "delete_training_session"
+    refute names.any? { |name| name.match?(/update_record|delete_record/) }
+
+    HearthMcp::MutationTools::ALL.each do |tool|
+      contract = tool.to_h
+      assert_equal false, contract.dig(:inputSchema, :additionalProperties), tool.tool_name
+      assert_equal false, contract.dig(:annotations, :readOnlyHint), tool.tool_name
+      assert_equal false, contract.dig(:annotations, :openWorldHint), tool.tool_name
+      assert_predicate contract[:description], :present?, tool.tool_name
+    end
+  end
+
   test "paginates deterministically without duplicates or skips" do
     first = HearthMcp::Page.new(households(:home).recipes, limit: 1)
     second = HearthMcp::Page.new(households(:home).recipes, limit: 50, cursor: first.next_cursor)

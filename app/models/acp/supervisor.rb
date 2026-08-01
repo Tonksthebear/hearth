@@ -54,6 +54,7 @@ module Acp
         authentication_status: installation.authentication_status,
         mcp_authorization_status: "not_configured"
       )
+      configure_permission_handler(connection, agent_session)
       credential = agent_session.issue_runtime_grant!
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       result = connection.new_session
@@ -85,6 +86,7 @@ module Acp
 
       authenticate!(connection, installation, authentication_method)
       agent_session.begin_recovery!
+      configure_permission_handler(connection, agent_session)
       credential = agent_session.issue_runtime_grant!
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       observe_session_list(agent_session, connection)
@@ -126,6 +128,9 @@ module Acp
       ensure_started!
       disconnect_disabled_profiles
       reap_failed_connections
+      expire_operational_authorizations
+      rotate_stale_authorizations
+      expire_pending_mutations
       attached_ids = @connections_mutex.synchronize { @connections.keys }
       Agent::Session.recoverable
         .joins(conversation: :profile)
@@ -190,6 +195,101 @@ module Acp
           environment: profile.environment_from,
           mcp_servers: []
         )
+      end
+
+      def configure_permission_handler(connection, agent_session)
+        connection.configure_permission_handler! do |params|
+          resolve_permission(agent_session, params)
+        end
+      end
+
+      def resolve_permission(agent_session, params)
+        return permission_rejection(params, code: "context_mismatch", message: "ACP session does not match the staged Hearth session") unless params["sessionId"] == agent_session.external_session_id
+        tool_call_id = params.dig("toolCall", "toolCallId")
+        return permission_rejection(params, code: "missing_tool_call", message: "toolCallId is required") if tool_call_id.blank?
+        operation = params.dig("toolCall", "title")
+        return permission_rejection(params, code: "stage_required", message: "Call the typed Hearth MCP tool first to stage this operation") if operation.blank?
+        raw_input = params.dig("toolCall", "rawInput")
+        return permission_rejection(params, code: "stage_required", message: "Call the typed Hearth MCP tool first with complete typed input") unless raw_input.is_a?(Hash)
+        idempotency_key = raw_input["idempotency_key"]
+        return permission_rejection(params, code: "stage_required", message: "Stage the typed MCP proposal before requesting permission with its idempotency_key") if idempotency_key.blank?
+
+        proposal = agent_session.mutation_proposals.find_by(idempotency_key: idempotency_key)
+        return permission_rejection(params, code: "stage_required", message: "No staged Hearth proposal matches this idempotency_key") unless proposal
+        unless valid_permission_correlation?(proposal, agent_session, operation, raw_input)
+          return permission_rejection(params, code: "correlation_mismatch", message: "The staged proposal does not match this exact operation, input, grant, deadline, and context")
+        end
+
+        request = proposal.permission_request
+        request.update!(external_request_id: tool_call_id) if request.external_request_id.start_with?("mutation-")
+        deadline = [ proposal.deadline_at, Acp::Connection::DEFAULT_TIMEOUT.seconds.from_now ].min
+        wait_for_permission_decision(proposal, deadline)
+        proposal.cancel!(reason: "ACP permission wait ended", status: "expired") if proposal.status == "pending"
+
+        kind = proposal.status.in?(%w[ approved executed ]) ? "allow_once" : "reject_once"
+        option = params["options"]&.find { |candidate| candidate["kind"] == kind }
+        permission_selection(option, code: "proposal_#{proposal.status}", message: "Hearth proposal #{proposal.status}")
+      end
+
+      def valid_permission_correlation?(proposal, agent_session, operation, raw_input)
+        grant = proposal.agent_grant
+        proposal.status == "pending" && proposal.deadline_at > Time.current &&
+          proposal.operation == operation &&
+          proposal.input_digest == Agent::MutationProposal.input_digest_for(raw_input.except("idempotency_key")) &&
+          proposal.household_id == agent_session.household_id && proposal.person_id == agent_session.person_id &&
+          proposal.conversation_id == agent_session.conversation_id &&
+          grant.agent_session_id == agent_session.id && grant.revoked_at.nil? && grant.expires_at > Time.current &&
+          grant.allows_capability?("health.write")
+      end
+
+      def wait_for_permission_decision(proposal, deadline)
+        decision = Queue.new
+        subscribed = Queue.new
+        callback = ->(_payload) { decision.push(true) }
+        ActionCable.server.pubsub.subscribe(proposal.permission_channel, callback, -> { subscribed.push(true) })
+        remaining = [ deadline - Time.current, 0 ].max
+        subscribed.pop(timeout: [ remaining, 2 ].min) if remaining.positive?
+        proposal.reload
+        decision.pop(timeout: [ deadline - Time.current, 0 ].max) if proposal.status == "pending" && deadline > Time.current
+        proposal.reload.expire_if_needed!
+      ensure
+        ActionCable.server.pubsub.unsubscribe(proposal.permission_channel, callback) if callback
+      end
+
+      def permission_rejection(params, code: "permission_rejected", message: "Hearth rejected this permission request")
+        option = params["options"]&.find { |candidate| candidate["kind"] == "reject_once" }
+        permission_selection(option, code: code, message: message)
+      end
+
+      def permission_selection(option, code:, message:)
+        {
+          outcome: option ? { outcome: "selected", optionId: option.fetch("optionId") } : { outcome: "cancelled" },
+          _meta: { hearth: { code: code, message: message } }
+        }
+      end
+
+      def rotate_stale_authorizations
+        stale_ids = Agent::Session.where(
+          id: @connections_mutex.synchronize { @connections.keys },
+          mcp_authorization_status: "reauthorization_required"
+        ).pluck(:id)
+        detached = @connections_mutex.synchronize do
+          stale_ids.to_h { |session_id| [ session_id, @connections.delete(session_id) ] }
+        end
+        detached.each do |session_id, connection|
+          connection.stop
+          Agent::Session.find(session_id).detach_for_authorization_rotation!
+        end
+      end
+
+      def expire_operational_authorizations
+        Agent::OperationalAuthorization.where(revoked_at: nil).where(expires_at: ..Time.current).find_each do |authorization|
+          authorization.revoke!(reason: "operational access expired")
+        end
+      end
+
+      def expire_pending_mutations
+        Agent::MutationProposal.pending.where(deadline_at: ..Time.current).find_each(&:expire_if_needed!)
       end
 
       def mcp_servers_for(connection, credential)

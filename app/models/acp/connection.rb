@@ -2,6 +2,7 @@ require "base64"
 require "json"
 require "open3"
 require "pathname"
+require "set"
 
 module Acp
   class Connection
@@ -28,6 +29,7 @@ module Acp
     DEFAULT_QUEUE_SIZE = 128
     DEFAULT_QUEUE_TIMEOUT = 0.25
     DEFAULT_TERMINATION_GRACE = 1
+    DEFAULT_MAX_AGENT_REQUESTS = 4
     STDERR_LIMIT = 16 * 1024
     STOP_WRITER = Object.new.freeze
 
@@ -37,7 +39,7 @@ module Acp
     def initialize(argv:, cwd:, environment: {}, mcp_servers: [], timeout: DEFAULT_TIMEOUT,
       max_line_bytes: DEFAULT_MAX_LINE_BYTES, queue_size: DEFAULT_QUEUE_SIZE,
       queue_timeout: DEFAULT_QUEUE_TIMEOUT, termination_grace: DEFAULT_TERMINATION_GRACE,
-      on_fatal: ->(_error) { })
+      max_agent_requests: DEFAULT_MAX_AGENT_REQUESTS, on_fatal: ->(_error) { })
       raise ConfigurationError, "agent argv is required" if argv.blank?
       raise ConfigurationError, "agent argv must contain only strings" unless argv.all? { |argument| argument.is_a?(String) }
       raise ConfigurationError, "cwd must be absolute" unless Pathname.new(cwd).absolute?
@@ -52,7 +54,11 @@ module Acp
       @max_line_bytes = Integer(max_line_bytes)
       @queue_timeout = Float(queue_timeout)
       @termination_grace = Float(termination_grace)
+      max_agent_requests = Integer(max_agent_requests)
+      raise ConfigurationError, "max_agent_requests must be positive" unless max_agent_requests.positive?
+
       @on_fatal = on_fatal
+      @on_permission = nil
       @outbound = SizedQueue.new(Integer(queue_size))
       @events = SizedQueue.new(Integer(queue_size))
       @pending = {}
@@ -61,6 +67,10 @@ module Acp
       @state_mutex = Mutex.new
       @stderr_mutex = Mutex.new
       @finalize_mutex = Mutex.new
+      @request_threads_mutex = Mutex.new
+      @request_threads = Set.new
+      @request_slots = SizedQueue.new(max_agent_requests)
+      max_agent_requests.times { @request_slots << true }
       @stderr = +""
       @next_id = 0
       @dropped_event_count = 0
@@ -138,6 +148,11 @@ module Acp
       raise ConfigurationError, "MCP configuration is immutable after session selection" if @session_id
 
       @mcp_servers = normalize_mcp_servers(servers)
+      self
+    end
+
+    def configure_permission_handler!(&handler)
+      @on_permission = handler
       self
     end
 
@@ -347,9 +362,43 @@ module Acp
 
       def handle_agent_message(message)
         if message.key?("id")
-          handle_agent_request(message)
+          dispatch_agent_request(message)
         else
           retain_event(message)
+        end
+      end
+
+      def dispatch_agent_request(message)
+        slot = @request_slots.pop(true)
+        @request_threads_mutex.synchronize do
+          thread = Thread.new do
+            Thread.current.report_on_exception = false
+            handle_agent_request(message)
+          rescue StandardError => error
+            fail_connection(error) unless stopping?
+          ensure
+            @request_slots.push(slot, true) rescue nil
+            @request_threads_mutex.synchronize { @request_threads.delete(Thread.current) }
+          end
+          @request_threads << thread
+        end
+      rescue ThreadError
+        reject_agent_request_overflow(message)
+      end
+
+      def reject_agent_request_overflow(message)
+        if message["method"] == "session/request_permission"
+          result = reject_permission(
+            message.fetch("params", {}),
+            code: "request_capacity_exceeded",
+            message: "Hearth is already handling the maximum number of agent requests"
+          )
+          enqueue_outbound(jsonrpc: "2.0", id: message["id"], result: result)
+        else
+          enqueue_outbound(jsonrpc: "2.0", id: message["id"], error: {
+            code: -32_000,
+            message: "Hearth is already handling the maximum number of agent requests"
+          })
         end
       end
 
@@ -371,8 +420,7 @@ module Acp
 
       def handle_agent_request(message)
         result = if message["method"] == "session/request_permission"
-          option = message.dig("params", "options")&.find { |candidate| candidate["kind"] == "reject_once" }
-          option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+          handle_permission_request(message.fetch("params", {}))
         end
 
         if result
@@ -383,6 +431,21 @@ module Acp
             message: "Method not supported by Hearth"
           })
         end
+      end
+
+      def handle_permission_request(params)
+        return reject_permission(params) unless @on_permission
+
+        @on_permission.call(params)
+      rescue StandardError
+        reject_permission(params)
+      end
+
+      def reject_permission(params, code: nil, message: nil)
+        option = params["options"]&.find { |candidate| candidate["kind"] == "reject_once" }
+        result = option ? { outcome: { outcome: "selected", optionId: option.fetch("optionId") } } : { outcome: { outcome: "cancelled" } }
+        result[:_meta] = { hearth: { code: code, message: message } } if code
+        result
       end
 
       def session_params
@@ -475,6 +538,9 @@ module Acp
 
           @state_mutex.synchronize { @stopping = true }
           reject_pending(ProcessError.new("ACP connection stopped"))
+          request_threads = @request_threads_mutex.synchronize { @request_threads.to_a }
+          request_threads.each(&:kill)
+          request_threads.each { |thread| thread.join(@termination_grace) unless thread == Thread.current }
           @outbound.push(STOP_WRITER, true) rescue nil
           @stdin&.close unless @stdin&.closed?
           terminate_process_group

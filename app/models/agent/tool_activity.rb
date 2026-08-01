@@ -19,7 +19,7 @@ class Agent::ToolActivity < ApplicationRecord
   validate :authorization_context_is_active, on: :create
 
   class << self
-    def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false)
+    def record_mcp_call!(grant:, tool_name:, arguments:, result:, failed: false, capability: "health.read")
       input_json = JSON.generate(arguments || {})
       output_json = JSON.generate(result)
       now = Time.current
@@ -29,7 +29,7 @@ class Agent::ToolActivity < ApplicationRecord
         conversation: grant.conversation,
         agent_session: grant.agent_session,
         tool_name: tool_name,
-        capability: "health.read",
+        capability: capability,
         status: failed ? "failed" : "succeeded",
         input_body: nil,
         input_digest: Digest::SHA256.hexdigest(input_json),

@@ -82,6 +82,91 @@ class AcpRuntimeTest < ActiveSupport::TestCase
     end
   end
 
+  test "standalone runtime correlates a staged MCP proposal and recovers read-only after execution" do
+    with_instance_root do |root|
+      configure_runtime_profile
+      port = available_port
+      puma = start_puma(root, port)
+      wait_for_http(port)
+      release = File.join(root, "guarded-release")
+      evidence = File.join(root, "guarded-runtime-evidence.jsonl")
+      external_session_id = "guarded-runtime-#{SecureRandom.hex(6)}"
+      meal = meals(:sam_recipe_target_week)
+      idempotency_key = "runtime-delete-meal"
+      runtime = start_runtime(
+        root,
+        "--conversation", agent_conversations(:active).id.to_s,
+        "--hold-until", release,
+        "--prompt", "request staged permission",
+        "--evidence", evidence,
+        environment: {
+          "FAKE_ACP_MODE" => "permission_allow",
+          "FAKE_SESSION_ID" => external_session_id,
+          "FAKE_PERMISSION_OPERATION" => "delete_meal",
+          "FAKE_PERMISSION_INPUT" => JSON.generate(id: meal.id, idempotency_key: idempotency_key)
+        }
+      )
+      agent_session = nil
+      wait_until(timeout: 10) do
+        flunk "runtime exited before binding the ACP session: #{runtime.stderr}" unless runtime.alive?
+        agent_session = Agent::Session.uncached do
+          Agent::Session.find_by(external_session_id: external_session_id)
+        end
+      end
+
+      Current.session = sessions(:browser)
+      Current.household = households(:home)
+      Current.person = people(:two)
+      # The standalone process has no Rack session; attach the already-authenticated
+      # browser context that would normally launch it before enabling writes.
+      agent_session.update_columns(browser_session_id: Current.session.id, status: "starting")
+      authorization = Agent::OperationalAuthorization.authorize!(agent_session: agent_session, reason: "Runtime proof")
+      authorization.update!(expires_at: 8.seconds.from_now)
+      credential = agent_session.issue_runtime_grant!
+
+      staged = mcp_call(port, credential.bearer, "delete_meal", {
+        id: meal.id, idempotency_key: idempotency_key
+      })
+      assert_equal "pending", staged.dig("result", "structuredContent", "status"), staged.inspect
+      proposal = Agent::MutationProposal.find(staged.dig("result", "structuredContent", "proposal_id"))
+      assert Meal.exists?(meal.id)
+
+      File.write(release, "continue\n")
+      wait_until(timeout: 10) { proposal.permission_request.reload.external_request_id == "fake-tool" }
+      proposal.decide!(outcome: "approved", by: users(:two), token: proposal.confirmation_token)
+      runtime_result = runtime.wait
+
+      assert_predicate runtime_result.fetch(:status), :success?, runtime_result.fetch(:stderr)
+      assert_equal "executed", proposal.reload.status
+      assert_not Meal.exists?(meal.id)
+      assert_equal %w[mutation.proposed mutation.approved mutation.executed],
+        Agent::AuditEvent.where(subject_type: proposal.class.name, subject_id: proposal.id).order(:id).pluck(:event_type)
+      assert_equal [ { "name" => "delete_meal", "status" => "succeeded" } ],
+        JSON.parse(File.readlines(evidence).last).fetch("mcp_tool_calls")
+
+      recovered_evidence = File.join(root, "guarded-recovery-evidence.jsonl")
+      recovered_runtime = start_runtime(
+        root,
+        "--session", agent_session.id.to_s,
+        "--evidence", recovered_evidence,
+        environment: {
+          "FAKE_ACP_MODE" => "normal",
+          "FAKE_SESSION_ID" => external_session_id
+        }
+      )
+      recovered_result = recovered_runtime.wait
+
+      assert_predicate recovered_result.fetch(:status), :success?, recovered_result.fetch(:stderr)
+      assert_equal [ "health_read" ], agent_session.grants.order(:id).last.capability_groups
+    ensure
+      recovered_runtime&.stop
+      runtime&.stop
+      puma&.stop
+      delete_runtime_session_records(agent_session)
+      Current.reset
+    end
+  end
+
   test "runtime shutdown waits through a real second-process SQLite writer and records pragmas" do
     with_instance_root do |root|
       configure_runtime_profile
@@ -256,6 +341,9 @@ class AcpRuntimeTest < ActiveSupport::TestCase
     class ProcessHarness
       attr_reader :pid
 
+      def alive? = @wait_thread.alive?
+      def stderr = @stderr_buffer.dup
+
       def initialize(environment, *command, chdir:)
         @environment = environment
         @command = command
@@ -388,8 +476,42 @@ class AcpRuntimeTest < ActiveSupport::TestCase
       agent_profiles(:hearth).update!(
         executable_path: RbConfig.ruby,
         arguments: [ FAKE_AGENT ],
-        environment_keys: %w[ FAKE_ACP_MODE FAKE_SESSION_ID FAKE_AGENT_INFO_FILE ]
+        environment_keys: %w[
+          FAKE_ACP_MODE FAKE_SESSION_ID FAKE_AGENT_INFO_FILE
+          FAKE_PERMISSION_OPERATION FAKE_PERMISSION_INPUT
+        ]
       )
+    end
+
+    def mcp_call(port, bearer, name, arguments)
+      request = Net::HTTP::Post.new("/mcp")
+      request["Authorization"] = "Bearer #{bearer}"
+      request["Content-Type"] = "application/json"
+      request["Accept"] = "application/json, text/event-stream"
+      request.body = JSON.generate(
+        jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: name, arguments: arguments }
+      )
+      response = Net::HTTP.start("127.0.0.1", port, open_timeout: 1, read_timeout: 5) { |http| http.request(request) }
+      assert_kind_of Net::HTTPSuccess, response
+      JSON.parse(response.body)
+    end
+
+    def delete_runtime_session_records(agent_session)
+      return unless agent_session&.persisted?
+
+      proposal_ids = Agent::MutationProposal.where(agent_session: agent_session).ids
+      request_ids = Agent::PermissionRequest.where(agent_session: agent_session).ids
+      Agent::AuditEvent.where(agent_session: agent_session).delete_all
+      Agent::MutationExecution.where(mutation_proposal_id: proposal_ids).delete_all
+      Agent::PermissionDecision.where(permission_request_id: request_ids).delete_all
+      Agent::PermissionRequest.where(id: request_ids).update_all(mutation_proposal_id: nil)
+      Agent::MutationProposal.where(id: proposal_ids).delete_all
+      Agent::OperationalAuthorization.where(agent_session: agent_session).delete_all
+      Agent::PermissionRequest.where(id: request_ids).delete_all
+      Agent::ToolActivity.where(agent_session: agent_session).delete_all
+      Agent::Message.where(agent_session: agent_session).delete_all
+      Agent::Grant.where(agent_session: agent_session).delete_all
+      Agent::Session.where(id: agent_session.id).delete_all
     end
 
     def test_database_url

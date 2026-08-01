@@ -29,7 +29,11 @@ module ActiveSupport
 
       def clear_installation
         Agent::AuditEvent.delete_all
+        Agent::MutationExecution.delete_all
         Agent::PermissionDecision.delete_all
+        Agent::PermissionRequest.update_all(mutation_proposal_id: nil)
+        Agent::MutationProposal.delete_all
+        Agent::OperationalAuthorization.delete_all
         Agent::PermissionRequest.delete_all
         Agent::ToolActivity.delete_all
         Agent::Message.delete_all

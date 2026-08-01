@@ -1,6 +1,6 @@
 # ACP supported-agent contract
 
-Status: production ACP runtime and authenticated read-only MCP catalog implemented.
+Status: production ACP runtime and authenticated guarded MCP operations implemented.
 
 This contract records two deliberately separate paths:
 
@@ -110,6 +110,40 @@ A supported agent:
 - returns bounded errors for malformed frames, oversized frames, timeouts, and early exit; and
 - releases its process tree when the supervising client exits.
 
+Hearth's guarded operational mutations use a bounded proposal-first ACP contract.
+For a consequential write, the agent first calls the complete typed MCP tool. That
+call validates the exact person/context and input, reserves one call from the
+current grant, creates a durable no-op `MutationProposal` and `PermissionRequest`,
+and returns `status: pending`, a proposal ID, the earliest deadline, and an explicit
+next action. It does not change household health data.
+
+The agent may then send `session/request_permission` with:
+
+- `toolCall.title` equal to the exact Hearth MCP operation name;
+- `toolCall.rawInput` equal to the staged tool input, including the same
+  `idempotency_key`; and
+- the same ACP session that owns the staged proposal.
+
+Hearth accepts only an existing pending proposal whose household, person,
+conversation, ACP session, operation, canonical input digest, staged grant,
+deadline, and idempotency identity all still match. Permission handling runs off
+the ACP stdout reader thread and waits on Action Cable pubsub, so other JSON-RPC
+responses continue to dispatch and the supervisor does not poll the proposal row.
+Production uses Solid Cable, which carries that notification across the web and
+runtime processes. The test adapter proves the notification path in-process only;
+the standalone multi-process test proves the bounded deadline/reload fallback and
+correct result, not cross-process notification latency. Development's async adapter
+has the same fallback when the runtime is a separate process.
+
+ACP v1 permits permission-first requests and does not require `rawInput`, but those
+generic requests cannot safely identify a typed Hearth mutation. Missing input,
+missing keys, unknown operations, unstaged keys, and correlation mismatches are
+therefore rejected once with stable `_meta.hearth.code` and message fields. They
+create no generic proposal and retain no untrusted raw payload. A repeated typed
+MCP staging call with the same session-scoped key and canonical input returns the
+same pending or terminal proposal; reusing the key with different input fails
+closed.
+
 `session/list`, `session/load`, `session/resume`, `session/close`, HTTP MCP, images, and embedded resources are capability-gated. The protocol core branches on negotiated capabilities, never provider identity. `session/list` is discovery rather than restoration, but it is recovery-relevant and must be observed separately.
 
 ACP protocol version 1 is the current stable wire contract and is pinned deliberately by the initialize request and response check. Draft ACP v2 work reorganizes agent capabilities beneath `capabilities.session`, moves agent identity to `info`, and removes the v1 optional `list`/`resume`/`close` capability fields; the hard version check is the intended migration seam if that draft stabilizes.
@@ -131,7 +165,10 @@ The endpoint exists in every environment but rejects non-loopback addresses befo
 dispatch, uses the official SDK's Host/Origin DNS-rebinding checks, and requires a
 valid bearer on every independent POST. It constructs a fresh stateless server,
 transport, and grant-filtered registry per request. `health_read` exposes the exact
-catalog; grants without `health.read` expose no tools and cannot dispatch one.
+read catalog. `health_write` is present only after an authenticated same-household user
+enables operational access for the exact conversation, selected person, ACP session,
+and browser session. Recovery issues a fresh digest-only grant; a session without an
+active exact-context authorization remains read-only.
 The injected runtime grant expires after 15 minutes or 200 calls and carries a
 200,000-token output budget. The first request after expiry or exhaustion changes the
 persisted session to `reauthorization_required`; the operator recovers or restarts
@@ -139,12 +176,38 @@ that session to inject a fresh credential. The current ACP v1 configuration is
 immutable after session selection, so an attached connection is not silently rotated
 in place.
 
-All tools publish strict input schemas, output schemas, descriptions, and read-only
-annotations. Results contain structured content plus JSON text fallback, stable IDs,
+All tools publish strict closed input schemas, output schemas, descriptions, and
+truthful read/write/destructive annotations. Results contain structured content plus JSON text fallback, stable IDs,
 UTC dates/timestamps, explicit units where the domain defines them, provenance, hard
 row/window/output bounds, and `hearth_database` origin. They delegate to Hearth's
 models and POROs; there is no SQL, Active Record passthrough, generic query language,
-controller access, filesystem resource, or mutation tool.
+controller access, filesystem resource, generic record/column mutation, or catalog mutation.
+
+Write tools are operation-specific: meal plan/log aggregates, training aggregates and
+completion, weekly dose targets, person-habit configuration, and habit check-ins. One
+non-destructive aggregate may execute immediately after model validation. Deletes,
+nested destruction, replacement/removal of attributed feedback, completed-session
+edits, dose targets, and habit configuration require a durable `MutationProposal` plus ACP
+`PermissionRequest`. Hearth renders the exact person, graph effect, and earliest
+deadline. Ambiguous-person and independent-root bulk requests are rejected by the
+closed typed schemas rather than classified into a mutation lane. Staging reserves
+grant call capacity; approval uses a one-time digest-stored token, rechecks the staged
+grant and previewed state before commit, executes transactionally, and records requester,
+approver, executor, operation, and complete before/after graph. Denial, cancellation,
+timeout, revocation, scope drift, and stale state are terminal; late approval cannot
+revive a proposal. Completed execution remains idempotently discoverable.
+
+Meal writes preserve ordered 1-based `MealItem` rows and record `RecipeFeedback` only
+when the user explicitly supplied it for an unambiguous recipe item. Feedback is never
+inferred or strengthened. Removing or replacing existing feedback requires confirmation.
+Logging an eligible explicit `PlannedMeal` delegates to `convert_for!`; a linked plan
+scheduled in the future returns the stable error "A planned meal can only be logged
+on or after its planned date." A linked plan cannot be unplanned until its meal is separately confirmed and unlogged. Completed
+training sessions cannot be deleted.
+
+The authenticated `agent_confirmation_center` is Ticket 05's minimal reusable Hotwire
+seam. The future conversation UI must mount and reuse this authorization/proposal model
+and Turbo target; it must not create a parallel confirmation or token path.
 
 The endpoint is pre-authorized rather than an OAuth issuer. OAuth and OpenID discovery
 paths remain absent (404); a configured valid bearer is the authentication contract.

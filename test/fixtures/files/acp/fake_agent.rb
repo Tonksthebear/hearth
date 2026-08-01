@@ -15,6 +15,7 @@ permission_id = 900
 expected_mcp_servers = nil
 pending_lists = []
 descendant_pid = nil
+permission_flood_responses = []
 
 if ENV["FAKE_AGENT_INFO_FILE"]
   File.write(ENV["FAKE_AGENT_INFO_FILE"], JSON.generate(pid: Process.pid, ppid: Process.ppid))
@@ -40,9 +41,24 @@ loop do
   break unless line
   message = JSON.parse(line)
 
+  if mode == "permission_flood" && message["id"].to_i.between?(900, 905) && message["result"]
+    permission_flood_responses << message["result"]
+    if permission_flood_responses.length == 6
+      overflow = permission_flood_responses.count { |result| result.dig("_meta", "hearth", "code") == "request_capacity_exceeded" }
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "overflow=#{overflow}" } }
+      })
+      write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
+      prompt_id = nil
+    end
+    next
+  end
+
   if message["id"] == permission_id && message["result"]
     outcome = message.dig("result", "outcome")
-    abort "permission was not denied" unless outcome == { "outcome" => "selected", "optionId" => "reject" }
+    expected_option = mode == "permission_allow" ? "allow" : "reject"
+    abort "permission selected the wrong option" unless outcome == { "outcome" => "selected", "optionId" => expected_option }
     chunks = mode == "streaming" ? 300.times.map(&:to_s) : %w[HEARTH_ ACP_OK]
     chunks.each do |text|
       write.call(jsonrpc: "2.0", method: "session/update", params: {
@@ -136,15 +152,32 @@ loop do
     prompt_id = message["id"]
     prompt = message.dig("params", "prompt")
     abort "unsupported attachment was written" if mode == "no_attachments" && prompt.any? { |block| %w[image resource].include?(block["type"]) }
-    if mode == "cancel"
+    if mode == "permission_flood"
+      6.times do |index|
+        write.call(jsonrpc: "2.0", id: 900 + index, method: "session/request_permission", params: {
+          sessionId: session_id,
+          toolCall: { toolCallId: "flood-#{index}" },
+          options: [ { optionId: "reject", name: "Reject", kind: "reject_once" } ]
+        })
+      end
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "flood-dispatched" } }
+      })
+    elsif mode == "cancel"
       write.call(jsonrpc: "2.0", method: "session/update", params: {
         sessionId: session_id,
         update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "started" } }
       })
     else
+      tool_call = { toolCallId: "fake-tool" }
+      if mode == "permission_allow"
+        tool_call[:title] = ENV.fetch("FAKE_PERMISSION_OPERATION")
+        tool_call[:rawInput] = JSON.parse(ENV.fetch("FAKE_PERMISSION_INPUT"))
+      end
       write.call(jsonrpc: "2.0", id: permission_id, method: "session/request_permission", params: {
         sessionId: session_id,
-        toolCall: { toolCallId: "fake-tool" },
+        toolCall: tool_call,
         options: [ { optionId: "allow", name: "Allow", kind: "allow_once" }, { optionId: "reject", name: "Reject", kind: "reject_once" } ]
       })
     end

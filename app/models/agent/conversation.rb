@@ -10,6 +10,8 @@ class Agent::Conversation < ApplicationRecord
   has_many :sessions, class_name: "Agent::Session", dependent: :restrict_with_exception
   has_many :messages, class_name: "Agent::Message", dependent: :restrict_with_exception
   has_many :audit_events, class_name: "Agent::AuditEvent", dependent: :restrict_with_exception
+  has_many :operational_authorizations, class_name: "Agent::OperationalAuthorization", dependent: :restrict_with_exception
+  has_many :mutation_proposals, class_name: "Agent::MutationProposal", dependent: :restrict_with_exception
 
   validates :title, presence: true
   validates :status, inclusion: { in: STATUSES }
