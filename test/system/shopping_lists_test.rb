@@ -38,7 +38,7 @@ class ShoppingListsTest < ApplicationSystemTestCase
       uncheck_button.click
       assert_selector "#shopping-list-item-#{manual.id}[data-completed='false']", wait: 5
       delete_button = within("#shopping-list-item-#{manual.id}") { find_button("Delete") }
-      delete_button.click
+      accept_confirm { delete_button.click }
       assert_no_selector "#shopping-list-item-#{manual.id}", wait: 5
 
       lettuce = ShoppingListItem.find_by!(shopping_list: shopping_lists(:target_week), name: "Lettuce")

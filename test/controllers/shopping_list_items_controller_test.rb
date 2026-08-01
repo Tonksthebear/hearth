@@ -56,13 +56,15 @@ class ShoppingListItemsControllerTest < ActionDispatch::IntegrationTest
   test "invalid list date is not found without mutation" do
     sign_in_as users(:one)
 
-    assert_no_difference "ShoppingListItem.count" do
-      post shopping_list_items_path, params: {
-        date: "not-a-date",
-        shopping_list_item: { name: "Nope" }
-      }
+    [ nil, "not-a-date" ].each do |date|
+      assert_no_difference "ShoppingListItem.count" do
+        post shopping_list_items_path, params: {
+          date:,
+          shopping_list_item: { name: "Nope" }
+        }
+      end
+      assert_response :not_found
     end
-    assert_response :not_found
   end
 
   test "generated requirements cannot be deleted through the manual item endpoint" do
@@ -73,6 +75,23 @@ class ShoppingListItemsControllerTest < ActionDispatch::IntegrationTest
       delete shopping_list_item_path(generated)
     end
     assert_response :not_found
+  end
+
+  test "edited generated requirement can be deleted after its last source disappears" do
+    sign_in_as users(:one)
+    generated = ShoppingList.for(household: households(:home), date: "2026-07-27").items.find_by!(name: "Carrots")
+    assert generated.apply_user_attributes(name: "Farm carrots", quantity: generated.quantity, unit: generated.unit, notes: "Optional")
+
+    generated.planned_meals.distinct.each(&:destroy!)
+    assert_empty generated.reload.shopping_list_item_sources
+    assert generated.removable_by_person?
+
+    assert_difference "ShoppingListItem.count", -1 do
+      delete shopping_list_item_path(generated)
+    end
+    follow_redirect!
+    assert_response :success
+    assert_select "#shopping-list-item-#{generated.id}", count: 0
   end
 
   test "anonymous mutations redirect to sign in" do

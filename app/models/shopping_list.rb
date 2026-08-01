@@ -9,10 +9,6 @@ class ShoppingList < ApplicationRecord
   validates :week_start, presence: true
 
   class << self
-    def current(household:)
-      existing_for(household:, date: Date.current)
-    end
-
     def for(household:, date:)
       week_start = week_start_for(date)
       list = household.shopping_lists.create_or_find_by!(week_start:)

@@ -46,9 +46,10 @@
                   <%= link_to "Edit", edit_shopping_list_item_path(item, date: @shopping_list.week_start),
                     data: { turbo_prefetch: false },
                     class: "font-semibold text-primary-700 underline hover:no-underline dark:text-primary-300" %>
-                  <% if item.manual? %>
+                  <% if item.removable_by_person? %>
                     <%= button_to "Delete", shopping_list_item_path(item), method: :delete,
-                      class: "font-semibold text-red-700 underline hover:no-underline dark:text-red-300" %>
+                      form: { data: { turbo_confirm: "Remove this item from the list?" } },
+                      class: yass(btn: [ :base, { md: :base }, { danger: :outline } ]) %>
                   <% end %>
                 </div>
               </div>

@@ -23,6 +23,10 @@ class ShoppingListItem < ApplicationRecord
     generated_key.blank?
   end
 
+  def removable_by_person?
+    manual? || (user_managed? && shopping_list_item_sources.empty?)
+  end
+
   def complete!
     update!(completed_at: completed_at || Time.current)
   end
@@ -33,7 +37,7 @@ class ShoppingListItem < ApplicationRecord
 
   def apply_user_attributes(attributes)
     assign_attributes(attributes)
-    self.user_managed_at ||= Time.current
+    self.user_managed_at ||= Time.current if changed?
     save
   end
 

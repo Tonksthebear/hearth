@@ -1,6 +1,6 @@
 class ShoppingListItemsController < ApplicationController
   before_action :set_shopping_list_item, only: %i[ edit update ]
-  before_action :set_manual_shopping_list_item, only: :destroy
+  before_action :set_removable_shopping_list_item, only: :destroy
 
   def create
     @shopping_list = Current.household.shopping_lists.find_by!(week_start: shopping_week_start)
@@ -38,8 +38,9 @@ class ShoppingListItemsController < ApplicationController
       @shopping_list_item = Current.household.shopping_list_items.find(params[:id])
     end
 
-    def set_manual_shopping_list_item
-      @shopping_list_item = Current.household.shopping_list_items.where(generated_key: nil).find(params[:id])
+    def set_removable_shopping_list_item
+      @shopping_list_item = Current.household.shopping_list_items.find(params[:id])
+      raise ActiveRecord::RecordNotFound unless @shopping_list_item.removable_by_person?
     end
 
     def shopping_list_item_params
@@ -47,6 +48,8 @@ class ShoppingListItemsController < ApplicationController
     end
 
     def shopping_week_start
+      raise ActiveRecord::RecordNotFound if params[:date].blank?
+
       ShoppingList.week_start_for(params[:date])
     rescue Date::Error
       raise ActiveRecord::RecordNotFound
