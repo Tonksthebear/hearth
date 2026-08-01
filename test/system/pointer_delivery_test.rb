@@ -92,6 +92,10 @@ class PointerDeliveryTest < ApplicationSystemTestCase
 
       assert_equal workout_templates(:balanced).title, control.find("el-selectedcontent").text
       assert_events probe, %w[pointerdown click change], trusted: %w[pointerdown click], diagnostics:
+      synchronized_changes = recorded_events(probe).count { |event|
+        event["type"] == "change" && event["value"] == workout_templates(:balanced).id.to_s
+      }
+      assert_equal 1, synchronized_changes
     end
 
     def install_event_probe(name, targets)
@@ -110,7 +114,8 @@ class PointerDeliveryTest < ApplicationSystemTestCase
               records.push({
                 type: event.type,
                 isTrusted: event.isTrusted,
-                target: event.target.tagName.toLowerCase()
+                target: event.target.tagName.toLowerCase(),
+                value: event.target.value
               })
               sessionStorage.setItem(arguments[1], JSON.stringify(records))
             }, { capture: true })
@@ -120,7 +125,7 @@ class PointerDeliveryTest < ApplicationSystemTestCase
     end
 
     def assert_events(key, expected_types, trusted:, diagnostics:)
-      events = page.evaluate_script("JSON.parse(sessionStorage.getItem(arguments[0]) || '[]')", key)
+      events = recorded_events(key)
 
       expected_types.each do |type|
         assert events.any? { |event| event["type"] == type },
@@ -131,6 +136,10 @@ class PointerDeliveryTest < ApplicationSystemTestCase
         assert events.any? { |event| event["type"] == type && event["isTrusted"] },
           "expected trusted #{type}; events=#{events.inspect}; diagnostics=#{diagnostics.inspect}"
       end
+    end
+
+    def recorded_events(key)
+      page.evaluate_script("JSON.parse(sessionStorage.getItem(arguments[0]) || '[]')", key)
     end
 
     def pointer_diagnostics(element)

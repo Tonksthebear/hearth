@@ -1,30 +1,15 @@
 require "test_helper"
 
-module SeleniumPointerActions
-  def click(keys = [], **options)
-    return super unless keys.empty? && options.empty?
-    return super if native.tag_name == "option"
-
-    # Encode the physical click explicitly: Selenium's element-click endpoint and
-    # action.click(target) convenience have both returned without emitting events.
-    browser = driver.browser
-    browser.action
-      .move_to(native)
-      .pointer_down(:left)
-      .pointer_up(:left)
-      .perform
-  ensure
-    browser&.action&.release_actions
-  end
-end
-
-Capybara::Selenium::Node.prepend SeleniumPointerActions
-
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   include ActiveJob::TestHelper
   include ActiveSupport::Testing::TimeHelpers
 
-  driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ]
+  chrome_headless_shell = ENV.fetch("HEARTH_CHROME_HEADLESS_SHELL") do
+    raise "Run system tests through bin/system-test-browser; regular headless Chrome drops physical input events."
+  end
+  driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ] do |options|
+    options.binary = chrome_headless_shell
+  end
 
   private
     def sign_in_via_browser(user)

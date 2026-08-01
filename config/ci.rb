@@ -73,7 +73,7 @@ CI.run do
   step "Security: Brakeman code analysis", "bin/brakeman", "--quiet", "--no-pager", "--exit-on-warn", "--exit-on-error"
 
   step "Tests: Rails", "bin/rails", "test"
-  step "Tests: System", "bin/rails", "test:system"
+  step "Tests: System", "bin/system-test-browser", "bin/rails", "test:system"
 
   step "Release gate: Prepare isolated demo databases", "env", *demo_database_env, "bin/rails", "db:prepare"
   step "Release gate: Seed demo data", "env", *demo_database_env, "bin/rails", "db:seed"

@@ -1,0 +1,72 @@
+#!/bin/sh
+set -eu
+
+CHROME_VERSION="150.0.7871.124"
+APP_ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+CACHE_ROOT="$APP_ROOT/tmp/chrome-for-testing/$CHROME_VERSION"
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) PLATFORM="linux64" ;;
+  Darwin-arm64) PLATFORM="mac-arm64" ;;
+  Darwin-x86_64) PLATFORM="mac-x64" ;;
+  *)
+    echo "Unsupported system-test browser platform: $(uname -s)-$(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
+if [ -n "${HEARTH_CHROME_HEADLESS_SHELL:-}" ] || [ -n "${HEARTH_CHROMEDRIVER:-}" ]; then
+  if [ -z "${HEARTH_CHROME_HEADLESS_SHELL:-}" ] || [ -z "${HEARTH_CHROMEDRIVER:-}" ]; then
+    echo "Set both HEARTH_CHROME_HEADLESS_SHELL and HEARTH_CHROMEDRIVER." >&2
+    exit 1
+  fi
+  CHROME_HEADLESS_SHELL="$HEARTH_CHROME_HEADLESS_SHELL"
+  CHROMEDRIVER="$HEARTH_CHROMEDRIVER"
+else
+  CHROME_HEADLESS_SHELL="$CACHE_ROOT/chrome-headless-shell-$PLATFORM/chrome-headless-shell"
+  CHROMEDRIVER="$CACHE_ROOT/chromedriver-$PLATFORM/chromedriver"
+
+  for ARTIFACT in chrome-headless-shell chromedriver; do
+    ARTIFACT_DIR="$CACHE_ROOT/$ARTIFACT-$PLATFORM"
+    ARTIFACT_BINARY="$ARTIFACT_DIR/$ARTIFACT"
+    [ -x "$ARTIFACT_BINARY" ] && continue
+
+    if [ -e "$ARTIFACT_DIR" ]; then
+      echo "Incomplete system-test browser cache: $ARTIFACT_DIR" >&2
+      exit 1
+    fi
+
+    DOWNLOAD_DIR=$(mktemp -d "$APP_ROOT/tmp/chrome-for-testing-download.XXXXXX")
+    trap 'rm -rf "$DOWNLOAD_DIR"' EXIT HUP INT TERM
+    BASE_URL="https://storage.googleapis.com/chrome-for-testing-public/$CHROME_VERSION/$PLATFORM"
+
+    mkdir -p "$CACHE_ROOT"
+    curl --fail --location --silent --show-error \
+      --output "$DOWNLOAD_DIR/$ARTIFACT.zip" \
+      "$BASE_URL/$ARTIFACT-$PLATFORM.zip"
+    unzip -q "$DOWNLOAD_DIR/$ARTIFACT.zip" -d "$DOWNLOAD_DIR"
+    mv "$DOWNLOAD_DIR/$ARTIFACT-$PLATFORM" "$CACHE_ROOT/"
+    rm -rf "$DOWNLOAD_DIR"
+    trap - EXIT HUP INT TERM
+  done
+fi
+
+if [ ! -x "$CHROME_HEADLESS_SHELL" ] || [ ! -x "$CHROMEDRIVER" ]; then
+  echo "Chrome Headless Shell and ChromeDriver must both be executable." >&2
+  exit 1
+fi
+
+CHROME_ACTUAL=$("$CHROME_HEADLESS_SHELL" --version)
+DRIVER_ACTUAL=$("$CHROMEDRIVER" --version)
+case "$CHROME_ACTUAL" in *"$CHROME_VERSION"*) ;; *) echo "Expected Chrome Headless Shell $CHROME_VERSION, got: $CHROME_ACTUAL" >&2; exit 1 ;; esac
+case "$DRIVER_ACTUAL" in *"$CHROME_VERSION"*) ;; *) echo "Expected ChromeDriver $CHROME_VERSION, got: $DRIVER_ACTUAL" >&2; exit 1 ;; esac
+
+echo "System-test browser: $CHROME_ACTUAL"
+echo "System-test driver: $DRIVER_ACTUAL"
+
+export HEARTH_CHROME_HEADLESS_SHELL="$CHROME_HEADLESS_SHELL"
+export SE_CHROMEDRIVER="$CHROMEDRIVER"
+
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
