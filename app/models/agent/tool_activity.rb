@@ -103,6 +103,6 @@ class Agent::ToolActivity < ApplicationRecord
       broadcast_update_to conversation,
         target: "agent_activities",
         partial: "agent/conversations/activities",
-        locals: { activities: conversation.tool_activities.includes(:person, conversation: :profile).order(:created_at, :id) }
+        locals: { activities: conversation.tool_activities.order(:created_at, :id) }
     end
 end

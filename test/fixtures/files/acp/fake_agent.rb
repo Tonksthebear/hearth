@@ -167,6 +167,7 @@ loop do
         sessionId: session_id,
         update: { sessionUpdate: "agent_message_chunk", messageId: "exit-message", content: { type: "text", text: "finished before exit" } }
       })
+      sleep 0.35
       write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
       exit 0
     elsif mode == "chat_stream"

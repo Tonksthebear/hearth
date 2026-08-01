@@ -36,7 +36,14 @@ class Agent::Turn::Runtime
     next_projection_flush = Time.current
     next_supervisor_tick = Time.current
     until result.length.positive?
-      event = connection.poll_event(timeout: POLL_INTERVAL)
+      begin
+        event = connection.poll_event(timeout: POLL_INTERVAL)
+      rescue Acp::Connection::Error
+        prompt_thread.join
+        break if result.length.positive?
+
+        raise
+      end
       projection.apply!(event) if event
       if Time.current >= next_projection_flush
         projection.flush!
