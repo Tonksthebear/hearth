@@ -46,7 +46,9 @@
         </div>
       <% end %>
       <%= render "agent/operational_authorizations/control", agent_session: @agent_session, authorization: @agent_operational_authorization if @agent_session %>
-      <%= render "agent/mutation_proposals/center", proposal: @agent_mutation_proposal, confirmation_token: @agent_mutation_proposal&.confirmation_token %>
+      <%= render "agent/mutation_proposals/center",
+        proposal: @agent_mutation_proposal,
+        confirmation_token: @agent_mutation_proposal&.pending_confirmation? ? @agent_mutation_proposal.confirmation_token : nil %>
     <% else %>
       <main class="min-h-full">
         <%= render "layouts/flash" %>

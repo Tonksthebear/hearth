@@ -11,6 +11,7 @@ class Agent::MutationProposal < ApplicationRecord
   belongs_to :person
   belongs_to :conversation, class_name: "Agent::Conversation"
   belongs_to :agent_session, class_name: "Agent::Session"
+  belongs_to :agent_grant, class_name: "Agent::Grant"
   belongs_to :requested_by, class_name: "User", optional: true
   belongs_to :approved_by, class_name: "User", optional: true
   belongs_to :executed_by, class_name: "User", optional: true
@@ -29,7 +30,7 @@ class Agent::MutationProposal < ApplicationRecord
   class << self
     def propose!(grant:, operation:, arguments:, preview:, expected_state:, idempotency_key:, deadline_at:)
       input_body = JSON.generate(arguments.deep_stringify_keys)
-      input_digest = Digest::SHA256.hexdigest(input_body)
+      input_digest = input_digest_for(arguments)
       existing = find_by(agent_session: grant.agent_session, idempotency_key: idempotency_key)
       if existing
         raise ArgumentError, "Idempotency key was reused with different input" unless existing.input_digest == input_digest
@@ -41,6 +42,7 @@ class Agent::MutationProposal < ApplicationRecord
         person: grant.person,
         conversation: grant.conversation,
         agent_session: grant.agent_session,
+        agent_grant: grant,
         requested_by: grant.issued_by,
         operation: operation,
         input_body: input_body,
@@ -78,7 +80,7 @@ class Agent::MutationProposal < ApplicationRecord
 
     def execute_immediate!(grant:, operation:, arguments:, expected_state:, idempotency_key:)
       input_body = JSON.generate(arguments.deep_stringify_keys)
-      input_digest = Digest::SHA256.hexdigest(input_body)
+      input_digest = input_digest_for(arguments)
       existing = find_by(agent_session: grant.agent_session, idempotency_key: idempotency_key)
       if existing
         raise ArgumentError, "Idempotency key was reused with different input" unless existing.input_digest == input_digest
@@ -88,7 +90,7 @@ class Agent::MutationProposal < ApplicationRecord
 
       proposal = create!(
         household: grant.household, person: grant.person, conversation: grant.conversation,
-        agent_session: grant.agent_session, requested_by: grant.issued_by,
+        agent_session: grant.agent_session, agent_grant: grant, requested_by: grant.issued_by,
         operation: operation, status: "approved", input_body: input_body, input_digest: input_digest,
         expected_state_digest: Digest::SHA256.hexdigest(JSON.generate(expected_state)),
         preview: {},
@@ -99,6 +101,19 @@ class Agent::MutationProposal < ApplicationRecord
     rescue ActiveRecord::RecordNotUnique
       retry
     end
+
+    def input_digest_for(arguments)
+      Digest::SHA256.hexdigest(JSON.generate(canonicalize(arguments.deep_stringify_keys)))
+    end
+
+    private
+      def canonicalize(value)
+        case value
+        when Hash then value.keys.sort.to_h { |key| [ key, canonicalize(value.fetch(key)) ] }
+        when Array then value.map { |item| canonicalize(item) }
+        else value
+        end
+      end
   end
 
   def arguments = JSON.parse(input_body)
@@ -150,6 +165,7 @@ class Agent::MutationProposal < ApplicationRecord
     approved ? execute!(by: by) : self
   ensure
     broadcast_confirmation
+    broadcast_permission_status if persisted? && status != "pending"
   end
 
   def cancel!(reason:, by: nil, status: "cancelled")
@@ -162,6 +178,7 @@ class Agent::MutationProposal < ApplicationRecord
       audit!("mutation.#{status}", by: by, outcome: status)
     end
     broadcast_confirmation
+    broadcast_permission_status
     self
   end
 
@@ -173,6 +190,7 @@ class Agent::MutationProposal < ApplicationRecord
       with_lock do
         return execution if execution
         raise ActiveRecord::RecordInvalid, self unless status == "approved"
+        raise Agent::Grant::AuthorizationRequired, "The staged operational grant is no longer active" unless staged_grant_active?
         raise ActiveRecord::StaleObjectError.new(self, "execute") unless current_expected_state_digest == expected_state_digest
 
         result = Agent::Mutation::Operations.execute!(operation: operation, arguments: arguments, proposal: self)
@@ -195,10 +213,12 @@ class Agent::MutationProposal < ApplicationRecord
   rescue StandardError => error
     reload
     unless terminal?
-      update!(status: "failed", executed_by: by, terminal_at: Time.current, failure_reason: error.message.first(500))
+      update!(status: "failed", executed_by: by, terminal_at: Time.current, failure_reason: stable_failure_reason(error))
       audit!("mutation.failed", by: by, outcome: "failed")
     end
     raise
+  ensure
+    broadcast_permission_status if persisted? && terminal?
   end
 
   def expire_if_needed!
@@ -206,6 +226,14 @@ class Agent::MutationProposal < ApplicationRecord
   end
 
   def terminal? = status.in?(%w[ denied cancelled expired executed failed ])
+
+  def pending_confirmation? = status == "pending" && deadline_at > Time.current
+
+  def permission_channel = "agent_mutation_permission_#{id}"
+
+  def broadcast_permission_status
+    ActionCable.server.broadcast(permission_channel, { proposal_id: id, status: status })
+  end
 
   def current_expected_state_digest
     Digest::SHA256.hexdigest(JSON.generate(Agent::Mutation::Operations.expected_state(operation: operation, arguments: arguments, proposal: self)))
@@ -251,7 +279,25 @@ class Agent::MutationProposal < ApplicationRecord
       return unless agent_session && conversation
       errors.add(:base, "must use the exact ACP context") unless
         agent_session.household_id == household_id && agent_session.person_id == person_id &&
-        agent_session.conversation_id == conversation_id
+        agent_session.conversation_id == conversation_id &&
+        agent_grant&.agent_session_id == agent_session_id &&
+        agent_grant&.household_id == household_id && agent_grant&.person_id == person_id &&
+        agent_grant&.conversation_id == conversation_id
+    end
+
+    def staged_grant_active?
+      agent_grant.revoked_at.nil? && agent_grant.expires_at > Time.current &&
+        agent_grant.allows_capability?("health.write") &&
+        agent_session.active_operational_authorization.present?
+    end
+
+    def stable_failure_reason(error)
+      case error
+      when ActiveRecord::StaleObjectError then "previewed state changed before execution"
+      when Agent::Grant::AuthorizationRequired then error.message
+      when Agent::Mutation::Operations::Prohibited, ArgumentError then error.message.first(500)
+      else "mutation execution failed"
+      end
     end
 
     def audit!(event_type, by:, outcome:)

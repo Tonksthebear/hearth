@@ -55,4 +55,24 @@ class Agent::MutationDecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "cancelled", proposal.reload.status
     assert Meal.exists?(meal.id)
   end
+
+  test "authenticated GET renders an overdue proposal as inert without reconciling rows" do
+    meal = meals(:sam_recipe_target_week)
+    arguments = { id: meal.id }
+    proposal, = Agent::MutationProposal.propose!(
+      grant: @grant, operation: "delete_meal", arguments: arguments, preview: {},
+      expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: @grant),
+      idempotency_key: "controller-overdue-read", deadline_at: 1.minute.from_now
+    )
+    proposal.update_column(:deadline_at, 1.second.ago)
+    audit_count = Agent::AuditEvent.count
+
+    get root_path
+
+    assert_response :success
+    assert_equal "pending", proposal.reload.status
+    assert_equal "pending", proposal.permission_request.reload.status
+    assert_equal audit_count, Agent::AuditEvent.count
+    assert_not_includes response.body, "Confirm agent operation"
+  end
 end

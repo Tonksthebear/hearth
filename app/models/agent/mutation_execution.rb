@@ -3,7 +3,7 @@ class Agent::MutationExecution < ApplicationRecord
   belongs_to :executed_by, class_name: "User", optional: true
 
   validates :operation, :idempotency_key, :input_digest, :executed_at, presence: true
-  validates :outcome, inclusion: { in: %w[ succeeded failed ] }
+  validates :outcome, inclusion: { in: %w[ succeeded ] }
 
   delegate :household, :person, :conversation, :agent_session, to: :mutation_proposal
 end

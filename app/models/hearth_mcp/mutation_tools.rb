@@ -12,9 +12,10 @@ module HearthMcp
         status: { type: "string" },
         proposal_id: { type: [ "integer", "null" ] },
         deadline_at: { type: [ "string", "null" ] },
+        next_action: { type: [ "string", "null" ] },
         result: { type: "object" }
       },
-      required: %w[status proposal_id deadline_at result],
+      required: %w[status proposal_id deadline_at next_action result],
       additionalProperties: false
     }.freeze
     FEEDBACK_SCHEMA = {
@@ -100,7 +101,7 @@ module HearthMcp
       class << self
         def mutation_contract(name:, description:, properties:, required: [])
           tool_name name
-          self.description description
+          self.description "#{description} Consequential calls first stage a durable pending proposal; then request ACP permission with this operation and the same idempotency key."
           input_schema(
             type: "object",
             properties: properties.merge(idempotency_key: IDEMPOTENCY),
@@ -108,7 +109,7 @@ module HearthMcp
             additionalProperties: false
           )
           output_schema RESULT_SCHEMA
-          annotations(read_only_hint: false, destructive_hint: name.start_with?("delete_", "unlog_", "unplan_"), idempotent_hint: true, open_world_hint: false)
+          annotations(read_only_hint: false, destructive_hint: name.start_with?("delete_"), idempotent_hint: true, open_world_hint: false)
         end
 
         def perform(operation, idempotency_key:, server_context:, **arguments)
@@ -117,6 +118,13 @@ module HearthMcp
           return error("Grant call limit exhausted") unless grant.consume(calls: 1) == 1
 
           context = grant
+          Agent::Mutation::Operations.validate_arguments!(operation: operation, arguments: arguments)
+          if (existing = grant.agent_session.mutation_proposals.find_by(idempotency_key: idempotency_key))
+            unless existing.operation == operation && existing.input_digest == Agent::MutationProposal.input_digest_for(arguments)
+              raise ArgumentError, "Idempotency key was reused with different input"
+            end
+            return response(proposal_payload(existing), grant)
+          end
           expected = Agent::Mutation::Operations.expected_state(operation: operation, arguments: arguments, proposal: context)
           if Agent::Mutation::Operations.consequential?(operation: operation, arguments: arguments, context: context)
             authorization = grant.agent_session.active_operational_authorization
@@ -131,13 +139,13 @@ module HearthMcp
               deadline_at: deadline
             )
             proposal.broadcast_confirmation(token) if token
-            payload = { status: proposal.status, proposal_id: proposal.id, deadline_at: proposal.deadline_at.utc.iso8601, result: proposal.execution&.result || {} }
+            payload = proposal_payload(proposal)
           else
             execution = Agent::MutationProposal.execute_immediate!(
               grant: grant, operation: operation, arguments: arguments,
               expected_state: expected, idempotency_key: idempotency_key
             )
-            payload = { status: "executed", proposal_id: execution.mutation_proposal_id, deadline_at: nil, result: execution.result }
+            payload = { status: "executed", proposal_id: execution.mutation_proposal_id, deadline_at: nil, next_action: nil, result: execution.result }
           end
           response(payload, grant)
         rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ActiveRecord::DeleteRestrictionError,
@@ -150,6 +158,16 @@ module HearthMcp
           tokens = (json.bytesize / 4.0).ceil
           return error("Response exceeds the remaining output budget") unless grant.consume(calls: 0, output_tokens: tokens) == 1
           MCP::Tool::Response.new([ { type: "text", text: json } ], structured_content: payload)
+        end
+
+        def proposal_payload(proposal)
+          {
+            status: proposal.status,
+            proposal_id: proposal.id,
+            deadline_at: proposal.deadline_at.utc.iso8601,
+            next_action: proposal.status == "pending" ? "Request ACP permission for #{proposal.operation} with the same idempotency_key after staging this proposal." : nil,
+            result: proposal.execution&.result || {}
+          }
         end
 
         def error(message)

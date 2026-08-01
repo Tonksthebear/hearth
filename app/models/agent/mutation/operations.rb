@@ -25,6 +25,10 @@ module Agent::Mutation::Operations
     id dose_class reps load_amount load_unit duration_seconds rest_seconds distance_amount distance_unit
     count count_unit average_heart_rate_bpm peak_heart_rate_bpm rpe rir completed notes _destroy
   ].freeze
+  WEEKLY_TARGET_KEYS = %w[
+    weekly_strength_sessions_target weekly_structured_minutes_target
+    weekly_zone2_minutes_target weekly_vigorous_minutes_target
+  ].freeze
 
   class << self
     def execute!(operation:, arguments:, proposal:)
@@ -54,12 +58,21 @@ module Agent::Mutation::Operations
     end
 
     def consequential?(operation:, arguments:, context:)
-      return true if operation.start_with?("delete_", "unlog_", "unplan_")
+      arguments = arguments.deep_stringify_keys
+      return true if operation.start_with?("delete_")
       return true if operation.in?(%w[ update_weekly_dose_targets upsert_person_habit ])
+      return true if destructive_nested_change?(arguments)
       return true if operation == "update_training_session" && record_for(operation, arguments, context)&.completed?
       return true if operation == "update_meal" && destructive_feedback_change?(arguments, context)
 
       false
+    end
+
+    def validate_arguments!(operation:, arguments:)
+      arguments = arguments.deep_stringify_keys
+      if operation == "update_weekly_dose_targets" && arguments.slice(*WEEKLY_TARGET_KEYS).empty?
+        raise ArgumentError, "At least one weekly dose target is required"
+      end
     end
 
     private
@@ -114,7 +127,11 @@ module Agent::Mutation::Operations
       end
 
       def log_planned_meal(arguments, context)
-        context.household.planned_meals.visible_to(context.person).find(arguments.fetch("id")).convert_for!(context.person)
+        record = context.household.planned_meals.visible_to(context.person).find(arguments.fetch("id"))
+        return record.converted_meal_for(context.person) if record.converted_meal_for(context.person)
+        raise Prohibited, "A planned meal can only be logged on or after its planned date" unless record.convertible_by?(context.person)
+
+        record.convert_for!(context.person)
       end
 
       def create_meal(arguments, context)
@@ -165,10 +182,7 @@ module Agent::Mutation::Operations
       end
 
       def update_weekly_dose_targets(arguments, context)
-        context.person.update!(arguments.slice(
-          "weekly_strength_sessions_target", "weekly_structured_minutes_target",
-          "weekly_zone2_minutes_target", "weekly_vigorous_minutes_target"
-        ))
+        context.person.update!(arguments.slice(*WEEKLY_TARGET_KEYS))
         context.person
       end
 
@@ -273,7 +287,23 @@ module Agent::Mutation::Operations
         arguments["meal_items"].any? do |item|
           feedback = item["recipe_feedback_attributes"] || {}
           prior = existing.meal_items.find { |candidate| candidate.id == item["id"].to_i }&.recipe_feedback
-          prior && ActiveModel::Type::Boolean.new.cast(feedback["_destroy"])
+          prior && (
+            ActiveModel::Type::Boolean.new.cast(feedback["_destroy"]) ||
+            feedback.key?("body") && feedback["body"] != prior.body
+          )
+        end
+      end
+
+      def destructive_nested_change?(value)
+        case value
+        when Hash
+          return true if ActiveModel::Type::Boolean.new.cast(value["_destroy"])
+
+          value.any? { |key, nested| key != "_destroy" && destructive_nested_change?(nested) }
+        when Array
+          value.any? { |nested| destructive_nested_change?(nested) }
+        else
+          false
         end
       end
 

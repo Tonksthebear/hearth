@@ -42,7 +42,8 @@ loop do
 
   if message["id"] == permission_id && message["result"]
     outcome = message.dig("result", "outcome")
-    abort "permission was not denied" unless outcome == { "outcome" => "selected", "optionId" => "reject" }
+    expected_option = mode == "permission_allow" ? "allow" : "reject"
+    abort "permission selected the wrong option" unless outcome == { "outcome" => "selected", "optionId" => expected_option }
     chunks = mode == "streaming" ? 300.times.map(&:to_s) : %w[HEARTH_ ACP_OK]
     chunks.each do |text|
       write.call(jsonrpc: "2.0", method: "session/update", params: {
@@ -142,9 +143,14 @@ loop do
         update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "started" } }
       })
     else
+      tool_call = { toolCallId: "fake-tool" }
+      if mode == "permission_allow"
+        tool_call[:title] = ENV.fetch("FAKE_PERMISSION_OPERATION")
+        tool_call[:rawInput] = JSON.parse(ENV.fetch("FAKE_PERMISSION_INPUT"))
+      end
       write.call(jsonrpc: "2.0", id: permission_id, method: "session/request_permission", params: {
         sessionId: session_id,
-        toolCall: { toolCallId: "fake-tool" },
+        toolCall: tool_call,
         options: [ { optionId: "allow", name: "Allow", kind: "allow_once" }, { optionId: "reject", name: "Reject", kind: "reject_once" } ]
       })
     end

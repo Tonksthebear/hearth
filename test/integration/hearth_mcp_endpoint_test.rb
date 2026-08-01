@@ -74,22 +74,7 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "exact-context operational consent rotates to typed writes and executes an idempotent meal aggregate" do
-    Current.session = sessions(:browser)
-    Current.household = households(:home)
-    Current.person = people(:two)
-    @agent_session = Agent::Session.create!(
-      household: Current.household,
-      person: Current.person,
-      conversation: agent_conversations(:active),
-      installation: agent_installations(:local),
-      browser_session: Current.session,
-      status: "starting",
-      authentication_status: "authenticated",
-      mcp_authorization_status: "not_configured"
-    )
-    @credential = @agent_session.issue_runtime_grant!
-    Agent::OperationalAuthorization.authorize!(agent_session: @agent_session, reason: "Daily operations")
-    @credential = @agent_session.issue_runtime_grant!
+    enable_operational_writes
 
     listed = mcp_post(id: 30, method: "tools/list", params: {})
     names = listed.dig("result", "tools").pluck("name")
@@ -108,6 +93,118 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     assert_equal first.dig("result", "structuredContent", "result", "id"), second.dig("result", "structuredContent", "result", "id")
     assert_equal 1, people(:two).meals.where(notes: nil).joins(:meal_items).where(meal_items: { snapshot_label: "MCP meal" }).count
     assert_equal [ "health.write", "health.write" ], Agent::ToolActivity.where(agent_session: @agent_session).order(:id).last(2).pluck(:capability)
+  ensure
+    Current.reset
+  end
+
+  test "consequential MCP call stages one proposal and browser approval executes exactly once" do
+    enable_operational_writes
+    meal = meals(:sam_recipe_target_week)
+    arguments = { id: meal.id, idempotency_key: "endpoint-delete-meal" }
+
+    first = mcp_post(id: 33, method: "tools/call", params: { name: "delete_meal", arguments: arguments })
+    replay = mcp_post(id: 34, method: "tools/call", params: { name: "delete_meal", arguments: arguments })
+
+    payload = first.dig("result", "structuredContent")
+    assert_equal "pending", payload.fetch("status"), first.inspect
+    assert_match(/Request ACP permission/, payload.fetch("next_action"))
+    assert_equal payload.fetch("proposal_id"), replay.dig("result", "structuredContent", "proposal_id")
+    proposal = Agent::MutationProposal.find(payload.fetch("proposal_id"))
+    assert_equal @credential.grant, proposal.agent_grant
+    assert_equal "pending", proposal.permission_request.status
+    assert Meal.exists?(meal.id)
+
+    post agent_mutation_proposal_decision_path(proposal), params: {
+      outcome: "approved", confirmation_token: proposal.confirmation_token
+    }, as: :turbo_stream
+
+    assert_response :success
+    assert_equal "executed", proposal.reload.status
+    assert_not Meal.exists?(meal.id)
+    assert_equal 1, Agent::MutationExecution.where(mutation_proposal: proposal).count
+
+    terminal = mcp_post(id: 35, method: "tools/call", params: { name: "delete_meal", arguments: arguments })
+    assert_equal "executed", terminal.dig("result", "structuredContent", "status"), terminal.inspect
+    assert_equal 1, Agent::MutationExecution.where(mutation_proposal: proposal).count
+  ensure
+    Current.reset
+  end
+
+  test "weekly target mutation rejects an empty no-op before staging a proposal" do
+    enable_operational_writes
+
+    called = mcp_post(id: 36, method: "tools/call", params: {
+      name: "update_weekly_dose_targets",
+      arguments: { idempotency_key: "endpoint-empty-targets" }
+    })
+
+    assert_equal true, called.dig("result", "isError")
+    assert_includes called.dig("result", "content", 0, "text"), "At least one weekly dose target"
+    assert_not Agent::MutationProposal.exists?(idempotency_key: "endpoint-empty-targets")
+  ensure
+    Current.reset
+  end
+
+  test "nested destroys and feedback replacement stage proposals without changing domain rows" do
+    enable_operational_writes
+    meal = meals(:sam_recipe_target_week)
+    item = meal_items(:sam_soup)
+    feedback = item.create_recipe_feedback!(body: "Preserve this attributed wording")
+
+    feedback_call = mcp_post(id: 37, method: "tools/call", params: {
+      name: "update_meal",
+      arguments: {
+        id: meal.id,
+        meal_items: [ {
+          id: item.id,
+          source_kind: "recipe",
+          recipe_feedback_attributes: { id: feedback.id, body: "Replacement wording" }
+        } ],
+        idempotency_key: "endpoint-feedback-replace"
+      }
+    })
+    destroy_call = mcp_post(id: 38, method: "tools/call", params: {
+      name: "update_meal",
+      arguments: {
+        id: meal.id,
+        meal_items: [ { id: item.id, source_kind: "recipe", _destroy: true } ],
+        idempotency_key: "endpoint-item-destroy"
+      }
+    })
+
+    session = create_in_progress_training_session
+    block = session.training_session_blocks.sole
+    exercise = block.training_session_exercises.sole
+    set = exercise.training_sets.sole
+    training_call = mcp_post(id: 39, method: "tools/call", params: {
+      name: "update_training_session",
+      arguments: {
+        id: session.id,
+        blocks: [ {
+          id: block.id,
+          snapshot_title: block.snapshot_title,
+          snapshot_block_kind: block.snapshot_block_kind,
+          snapshot_dose_class: block.snapshot_dose_class,
+          _destroy: true,
+          exercises: [ {
+            id: exercise.id,
+            snapshot_name: exercise.snapshot_name,
+            snapshot_modality: exercise.snapshot_modality,
+            snapshot_movement_pattern: exercise.snapshot_movement_pattern,
+            snapshot_performance_kind: exercise.snapshot_performance_kind,
+            sets: [ { id: set.id, completed: false } ]
+          } ]
+        } ],
+        idempotency_key: "endpoint-block-destroy"
+      }
+    })
+
+    [ feedback_call, destroy_call, training_call ].each do |called|
+      assert_equal "pending", called.dig("result", "structuredContent", "status"), called.inspect
+    end
+    assert_equal "Preserve this attributed wording", feedback.reload.body
+    assert MealItem.exists?(item.id)
+    assert TrainingSessionBlock.exists?(block.id)
   ensure
     Current.reset
   end
@@ -188,6 +285,40 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def enable_operational_writes
+      sign_in_as users(:two)
+      Current.household = households(:home)
+      Current.person = people(:two)
+      @agent_session = Agent::Session.create!(
+        household: Current.household,
+        person: Current.person,
+        conversation: agent_conversations(:active),
+        installation: agent_installations(:local),
+        browser_session: Current.session,
+        status: "starting",
+        authentication_status: "authenticated",
+        mcp_authorization_status: "not_configured"
+      )
+      @credential = @agent_session.issue_runtime_grant!
+      Agent::OperationalAuthorization.authorize!(agent_session: @agent_session, reason: "Daily operations")
+      @credential = @agent_session.issue_runtime_grant!
+    end
+
+    def create_in_progress_training_session
+      TrainingSession.create!(
+        household: households(:home), person: people(:two),
+        snapshot_title: "MCP nested destroy", performed_on: Date.new(2026, 7, 31), started_at: Time.current,
+        training_session_blocks_attributes: [ {
+          position: 1, snapshot_title: "Strength", snapshot_block_kind: "strength", snapshot_dose_class: "strength",
+          training_session_exercises_attributes: [ {
+            position: 1, snapshot_name: "Squat", snapshot_modality: "strength",
+            snapshot_movement_pattern: "squat", snapshot_performance_kind: "reps", snapshot_dose_class: "strength",
+            training_sets_attributes: [ { position: 1, dose_class: "strength", completed: false } ]
+          } ]
+        } ]
+      )
+    end
+
     def mcp_post(id:, method:, params:)
       post "/mcp",
         params: JSON.generate(jsonrpc: "2.0", id: id, method: method, params: params),

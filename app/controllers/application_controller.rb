@@ -74,7 +74,6 @@ class ApplicationController < ActionController::Base
         .first
       return unless @agent_session
 
-      @agent_session.expire_pending_mutations!
       @agent_operational_authorization = @agent_session.active_operational_authorization
       @agent_mutation_proposal = @agent_session.mutation_proposals.pending.order(created_at: :desc).first
     end

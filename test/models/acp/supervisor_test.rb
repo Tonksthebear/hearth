@@ -144,6 +144,211 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     end
   end
 
+  test "proposal-first permission waits off the reader thread and returns one approval" do
+    Current.session = sessions(:browser)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    meal = meals(:sam_recipe_target_week)
+    arguments = { "id" => meal.id }
+    idempotency_key = "supervisor-delete-meal"
+    factory = connection_factory(
+      modes: [ "permission_allow" ],
+      extra_environment: {
+        "FAKE_PERMISSION_OPERATION" => "delete_meal",
+        "FAKE_PERMISSION_INPUT" => JSON.generate(arguments.merge("idempotency_key" => idempotency_key))
+      }
+    )
+
+    with_supervisor(connection_factory: factory) do |supervisor|
+      agent_session = supervisor.start_session(
+        conversation: agent_conversations(:active), browser_session: Current.session
+      )
+      Agent::OperationalAuthorization.authorize!(agent_session: agent_session, reason: "Permission bridge test")
+      agent_session.update!(status: "starting")
+      grant = agent_session.issue_runtime_grant!.grant
+      expected = Agent::Mutation::Operations.expected_state(
+        operation: "delete_meal", arguments: arguments, proposal: grant
+      )
+      proposal, token = Agent::MutationProposal.propose!(
+        grant: grant, operation: "delete_meal", arguments: arguments,
+        preview: Agent::Mutation::Operations.preview(operation: "delete_meal", arguments: arguments, context: grant),
+        expected_state: expected, idempotency_key: idempotency_key, deadline_at: 5.seconds.from_now
+      )
+
+      prompt_result = nil
+      prompt_thread = Thread.new do
+        prompt_result = supervisor.prompt(agent_session, [ { type: "text", text: "request staged permission" } ])
+      end
+      wait_until { proposal.permission_request.reload.external_request_id == "fake-tool" }
+
+      listed = supervisor.connection_for(agent_session).list_sessions
+      assert_equal "fake-session-1", listed.fetch("sessions").sole.fetch("sessionId")
+      proposal.decide!(outcome: "approved", by: users(:two), token: token)
+      prompt_thread.join(3)
+
+      assert_equal "end_turn", prompt_result.fetch("stopReason")
+      assert_equal "executed", proposal.reload.status
+      assert_not Meal.exists?(meal.id)
+      assert_equal 1, Agent::MutationExecution.where(mutation_proposal: proposal).count
+    end
+  ensure
+    Current.reset
+  end
+
+  test "permission-first and mismatched requests are rejected with stable structured reasons" do
+    supervisor = Acp::Supervisor.new(instance_root: Dir.pwd)
+    agent_session = agent_sessions(:connected)
+    agent_session.update!(external_session_id: "permission-contract-session")
+    base = {
+      "sessionId" => agent_session.external_session_id,
+      "toolCall" => { "toolCallId" => "permission-first" },
+      "options" => [
+        { "optionId" => "allow", "kind" => "allow_once" },
+        { "optionId" => "reject", "kind" => "reject_once" }
+      ]
+    }
+
+    missing_input = supervisor.send(:resolve_permission, agent_session, base)
+    missing_key = supervisor.send(:resolve_permission, agent_session, base.deep_merge(
+      "toolCall" => { "title" => "delete_meal", "rawInput" => {} }
+    ))
+    unstaged = supervisor.send(:resolve_permission, agent_session, base.deep_merge(
+      "toolCall" => { "title" => "delete_meal", "rawInput" => { "idempotency_key" => "unstaged-key" } }
+    ))
+
+    [ missing_input, missing_key, unstaged ].each do |result|
+      assert_equal "reject", result.dig(:outcome, :optionId)
+      assert_equal "stage_required", result.dig(:_meta, :hearth, :code)
+      assert_match(/stage|Call the typed/i, result.dig(:_meta, :hearth, :message))
+    end
+    assert_empty Agent::MutationProposal.where(agent_session: agent_session)
+  end
+
+  test "permission request rejects a staged proposal with mismatched operation or input" do
+    Current.session = sessions(:browser)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    agent_session = agent_sessions(:connected)
+    agent_session.update!(external_session_id: "permission-mismatch-session")
+    Agent::OperationalAuthorization.authorize!(agent_session: agent_session, reason: "Correlation test")
+    agent_session.update!(status: "starting")
+    grant = agent_session.issue_runtime_grant!.grant
+    meal = meals(:sam_recipe_target_week)
+    arguments = { "id" => meal.id }
+    proposal, = Agent::MutationProposal.propose!(
+      grant: grant, operation: "delete_meal", arguments: arguments, preview: {},
+      expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: grant),
+      idempotency_key: "permission-mismatch", deadline_at: 1.minute.from_now
+    )
+    base = {
+      "sessionId" => agent_session.external_session_id,
+      "toolCall" => { "toolCallId" => "mismatch", "title" => "update_meal" },
+      "options" => [ { "optionId" => "reject", "kind" => "reject_once" } ]
+    }
+    supervisor = Acp::Supervisor.new(instance_root: Dir.pwd)
+
+    wrong_operation = supervisor.send(:resolve_permission, agent_session, base.deep_merge(
+      "toolCall" => { "rawInput" => arguments.merge("idempotency_key" => proposal.idempotency_key) }
+    ))
+    wrong_input = supervisor.send(:resolve_permission, agent_session, base.deep_merge(
+      "toolCall" => {
+        "title" => "delete_meal",
+        "rawInput" => { "id" => meal.id + 1, "idempotency_key" => proposal.idempotency_key }
+      }
+    ))
+
+    [ wrong_operation, wrong_input ].each do |result|
+      assert_equal "reject", result.dig(:outcome, :optionId)
+      assert_equal "correlation_mismatch", result.dig(:_meta, :hearth, :code)
+    end
+    assert_equal "pending", proposal.reload.status
+    assert Meal.exists?(meal.id)
+  ensure
+    Current.reset
+  end
+
+  test "proposal-first permission maps denial and timeout to reject once" do
+    Current.session = sessions(:browser)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    agent_session = agent_sessions(:connected)
+    agent_session.update!(external_session_id: "permission-terminal-session")
+    Agent::OperationalAuthorization.authorize!(agent_session: agent_session, reason: "Permission terminal test")
+    agent_session.update!(status: "starting")
+    grant = agent_session.issue_runtime_grant!.grant
+    supervisor = Acp::Supervisor.new(instance_root: Dir.pwd)
+    meal = meals(:sam_recipe_target_week)
+
+    denied, denied_token = stage_delete_proposal(grant, meal, "permission-denied", 1.minute.from_now)
+    denied_result = nil
+    denied_thread = Thread.new do
+      denied_result = supervisor.send(:resolve_permission, agent_session, permission_params(agent_session, meal, denied.idempotency_key, "denied-tool"))
+    end
+    wait_until { denied.permission_request.reload.external_request_id == "denied-tool" }
+    denied.decide!(outcome: "denied", by: users(:two), token: denied_token)
+    denied_thread.join(2)
+
+    assert_equal "reject", denied_result.dig(:outcome, :optionId)
+    assert_equal "proposal_denied", denied_result.dig(:_meta, :hearth, :code)
+
+    timed_out, = stage_delete_proposal(grant, meal, "permission-timeout", 0.2.seconds.from_now)
+    timeout_result = supervisor.send(
+      :resolve_permission, agent_session,
+      permission_params(agent_session, meal, timed_out.idempotency_key, "timeout-tool")
+    )
+
+    assert_equal "reject", timeout_result.dig(:outcome, :optionId)
+    assert_equal "proposal_expired", timeout_result.dig(:_meta, :hearth, :code)
+    assert_equal "expired", timed_out.reload.status
+    assert Meal.exists?(meal.id)
+  ensure
+    Current.reset
+  end
+
+  test "supervisor expires pending proposals and operational authorizations" do
+    Current.session = sessions(:browser)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    agent_session = agent_sessions(:connected)
+    authorization = Agent::OperationalAuthorization.authorize!(agent_session: agent_session, reason: "Expiry sweep")
+    agent_session.update!(status: "starting")
+    grant = agent_session.issue_runtime_grant!.grant
+    meal = meals(:sam_recipe_target_week)
+    arguments = { id: meal.id }
+    proposal, = Agent::MutationProposal.propose!(
+      grant: grant, operation: "delete_meal", arguments: arguments, preview: {},
+      expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: grant),
+      idempotency_key: "sweep-expired-proposal", deadline_at: 1.minute.from_now
+    )
+    proposal.update_column(:deadline_at, 1.second.ago)
+    supervisor = Acp::Supervisor.new(instance_root: Dir.pwd)
+
+    supervisor.send(:expire_pending_mutations)
+
+    assert_equal "expired", proposal.reload.status
+    assert_equal "expired", proposal.permission_request.reload.status
+
+    authorization.update_column(:expires_at, 1.second.ago)
+    supervisor.send(:expire_operational_authorizations)
+
+    assert_predicate authorization.reload, :revoked_at?
+  ensure
+    Current.reset
+  end
+
+  test "authorization rotation detaches an attached ACP session" do
+    with_supervisor do |supervisor|
+      agent_session = supervisor.start_session(conversation: agent_conversations(:active))
+      agent_session.update!(mcp_authorization_status: "reauthorization_required")
+
+      supervisor.send(:rotate_stale_authorizations)
+
+      assert_equal "disconnected", agent_session.reload.status
+      assert_raises(Acp::Supervisor::Error) { supervisor.connection_for(agent_session) }
+      assert agent_session.grants.all?(&:revoked_at?)
+    end
+  end
+
   test "an unmodelled recovery error fails only that session" do
     healthy_factory = connection_factory(modes: [ "normal" ])
     calls = 0
@@ -210,6 +415,30 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
   end
 
   private
+    def stage_delete_proposal(grant, meal, idempotency_key, deadline_at)
+      arguments = { id: meal.id }
+      Agent::MutationProposal.propose!(
+        grant: grant, operation: "delete_meal", arguments: arguments, preview: {},
+        expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: grant),
+        idempotency_key: idempotency_key, deadline_at: deadline_at
+      )
+    end
+
+    def permission_params(agent_session, meal, idempotency_key, tool_call_id)
+      {
+        "sessionId" => agent_session.external_session_id,
+        "toolCall" => {
+          "toolCallId" => tool_call_id,
+          "title" => "delete_meal",
+          "rawInput" => { "id" => meal.id, "idempotency_key" => idempotency_key }
+        },
+        "options" => [
+          { "optionId" => "allow", "kind" => "allow_once" },
+          { "optionId" => "reject", "kind" => "reject_once" }
+        ]
+      }
+    end
+
     def with_supervisor(mode: "normal", timeout: 2, recovery_backoffs: [ 0, 0, 0 ],
       on_fatal: ->(_session, _error) { }, connection_factory: nil)
       with_instance_root do |root|

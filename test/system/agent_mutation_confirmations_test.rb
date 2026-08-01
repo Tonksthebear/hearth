@@ -37,7 +37,8 @@ class AgentMutationConfirmationsTest < ApplicationSystemTestCase
     )
 
     time_origin = page.evaluate_script("performance.timeOrigin")
-    broadcast_until_visible(proposal, token)
+    connect_turbo_cable_stream_sources
+    proposal.broadcast_confirmation(token)
     assert_text "Confirm agent operation for #{people(:two).name}", wait: 5
     assert_text proposal.preview.fetch("effect")
     assert_text "Decision due"
@@ -70,7 +71,8 @@ class AgentMutationConfirmationsTest < ApplicationSystemTestCase
       grant: grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
       idempotency_key: "system-cancel-meal", deadline_at: 1.minute.from_now
     )
-    broadcast_until_visible(proposal, token)
+    connect_turbo_cable_stream_sources
+    proposal.broadcast_confirmation(token)
     assert_text "Confirm agent operation", wait: 5
 
     click_button "Cancel"
@@ -79,13 +81,4 @@ class AgentMutationConfirmationsTest < ApplicationSystemTestCase
     assert_equal "cancelled", proposal.reload.status
     assert Meal.exists?(meal.id)
   end
-
-
-  private
-    def broadcast_until_visible(proposal, token)
-      3.times do
-        proposal.broadcast_confirmation(token)
-        return if page.has_text?("Confirm agent operation", wait: 2)
-      end
-    end
 end

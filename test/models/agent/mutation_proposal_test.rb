@@ -82,6 +82,41 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     assert_equal "executed", proposal.reload.status
   end
 
+  test "nested destroys and existing feedback replacement require confirmation" do
+    meal = meals(:sam_recipe_target_week)
+    item = meal_items(:sam_soup)
+    feedback = item.create_recipe_feedback!(body: "Keep this exact wording")
+
+    assert Agent::Mutation::Operations.consequential?(
+      operation: "update_meal",
+      arguments: {
+        id: meal.id,
+        meal_items: [ { id: item.id, source_kind: "recipe", _destroy: true } ]
+      },
+      context: @grant
+    )
+    assert Agent::Mutation::Operations.consequential?(
+      operation: "update_meal",
+      arguments: {
+        id: meal.id,
+        meal_items: [ {
+          id: item.id,
+          source_kind: "recipe",
+          recipe_feedback_attributes: { id: feedback.id, body: "Replacement wording" }
+        } ]
+      },
+      context: @grant
+    )
+
+    session = create_in_progress_training_session
+    block = session.training_session_blocks.sole
+    assert Agent::Mutation::Operations.consequential?(
+      operation: "update_training_session",
+      arguments: { id: session.id, blocks: [ { id: block.id, _destroy: true } ] },
+      context: @grant
+    )
+  end
+
   test "expired and stale proposals fail closed" do
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
@@ -109,6 +144,89 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
       )
     end
     assert TrainingSession.exists?(session.id)
+  end
+
+  test "a linked planned meal cannot be unplanned" do
+    plan = planned_meals(:sam_target_week)
+    plan.convert_for!(people(:two))
+
+    error = assert_raises(Agent::Mutation::Operations::Prohibited) do
+      Agent::Mutation::Operations.execute!(
+        operation: "delete_planned_meal",
+        arguments: { id: plan.id },
+        proposal: @grant
+      )
+    end
+
+    assert_equal "A logged planned meal must be unlogged separately before it can be unplanned", error.message
+    assert PlannedMeal.exists?(plan.id)
+  end
+
+  test "planned meal logging uses the controlled UTC date boundary and a stable future error" do
+    travel_to Time.zone.local(2026, 7, 31, 12) do
+      plan = PlannedMeal.create!(
+        household: households(:home), person: people(:two), recipe: recipes(:observed_soup),
+        planned_on: Date.new(2026, 8, 1)
+      )
+
+      error = assert_raises(Agent::Mutation::Operations::Prohibited) do
+        Agent::Mutation::Operations.execute!(
+          operation: "log_planned_meal", arguments: { id: plan.id }, proposal: @grant
+        )
+      end
+
+      assert_equal "A planned meal can only be logged on or after its planned date", error.message
+      assert_nil plan.reload.converted_meal_for(people(:two))
+    end
+  end
+
+  test "two sessions may independently reuse the same idempotency key and input" do
+    second_session = Agent::Session.create!(
+      household: @agent_session.household,
+      person: @agent_session.person,
+      conversation: @agent_session.conversation,
+      installation: @agent_session.installation,
+      browser_session: @agent_session.browser_session,
+      status: "starting",
+      authentication_status: "authenticated",
+      mcp_authorization_status: "not_configured"
+    )
+    Agent::OperationalAuthorization.authorize!(agent_session: second_session, reason: "Second conversation runtime")
+    second_grant = second_session.issue_runtime_grant!.grant
+    arguments = {
+      eaten_on: "2026-07-31",
+      meal_items: [ { source_kind: "free_text", snapshot_label: "Independent coffee" } ]
+    }
+
+    first = Agent::MutationProposal.execute_immediate!(
+      grant: @grant, operation: "create_meal", arguments: arguments,
+      expected_state: {}, idempotency_key: "same-session-key"
+    )
+    second = Agent::MutationProposal.execute_immediate!(
+      grant: second_grant, operation: "create_meal", arguments: arguments,
+      expected_state: {}, idempotency_key: "same-session-key"
+    )
+
+    assert_not_equal first.id, second.id
+    assert_equal 2, Meal.joins(:meal_items).where(meal_items: { snapshot_label: "Independent coffee" }).count
+  end
+
+  test "revoked staged grant fails closed with a stable reason" do
+    meal = meals(:sam_recipe_target_week)
+    expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
+    proposal, token = Agent::MutationProposal.propose!(
+      grant: @grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
+      idempotency_key: "revoked-grant-delete", deadline_at: 1.minute.from_now
+    )
+    @grant.revoke!(reason: "test revocation")
+
+    error = assert_raises(Agent::Grant::AuthorizationRequired) do
+      proposal.decide!(outcome: "approved", by: users(:two), token: token)
+    end
+
+    assert_equal "The staged operational grant is no longer active", error.message
+    assert_equal "The staged operational grant is no longer active", proposal.reload.failure_reason
+    assert Meal.exists?(meal.id)
   end
 
   test "state drift terminalizes an approved proposal without mutating" do
@@ -190,4 +308,31 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
       )
     end
   end
+
+
+  private
+    def create_in_progress_training_session
+      TrainingSession.create!(
+        household: households(:home),
+        person: people(:two),
+        snapshot_title: "Pending nested destroy",
+        performed_on: Date.new(2026, 7, 31),
+        started_at: Time.current,
+        training_session_blocks_attributes: [ {
+          position: 1,
+          snapshot_title: "Strength",
+          snapshot_block_kind: "strength",
+          snapshot_dose_class: "strength",
+          training_session_exercises_attributes: [ {
+            position: 1,
+            snapshot_name: "Squat",
+            snapshot_modality: "strength",
+            snapshot_movement_pattern: "squat",
+            snapshot_performance_kind: "reps",
+            snapshot_dose_class: "strength",
+            training_sets_attributes: [ { position: 1, dose_class: "strength", completed: false } ]
+          } ]
+        } ]
+      )
+    end
 end

@@ -26,6 +26,7 @@ class AddGuardedAgentMutations < ActiveRecord::Migration[8.1]
       t.references :person, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: { to_table: :agent_conversations }
       t.references :agent_session, null: false, foreign_key: true
+      t.references :agent_grant, null: false, foreign_key: true
       t.references :requested_by, foreign_key: { to_table: :users }
       t.references :approved_by, foreign_key: { to_table: :users }
       t.references :executed_by, foreign_key: { to_table: :users }
@@ -65,8 +66,7 @@ class AddGuardedAgentMutations < ActiveRecord::Migration[8.1]
       t.datetime :executed_at, null: false
       t.timestamps
 
-      t.index %i[idempotency_key input_digest], unique: true, name: "index_agent_mutation_executions_on_idempotency_and_input"
-      t.check_constraint "outcome IN ('succeeded', 'failed')", name: "agent_mutation_executions_outcome"
+      t.check_constraint "outcome = 'succeeded'", name: "agent_mutation_executions_outcome"
     end
 
     add_column :agent_permission_requests, :deadline_at, :datetime

@@ -2,6 +2,7 @@ require "base64"
 require "json"
 require "open3"
 require "pathname"
+require "set"
 
 module Acp
   class Connection
@@ -37,7 +38,7 @@ module Acp
     def initialize(argv:, cwd:, environment: {}, mcp_servers: [], timeout: DEFAULT_TIMEOUT,
       max_line_bytes: DEFAULT_MAX_LINE_BYTES, queue_size: DEFAULT_QUEUE_SIZE,
       queue_timeout: DEFAULT_QUEUE_TIMEOUT, termination_grace: DEFAULT_TERMINATION_GRACE,
-      on_fatal: ->(_error) { }, on_permission: nil)
+      on_fatal: ->(_error) { })
       raise ConfigurationError, "agent argv is required" if argv.blank?
       raise ConfigurationError, "agent argv must contain only strings" unless argv.all? { |argument| argument.is_a?(String) }
       raise ConfigurationError, "cwd must be absolute" unless Pathname.new(cwd).absolute?
@@ -53,7 +54,7 @@ module Acp
       @queue_timeout = Float(queue_timeout)
       @termination_grace = Float(termination_grace)
       @on_fatal = on_fatal
-      @on_permission = on_permission
+      @on_permission = nil
       @outbound = SizedQueue.new(Integer(queue_size))
       @events = SizedQueue.new(Integer(queue_size))
       @pending = {}
@@ -62,6 +63,8 @@ module Acp
       @state_mutex = Mutex.new
       @stderr_mutex = Mutex.new
       @finalize_mutex = Mutex.new
+      @request_threads_mutex = Mutex.new
+      @request_threads = Set.new
       @stderr = +""
       @next_id = 0
       @dropped_event_count = 0
@@ -353,10 +356,22 @@ module Acp
 
       def handle_agent_message(message)
         if message.key?("id")
-          handle_agent_request(message)
+          dispatch_agent_request(message)
         else
           retain_event(message)
         end
+      end
+
+      def dispatch_agent_request(message)
+        thread = Thread.new do
+          Thread.current.report_on_exception = false
+          handle_agent_request(message)
+        rescue StandardError => error
+          fail_connection(error) unless stopping?
+        ensure
+          @request_threads_mutex.synchronize { @request_threads.delete(Thread.current) }
+        end
+        @request_threads_mutex.synchronize { @request_threads << thread }
       end
 
       def retain_event(message)
@@ -493,6 +508,9 @@ module Acp
 
           @state_mutex.synchronize { @stopping = true }
           reject_pending(ProcessError.new("ACP connection stopped"))
+          request_threads = @request_threads_mutex.synchronize { @request_threads.to_a }
+          request_threads.each(&:kill)
+          request_threads.each { |thread| thread.join(@termination_grace) unless thread == Thread.current }
           @outbound.push(STOP_WRITER, true) rescue nil
           @stdin&.close unless @stdin&.closed?
           terminate_process_group

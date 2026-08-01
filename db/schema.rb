@@ -173,12 +173,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.json "result", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["executed_by_id"], name: "index_agent_mutation_executions_on_executed_by_id"
-    t.index ["idempotency_key", "input_digest"], name: "index_agent_mutation_executions_on_idempotency_and_input", unique: true
     t.index ["mutation_proposal_id"], name: "index_agent_mutation_executions_on_mutation_proposal_id", unique: true
-    t.check_constraint "outcome IN ('succeeded', 'failed')", name: "agent_mutation_executions_outcome"
+    t.check_constraint "outcome = 'succeeded'", name: "agent_mutation_executions_outcome"
   end
 
   create_table "agent_mutation_proposals", force: :cascade do |t|
+    t.integer "agent_grant_id", null: false
     t.integer "agent_session_id", null: false
     t.datetime "approved_at"
     t.integer "approved_by_id"
@@ -202,6 +202,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
     t.string "status", default: "pending", null: false
     t.datetime "terminal_at"
     t.datetime "updated_at", null: false
+    t.index ["agent_grant_id"], name: "index_agent_mutation_proposals_on_agent_grant_id"
     t.index ["agent_session_id", "idempotency_key"], name: "index_agent_mutation_proposals_on_session_and_idempotency", unique: true
     t.index ["agent_session_id"], name: "index_agent_mutation_proposals_on_agent_session_id"
     t.index ["approved_by_id"], name: "index_agent_mutation_proposals_on_approved_by_id"
@@ -890,6 +891,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_210000) do
   add_foreign_key "agent_mutation_executions", "agent_mutation_proposals", column: "mutation_proposal_id"
   add_foreign_key "agent_mutation_executions", "users", column: "executed_by_id"
   add_foreign_key "agent_mutation_proposals", "agent_conversations", column: "conversation_id"
+  add_foreign_key "agent_mutation_proposals", "agent_grants"
   add_foreign_key "agent_mutation_proposals", "agent_sessions"
   add_foreign_key "agent_mutation_proposals", "households"
   add_foreign_key "agent_mutation_proposals", "people"
