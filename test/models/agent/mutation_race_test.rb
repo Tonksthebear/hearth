@@ -47,7 +47,7 @@ class Agent::MutationRaceTest < ActiveSupport::TestCase
         operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant
       )
       proposal, token = Agent::MutationProposal.propose!(
-        grant: @grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
+        grant: @grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
         idempotency_key: "race-delete-#{iteration}", deadline_at: 1.minute.from_now
       )
       ready = Queue.new

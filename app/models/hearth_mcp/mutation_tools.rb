@@ -100,7 +100,7 @@ module HearthMcp
 
     class Base < MCP::Tool
       class << self
-        def mutation_contract(name:, description:, properties:, required: [])
+        def mutation_contract(name:, description:, properties:, required: [], destructive: nil)
           tool_name name
           self.description "#{description} Consequential calls first stage a durable pending proposal; then request ACP permission with this operation and the same idempotency key."
           input_schema(
@@ -110,12 +110,17 @@ module HearthMcp
             additionalProperties: false
           )
           output_schema RESULT_SCHEMA
-          annotations(read_only_hint: false, destructive_hint: name.start_with?("delete_"), idempotent_hint: true, open_world_hint: false)
+          annotations(
+            read_only_hint: false,
+            destructive_hint: destructive.nil? ? name.start_with?("delete_") : destructive,
+            idempotent_hint: true,
+            open_world_hint: false
+          )
         end
 
-        def perform(operation, idempotency_key:, server_context:, **arguments)
+        def perform(operation, idempotency_key:, server_context:, capability: "health.write", always_stage: false, **arguments)
           grant = server_context.fetch(:grant)
-          return error("Operational write authorization is required") unless authorized?(grant)
+          return error("#{capability} authorization is required") unless authorized?(grant, capability)
           return error("Grant call limit exhausted") unless grant.consume(calls: 1) == 1
 
           context = grant
@@ -127,11 +132,12 @@ module HearthMcp
             return response(proposal_payload(existing), grant)
           end
           expected = Agent::Mutation::Operations.expected_state(operation: operation, arguments: arguments, proposal: context)
-          if Agent::Mutation::Operations.consequential?(operation: operation, arguments: arguments, context: context)
-            authorization = grant.agent_session.active_operational_authorization
-            deadline = [ grant.expires_at, authorization.expires_at, Acp::Connection::DEFAULT_TIMEOUT.seconds.from_now ].min
+          if always_stage || Agent::Mutation::Operations.consequential?(operation: operation, arguments: arguments, context: context)
+            authorization = grant.agent_session.active_operational_authorization if capability == "health.write"
+            deadline = [ grant.expires_at, authorization&.expires_at, Acp::Connection::DEFAULT_TIMEOUT.seconds.from_now ].compact.min
             proposal, token = Agent::MutationProposal.propose!(
               grant: grant,
+              capability: capability,
               operation: operation,
               arguments: arguments,
               preview: Agent::Mutation::Operations.preview(operation: operation, arguments: arguments, context: context),
@@ -175,8 +181,9 @@ module HearthMcp
           MCP::Tool::Response.new([ { type: "text", text: JSON.generate(error: message) } ], error: true)
         end
 
-        def authorized?(grant)
-          grant.allows_capability?("health.write") && grant.agent_session.active_operational_authorization.present?
+        def authorized?(grant, capability)
+          grant.allows_capability?(capability) &&
+            (capability != "health.write" || grant.agent_session.active_operational_authorization.present?)
         end
       end
     end

@@ -9,7 +9,9 @@ class Agent::Grant < ApplicationRecord
     "health_read" => %w[ health.read ],
     "health_write" => %w[ health.write ],
     "knowledge_read" => %w[ knowledge.read ],
-    "knowledge_submit" => %w[ knowledge.submit ]
+    "knowledge_submit" => %w[ knowledge.submit ],
+    "catalog_manage" => %w[ catalog.manage ],
+    "people_manage" => %w[ people.manage ]
   }.freeze
 
   belongs_to :household

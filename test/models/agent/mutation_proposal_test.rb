@@ -54,7 +54,7 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
       operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant
     )
     proposal, token = Agent::MutationProposal.propose!(
-      grant: @grant,
+      grant: @grant, capability: "health.write",
       operation: "delete_meal",
       arguments: { id: meal.id },
       preview: Agent::Mutation::Operations.preview(operation: "delete_meal", arguments: { id: meal.id }, context: @grant),
@@ -121,7 +121,7 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
     proposal, token = Agent::MutationProposal.propose!(
-      grant: @grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
+      grant: @grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
       idempotency_key: "delete-meal-expired", deadline_at: 1.second.from_now
     )
     proposal.update_column(:deadline_at, 1.second.ago)
@@ -215,7 +215,7 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
     proposal, token = Agent::MutationProposal.propose!(
-      grant: @grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
+      grant: @grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
       idempotency_key: "revoked-grant-delete", deadline_at: 1.minute.from_now
     )
     @grant.revoke!(reason: "test revocation")
@@ -233,7 +233,7 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     meal = meals(:sam_recipe_target_week)
     expected = Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
     proposal, token = Agent::MutationProposal.propose!(
-      grant: @grant, operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
+      grant: @grant, capability: "health.write", operation: "delete_meal", arguments: { id: meal.id }, preview: {}, expected_state: expected,
       idempotency_key: "delete-meal-stale", deadline_at: 1.minute.from_now
     )
     meal.update!(notes: "Changed after preview")
@@ -244,6 +244,31 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
 
     assert_equal "failed", proposal.reload.status
     assert Meal.exists?(meal.id)
+    assert_nil proposal.execution
+  end
+
+  test "weekly dose target snapshots retain stale guards for every target column" do
+    arguments = { weekly_zone2_minutes_target: 120 }
+    expected = Agent::Mutation::Operations.expected_state(
+      operation: "update_weekly_dose_targets", arguments: arguments, proposal: @grant
+    )
+    assert_equal %w[
+      weekly_strength_sessions_target weekly_structured_minutes_target
+      weekly_vigorous_minutes_target weekly_zone2_minutes_target
+    ], expected.keys.grep(/weekly_/).sort
+
+    proposal, token = Agent::MutationProposal.propose!(
+      grant: @grant, capability: "health.write", operation: "update_weekly_dose_targets",
+      arguments: arguments, preview: {}, expected_state: expected,
+      idempotency_key: "weekly-target-stale", deadline_at: 1.minute.from_now
+    )
+    people(:two).update!(weekly_zone2_minutes_target: 999)
+
+    assert_raises(ActiveRecord::StaleObjectError) do
+      proposal.decide!(outcome: "approved", by: users(:two), token: token)
+    end
+    assert_equal 999, people(:two).reload.weekly_zone2_minutes_target
+    assert_equal "failed", proposal.reload.status
     assert_nil proposal.execution
   end
 

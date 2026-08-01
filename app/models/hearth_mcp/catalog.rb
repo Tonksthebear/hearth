@@ -3,6 +3,14 @@ require "mcp"
 module HearthMcp
   class Catalog
     MAX_REQUEST_BYTES = 256 * 1024
+    TOOL_GROUPS = {
+      "health.read" => -> { Tools::ALL },
+      "health.write" => -> { MutationTools::ALL },
+      "knowledge.read" => -> { KnowledgeTools::READ },
+      "knowledge.submit" => -> { KnowledgeTools::SUBMIT },
+      "catalog.manage" => -> { ManagementTools::CATALOG },
+      "people.manage" => -> { ManagementTools::PEOPLE }
+    }.freeze
 
     class << self
       def transport(grant:)
@@ -30,13 +38,12 @@ module HearthMcp
       end
 
       def tools_for(grant)
-        tools = grant.allows_capability?("health.read") ? Tools::ALL.dup : []
-        if grant.allows_capability?("health.write") && grant.agent_session.active_operational_authorization
-          tools.concat(MutationTools::ALL)
-        end
-        tools.concat(KnowledgeTools::READ) if grant.allows_capability?("knowledge.read")
-        tools.concat(KnowledgeTools::SUBMIT) if grant.allows_capability?("knowledge.submit")
-        tools
+        TOOL_GROUPS.flat_map do |capability, tools|
+          next [] unless grant.allows_capability?(capability)
+          next [] if capability == "health.write" && !grant.agent_session.active_operational_authorization
+
+          tools.call
+        end.uniq
       end
 
       private
@@ -72,19 +79,10 @@ module HearthMcp
         end
 
         def capability_for(tool_name)
-          tool_registry.dig(tool_name, :capability) || "unknown"
-        end
-
-        def tool_registry
-          @tool_registry ||= [
-            [ Tools::ALL, Tools::CAPABILITY ],
-            [ MutationTools::ALL, MutationTools::CAPABILITY ],
-            [ KnowledgeTools::ALL, nil ]
-          ].each_with_object({}) do |(family, capability), registry|
-            family.each do |tool|
-              registry[tool.tool_name] = { capability: capability || tool.capability }
-            end
-          end.freeze
+          TOOL_GROUPS.each do |capability, tools|
+            return capability if tools.call.any? { |tool| tool.tool_name == tool_name }
+          end
+          "unknown"
         end
 
         def provenance_for(result)
