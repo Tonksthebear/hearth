@@ -74,3 +74,6 @@ gem "classy-yaml", "~> 1.7"
 gem "rails_icons", "~> 1.9"
 
 gem "tailwind_merge", "~> 1.5"
+
+# Server-render ACP Markdown before Rails sanitizes the resulting HTML.
+gem "commonmarker", "~> 2.9"

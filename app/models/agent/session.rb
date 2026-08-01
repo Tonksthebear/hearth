@@ -33,6 +33,16 @@ class Agent::Session < ApplicationRecord
     foreign_key: :agent_session_id,
     dependent: :restrict_with_exception,
     inverse_of: :agent_session
+  has_many :turns,
+    class_name: "Agent::Turn",
+    foreign_key: :agent_session_id,
+    dependent: :nullify,
+    inverse_of: :agent_session
+  has_many :citations,
+    class_name: "Agent::Citation",
+    foreign_key: :agent_session_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :agent_session
 
   validates :external_session_id,
     presence: true,

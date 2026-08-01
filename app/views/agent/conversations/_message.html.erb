@@ -1,0 +1,14 @@
+<li id="<%= dom_id(message) %>" class="relative flex min-w-0 gap-x-4">
+  <div class="relative flex size-8 flex-none items-center justify-center rounded-full <%= message.role == "user" ? "bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300" : "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300" %>">
+    <%= icon(message.role == "user" ? "users" : "heart", variant: :mini, class: "size-5") %>
+  </div>
+  <article class="min-w-0 flex-auto rounded-md p-4 ring-1 ring-gray-200 ring-inset dark:ring-white/15">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <p class="text-xs font-medium"><%= message.role == "user" ? message.person.name : message.conversation.profile.name %></p>
+      <% unless message.role == "user" %>
+        <span class="rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600 ring-1 ring-gray-500/10 ring-inset dark:bg-white/5 dark:text-gray-300 dark:ring-white/10"><%= message.source_kind.titleize %></span>
+      <% end %>
+    </div>
+    <div class="mt-2 min-w-0 break-words [overflow-wrap:anywhere] text-sm/6 text-gray-700 [&_a]:text-primary-700 [&_a]:underline [&_code]:break-all [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-gray-950 [&_pre]:p-3 [&_pre]:text-gray-100 dark:text-gray-300 dark:[&_a]:text-primary-400"><%= message.rendered_body %></div>
+  </article>
+</li>

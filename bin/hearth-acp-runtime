@@ -63,6 +63,11 @@ supervisor = Acp::Supervisor.new(
     stop_requested = true
   }
 ).start!
+turn_runtime = Agent::Turn::Runtime.new(
+  supervisor: supervisor,
+  owner: "runtime-#{Process.pid}",
+  stopping: -> { stop_requested }
+)
 
 agent_session = nil
 operation = "recover_due"
@@ -82,6 +87,8 @@ begin
     )
     operation = "recover"
   else
+    operation = "turn_queue"
+    agent_session = turn_runtime.run_next&.agent_session
     supervisor.tick
   end
 
@@ -159,7 +166,8 @@ begin
   unless options[:once]
     until stop_requested
       supervisor.tick
-      sleep 0.1
+      processed = turn_runtime.run_next
+      sleep 0.1 unless processed
     end
   end
 ensure

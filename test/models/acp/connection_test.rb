@@ -137,6 +137,24 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     end
   end
 
+  test "poll event reports a failed connection after the retained queue is empty" do
+    with_connection(mode: "crash_prompt") do |connection|
+      connection.initialize_connection
+      connection.new_session
+      prompt_error = Queue.new
+      prompt = Thread.new do
+        connection.prompt([ { type: "text", text: "crash" } ])
+      rescue StandardError => error
+        prompt_error << error
+      end
+      wait_until { connection.failure }
+
+      assert_raises(Acp::Connection::ProcessError) { connection.poll_event(timeout: 0.1) }
+      prompt.join(1)
+      assert_kind_of Acp::Connection::ProcessError, prompt_error.pop
+    end
+  end
+
   test "retains a bounded tail without disconnecting during a streaming turn" do
     with_connection(mode: "streaming") do |connection|
       connection.initialize_connection

@@ -1,0 +1,14 @@
+<div id="agent_turn_status" role="status" aria-live="polite" class="flex shrink-0 flex-col items-end gap-2">
+  <% if turn %>
+    <div class="flex items-center gap-3">
+      <span class="rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-500/10 ring-inset dark:bg-white/5 dark:text-gray-300 dark:ring-white/10"><%= turn.status.humanize %></span>
+      <% unless turn.terminal? || turn.cancellation_requested? %>
+        <%= button_to "Cancel", agent_conversation_turn_cancellation_path(turn.conversation, turn), class: yass(btn: [ :base, { sm: :base }, { neutral: :outline } ]), form: { data: { turbo_confirm: "Stop this coach response?" } } %>
+      <% end %>
+    </div>
+    <% if turn.error_message.present? %><p class="max-w-md text-right text-sm text-red-700 dark:text-red-300">Error: <%= turn.error_message %></p><% end %>
+    <% if turn.warning_message.present? %><p class="max-w-md text-right text-sm text-amber-700 dark:text-amber-300">Warning: <%= turn.warning_message %></p><% end %>
+  <% else %>
+    <span class="text-xs text-gray-500 dark:text-gray-400">Ready</span>
+  <% end %>
+</div>

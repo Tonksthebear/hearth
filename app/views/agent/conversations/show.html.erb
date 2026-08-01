@@ -1,0 +1,57 @@
+<% content_for :title, "#{@conversation.title} · Coach · Hearth" %>
+<%= turbo_stream_from @conversation if @subscribe_conversation_stream %>
+
+<div class="mx-auto max-w-6xl">
+  <div class="flex flex-col gap-4 border-b border-gray-200 pb-6 dark:border-white/10 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0">
+      <%= link_to "Coach", agent_conversations_path, class: "text-sm font-semibold text-primary-700 hover:underline dark:text-primary-400" %>
+      <h1 class="mt-2 truncate text-2xl font-bold tracking-tight"><%= @conversation.title %></h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= @conversation.profile.name %> · context for <%= @current_person.name %></p>
+    </div>
+    <%= render "turn_status", turn: @turn %>
+  </div>
+
+  <div class="mt-6 rounded-md bg-yellow-50 p-4 dark:bg-yellow-500/10 dark:outline dark:outline-yellow-500/15">
+    <div class="flex gap-3">
+      <%= icon "heart", variant: :mini, class: "size-5 shrink-0 text-yellow-500 dark:text-yellow-300" %>
+      <div>
+        <h2 class="text-sm font-medium text-yellow-800 dark:text-yellow-100">Health information, not medical advice</h2>
+        <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-100/80">Hearth tracks household information and helps you plan. It does not diagnose conditions or replace a qualified clinician. Verify important suggestions before acting.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+    <section aria-labelledby="conversation-heading" class="min-w-0 lg:col-span-2">
+      <h2 id="conversation-heading" class="sr-only">Conversation transcript</h2>
+      <ul id="agent_messages" class="space-y-6">
+        <%= render partial: "message", collection: @messages %>
+      </ul>
+
+      <% if @conversation.accepts_turns? %>
+        <%= form_with url: agent_conversation_turns_path(@conversation), scope: :turn, class: "mt-8", data: { turbo_submits_with: "Sending…" } do |form| %>
+          <%= form.hidden_field :idempotency_key, value: @turn_idempotency_key %>
+          <div class="border-b border-gray-200 pb-px focus-within:border-b-2 focus-within:border-primary-600 focus-within:pb-0 dark:border-white/10 dark:focus-within:border-primary-500">
+            <%= form.label :body, "Message the coach", class: "sr-only" %>
+            <%= form.text_area :body, rows: 3, required: true, maxlength: 20_000, placeholder: "Ask about your recorded meals, training, sleep, or habits…", class: "block w-full resize-y bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6 dark:text-white dark:placeholder:text-gray-500", aria: { describedby: "coach-message-help" } %>
+          </div>
+          <div class="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <p id="coach-message-help" class="text-xs text-gray-500 dark:text-gray-400">Do not include secrets or information you do not want stored in this household.</p>
+            <%= form.submit "Send", class: { btn: [ :base, { md: :base }, { primary: :solid } ] } %>
+          </div>
+        <% end %>
+      <% else %>
+        <p class="mt-8 rounded-md bg-gray-100 p-4 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">This conversation is read-only because it is closed or its agent profile is disabled.</p>
+      <% end %>
+    </section>
+
+    <aside aria-label="Agent activity and sources" class="min-w-0 space-y-6">
+      <%= render "plan", plan: @plan %>
+      <section class="rounded-lg bg-white p-5 shadow-sm outline-1 outline-gray-900/5 dark:bg-gray-800/50 dark:shadow-none dark:outline-white/10">
+        <h2 class="text-sm font-semibold">Activity</h2>
+        <ul id="agent_activities" role="list" class="mt-4 space-y-4"><%= render partial: "activity", collection: @activities %></ul>
+      </section>
+      <%= render "citations", citations: @citations %>
+    </aside>
+  </div>
+</div>

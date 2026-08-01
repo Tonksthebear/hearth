@@ -1,3 +1,5 @@
+require "digest"
+
 class Agent::Conversation < ApplicationRecord
   include Agent::Contextual
 
@@ -9,6 +11,10 @@ class Agent::Conversation < ApplicationRecord
 
   has_many :sessions, class_name: "Agent::Session", dependent: :restrict_with_exception
   has_many :messages, class_name: "Agent::Message", dependent: :restrict_with_exception
+  has_many :turns, class_name: "Agent::Turn", dependent: :restrict_with_exception
+  has_many :citations, class_name: "Agent::Citation", dependent: :restrict_with_exception
+  has_many :tool_activities, class_name: "Agent::ToolActivity", dependent: :restrict_with_exception
+  has_one :plan, class_name: "Agent::Plan", dependent: :destroy
   has_many :audit_events, class_name: "Agent::AuditEvent", dependent: :restrict_with_exception
   has_many :operational_authorizations, class_name: "Agent::OperationalAuthorization", dependent: :restrict_with_exception
   has_many :mutation_proposals, class_name: "Agent::MutationProposal", dependent: :restrict_with_exception
@@ -16,6 +22,35 @@ class Agent::Conversation < ApplicationRecord
   validates :title, presence: true
   validates :status, inclusion: { in: STATUSES }
   validate :profile_matches_household
+
+  def enqueue_turn!(body:, browser_session:, idempotency_key:)
+    existing = turns.find_by(browser_session: browser_session, idempotency_key: idempotency_key)
+    return existing if existing
+
+    transaction do
+      message = messages.create!(
+        household: household,
+        person: person,
+        role: "user",
+        body: body,
+        body_digest: Digest::SHA256.hexdigest(body),
+        source_kind: "hearth_fact"
+      )
+      turns.create!(
+        household: household,
+        person: person,
+        browser_session: browser_session,
+        user_message: message,
+        idempotency_key: idempotency_key
+      )
+    end
+  rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+    turns.find_by(browser_session: browser_session, idempotency_key: idempotency_key) || raise
+  end
+
+  def accepts_turns?
+    status == "active" && profile.enabled?
+  end
 
   def close!
     return self if status == "closed"

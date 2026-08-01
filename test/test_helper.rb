@@ -57,6 +57,9 @@ module ActiveSupport
       end
 
       def clear_installation
+        Agent::Turn.delete_all
+        Agent::Citation.delete_all
+        Agent::Plan.delete_all
         Agent::AuditEvent.delete_all
         Agent::MutationExecution.delete_all
         Agent::PermissionDecision.delete_all

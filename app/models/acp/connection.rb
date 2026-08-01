@@ -219,6 +219,13 @@ module Acp
       pop_with_deadline(@events, timeout)
     end
 
+    def poll_event(timeout: 0)
+      event = @events.pop(timeout: Float(timeout))
+      raise failure if event.nil? && failure
+
+      event
+    end
+
     def drain_events
       events = []
       loop { events << @events.pop(true) }

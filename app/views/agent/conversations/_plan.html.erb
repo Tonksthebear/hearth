@@ -1,0 +1,15 @@
+<section id="agent_plan" class="rounded-lg bg-white p-5 shadow-sm outline-1 outline-gray-900/5 dark:bg-gray-800/50 dark:shadow-none dark:outline-white/10">
+  <h2 class="text-sm font-semibold">Plan and progress</h2>
+  <% if plan&.entries&.any? %>
+    <ol class="mt-4 space-y-3">
+      <% plan.entries.each do |entry| %>
+        <li class="flex min-w-0 gap-3 text-sm">
+          <%= icon(entry["status"] == "completed" ? "check" : "clipboard-document-list", variant: :mini, class: "mt-0.5 size-5 shrink-0 text-primary-600 dark:text-primary-400") %>
+          <span class="min-w-0 break-words"><%= entry["content"] %></span>
+        </li>
+      <% end %>
+    </ol>
+  <% else %>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No active plan.</p>
+  <% end %>
+</section>
