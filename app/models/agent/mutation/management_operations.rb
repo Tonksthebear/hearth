@@ -220,7 +220,7 @@ module Agent::Mutation::ManagementOperations
           next unless arguments.key?(name)
           before_by_id = Array(before[name]).index_by { |row| row["id"].to_s }
           after[name] = arguments[name].map.with_index(1) do |row, position|
-            row = row.deep_stringify_keys
+            row = normalize_child_projection(type, name, row.deep_stringify_keys)
             prior = row["id"] ? before_by_id.fetch(row["id"].to_s, {}) : {}
             projected = prior.merge(row).merge("position" => position)
             if name == "blocks" && row.key?("prescriptions")
@@ -239,11 +239,17 @@ module Agent::Mutation::ManagementOperations
       end
 
       def project_recipe_reference_removals(after)
-        active_keys = Array(after["ingredients"]).map do |row|
-          row["id"] ? "ingredient-#{row['id']}" : row["key"]
-        end
+        active_keys = Array(after["ingredients"]).map { |row| row["key"] }
         Array(after["instructions"]).each do |instruction|
           instruction["ingredient_keys"] = Array(instruction["ingredient_keys"]) & active_keys
+        end
+      end
+
+      def normalize_child_projection(type, name, row)
+        return row unless type == "recipe" && name == "ingredients"
+
+        row.transform_keys("name" => "display_name", "quantity" => "display_quantity").tap do |ingredient|
+          ingredient["key"] = "ingredient-#{ingredient['id']}" if ingredient["id"]
         end
       end
 
@@ -294,7 +300,8 @@ module Agent::Mutation::ManagementOperations
       def child_identity(row) = (row["id"] || row["key"] || "position-#{row['position']}").to_s
 
       def compact_child(row)
-        { "identity" => child_identity(row), "position" => row["position"], "label" => summarized(row["name"] || row["title"] || row["label"] || row["body"]) }
+        label = row["name"] || row["display_name"] || row["title"] || row["label"] || row["body"]
+        { "identity" => child_identity(row), "position" => row["position"], "label" => summarized(label) }
       end
 
       def projection_summary(value)

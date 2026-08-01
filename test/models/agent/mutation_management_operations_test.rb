@@ -68,27 +68,34 @@ class Agent::MutationManagementOperationsTest < ActiveSupport::TestCase
     refute_equal "Staged title", recipe.reload.title
   end
 
-  test "recipe preview includes instruction reference removals induced by an ingredient-only update" do
+  test "recipe preview normalizes ingredient changes and induced instruction reference removals" do
     recipe = execute("create_recipe", {
       title: "Reference preview", provenance_status: "personal",
       ingredients: [
-        { key: "stock", name: "Stock" }, { key: "salt", name: "Salt" }
+        { key: "stock", name: "Stock", quantity: "2", unit: "cups" }, { key: "salt", name: "Salt" }
       ],
       instructions: [ { body: "Combine", ingredient_keys: %w[stock salt] } ]
     }, "reference-preview-create")
     kept = recipe.recipe_ingredients.find_by!(display_name: "Stock")
     arguments = {
       id: recipe.id,
-      ingredients: [ { id: kept.id, key: "stock", name: kept.display_name } ]
+      ingredients: [ { id: kept.id, key: "stock", name: "Chicken stock", quantity: "3", unit: "cups" } ]
     }
 
     proposal, token = stage("update_recipe", arguments, "reference-preview-update")
+    ingredient_changes = proposal.preview.dig("children", "ingredients", "updated").sole.fetch("changes").index_by { |change| change["field"] }
     instruction_change = proposal.preview.dig("children", "instructions", "updated").sole
       .fetch("changes").find { |change| change["field"] == "ingredient_keys" }
+
+    assert_equal [ "Stock", "Chicken stock" ], ingredient_changes.fetch("display_name").values_at("before", "after")
+    assert_equal [ "2", "3" ], ingredient_changes.fetch("display_quantity").values_at("before", "after")
+    assert_empty ingredient_changes.keys & %w[key name quantity]
     assert_equal [ kept.form_key ], instruction_change.fetch("after")
 
     proposal.decide!(outcome: "approved", by: users(:two), token: token)
-    assert_equal [ kept.id ], recipe.reload.recipe_instructions.sole.referenced_recipe_ingredient_ids
+    recipe.reload
+    assert_equal [ "Chicken stock", "3" ], kept.reload.values_at(:display_name, :display_quantity)
+    assert_equal [ kept.id ], recipe.recipe_instructions.sole.referenced_recipe_ingredient_ids
   end
 
   test "workout preview accepts long prescription text without duplicating prescriptions in the block diff" do
