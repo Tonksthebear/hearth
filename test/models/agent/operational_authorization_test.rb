@@ -48,7 +48,7 @@ class Agent::OperationalAuthorizationTest < ActiveSupport::TestCase
     agent_session.update!(status: "starting")
     grant = agent_session.issue_runtime_grant!.grant
     proposal, = Agent::MutationProposal.propose!(
-      grant: grant,
+      grant: grant, capability: "health.write",
       operation: "delete_meal",
       arguments: { id: meals(:sam_recipe_target_week).id },
       preview: {},

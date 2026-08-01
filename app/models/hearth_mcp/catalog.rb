@@ -3,6 +3,12 @@ require "mcp"
 module HearthMcp
   class Catalog
     MAX_REQUEST_BYTES = 256 * 1024
+    TOOL_GROUPS = {
+      "health.read" => -> { Tools::ALL },
+      "health.write" => -> { MutationTools::ALL },
+      "catalog.manage" => -> { ManagementTools::CATALOG },
+      "people.manage" => -> { ManagementTools::PEOPLE }
+    }.freeze
 
     class << self
       def transport(grant:)
@@ -30,11 +36,12 @@ module HearthMcp
       end
 
       def tools_for(grant)
-        tools = grant.allows_capability?("health.read") ? Tools::ALL.dup : []
-        if grant.allows_capability?("health.write") && grant.agent_session.active_operational_authorization
-          tools.concat(MutationTools::ALL)
-        end
-        tools
+        TOOL_GROUPS.flat_map do |capability, tools|
+          next [] unless grant.allows_capability?(capability)
+          next [] if capability == "health.write" && !grant.agent_session.active_operational_authorization
+
+          tools.call
+        end.uniq
       end
 
       private
@@ -68,7 +75,10 @@ module HearthMcp
         end
 
         def capability_for(tool_name)
-          MutationTools::ALL.any? { |tool| tool.tool_name == tool_name } ? "health.write" : "health.read"
+          TOOL_GROUPS.each do |capability, tools|
+            return capability if tools.call.any? { |tool| tool.tool_name == tool_name }
+          end
+          "health.read"
         end
     end
   end

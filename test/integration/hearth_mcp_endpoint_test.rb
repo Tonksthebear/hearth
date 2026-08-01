@@ -131,6 +131,45 @@ class HearthMcpEndpointTest < ActionDispatch::IntegrationTest
     Current.reset
   end
 
+  test "explicit management grant lists exact tools and executes one proposal through the browser decision path" do
+    sign_in_as users(:two)
+    Current.household = households(:home)
+    Current.person = people(:two)
+    @agent_session = Agent::Session.create!(
+      household: Current.household, person: Current.person,
+      conversation: agent_conversations(:active), installation: agent_installations(:local),
+      browser_session: Current.session, status: "starting", authentication_status: "authenticated",
+      mcp_authorization_status: "not_configured"
+    )
+    @credential = Agent::Grant.issue!(
+      conversation: @agent_session.conversation, agent_session: @agent_session,
+      capability_groups: %w[catalog_manage people_manage], expires_at: 10.minutes.from_now
+    )
+
+    listed = mcp_post(id: 80, method: "tools/list", params: {})
+    assert_equal HearthMcp::ManagementTools::CATALOG.map(&:tool_name) + HearthMcp::ManagementTools::PEOPLE.map(&:tool_name),
+      listed.dig("result", "tools").pluck("name")
+
+    called = mcp_post(id: 81, method: "tools/call", params: {
+      name: "create_person", arguments: { name: "MCP household member", idempotency_key: "endpoint-create-person" }
+    })
+    proposal = Agent::MutationProposal.find(called.dig("result", "structuredContent", "proposal_id"))
+    assert_equal "pending", proposal.status
+    assert_equal "people.manage", proposal.permission_request.capability
+    refute Person.exists?(household: households(:home), name: "MCP household member")
+
+    post agent_mutation_proposal_decision_path(proposal), params: {
+      outcome: "approved", confirmation_token: proposal.confirmation_token
+    }, as: :turbo_stream
+
+    assert_response :success
+    assert_equal "executed", proposal.reload.status
+    assert Person.exists?(household: households(:home), name: "MCP household member")
+    assert_equal "people.manage", Agent::ToolActivity.where(agent_session: @agent_session).sole.capability
+  ensure
+    Current.reset
+  end
+
   test "weekly target mutation rejects an empty no-op before staging a proposal" do
     enable_operational_writes
 

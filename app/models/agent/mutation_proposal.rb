@@ -6,6 +6,11 @@ class Agent::MutationProposal < ApplicationRecord
   include Agent::Contextual
 
   STATUSES = %w[ pending approved denied cancelled expired executed failed ].freeze
+  PREVIEW_MAX_BYTES = 64.kilobytes
+  PREVIEW_SUMMARY_MAX_LENGTH = 200
+  MANAGEMENT_PREVIEW_KEYS = %w[
+    version operation capability aggregate summary before_summary after_summary scalar_changes children basis
+  ].freeze
 
   belongs_to :household
   belongs_to :person
@@ -22,15 +27,17 @@ class Agent::MutationProposal < ApplicationRecord
     :confirmation_nonce, :confirmation_digest, :idempotency_key, :deadline_at, presence: true
   validates :status, inclusion: { in: STATUSES }
   validate :exact_context
+  validate :reviewable_preview_is_bounded
 
   scope :pending, -> { where(status: "pending") }
 
   before_validation :prepare_confirmation, on: :create
 
   class << self
-    def propose!(grant:, operation:, arguments:, preview:, expected_state:, idempotency_key:, deadline_at:)
+    def propose!(grant:, capability:, operation:, arguments:, preview:, expected_state:, idempotency_key:, deadline_at:)
       input_body = JSON.generate(arguments.deep_stringify_keys)
       input_digest = input_digest_for(arguments)
+      expected_state_digest = Digest::SHA256.hexdigest(JSON.generate(expected_state))
       existing = find_by(agent_session: grant.agent_session, idempotency_key: idempotency_key)
       if existing
         raise ArgumentError, "Idempotency key was reused with different input" unless existing.input_digest == input_digest
@@ -47,8 +54,11 @@ class Agent::MutationProposal < ApplicationRecord
         operation: operation,
         input_body: input_body,
         input_digest: input_digest,
-        expected_state_digest: Digest::SHA256.hexdigest(JSON.generate(expected_state)),
-        preview: preview,
+        expected_state_digest: expected_state_digest,
+        preview: preview.deep_stringify_keys.merge("basis" => {
+          "input_digest" => input_digest,
+          "expected_state_digest" => expected_state_digest
+        }),
         idempotency_key: idempotency_key,
         deadline_at: deadline_at
       )
@@ -58,7 +68,7 @@ class Agent::MutationProposal < ApplicationRecord
         actor: proposal.requested_by,
         outcome: "pending",
         body_digest: input_digest,
-        metadata: { "operation" => operation }
+        metadata: { "operation" => operation, "capability" => capability }
       )
       Agent::PermissionRequest.create!(
         household: grant.household,
@@ -68,7 +78,7 @@ class Agent::MutationProposal < ApplicationRecord
         mutation_proposal: proposal,
         external_request_id: "mutation-#{proposal.id}",
         tool_name: operation,
-        capability: "health.write",
+        capability: capability,
         input_body: input_body,
         input_digest: input_digest,
         deadline_at: deadline_at
@@ -286,9 +296,10 @@ class Agent::MutationProposal < ApplicationRecord
     end
 
     def staged_grant_active?
+      capability = permission_request&.capability || "health.write"
       agent_grant.revoked_at.nil? && agent_grant.expires_at > Time.current &&
-        agent_grant.allows_capability?("health.write") &&
-        agent_session.active_operational_authorization.present?
+        capability.present? && agent_grant.allows_capability?(capability) &&
+        (capability != "health.write" || agent_session.active_operational_authorization.present?)
     end
 
     def stable_failure_reason(error)
@@ -303,7 +314,27 @@ class Agent::MutationProposal < ApplicationRecord
     def audit!(event_type, by:, outcome:)
       Agent::AuditEvent.record!(
         subject: self, event_type: event_type, actor: by, outcome: outcome,
-        body_digest: input_digest, metadata: { "operation" => operation }
+        body_digest: input_digest, metadata: { "operation" => operation, "capability" => permission_request&.capability }
       )
+    end
+
+    def reviewable_preview_is_bounded
+      return if preview.blank?
+
+      errors.add(:preview, "must be no larger than 64 KiB") if JSON.generate(preview).bytesize > PREVIEW_MAX_BYTES
+      validate_management_preview if preview["capability"].in?(%w[catalog.manage people.manage])
+      preview.each_pair do |key, value|
+        next unless key.to_s.in?(%w[summary before_summary after_summary]) && value.is_a?(String)
+        errors.add(:preview, "summary values must be at most 200 characters") if value.length > PREVIEW_SUMMARY_MAX_LENGTH
+      end
+    end
+
+    def validate_management_preview
+      valid = preview.keys.sort == MANAGEMENT_PREVIEW_KEYS.sort &&
+        preview["version"] == 1 && preview["operation"] == operation &&
+        preview["aggregate"].is_a?(Hash) && preview["scalar_changes"].is_a?(Array) && preview["children"].is_a?(Hash) &&
+        preview.dig("basis", "input_digest") == input_digest &&
+        preview.dig("basis", "expected_state_digest") == expected_state_digest
+      errors.add(:preview, "must match the version 1 management diff contract") unless valid
     end
 end

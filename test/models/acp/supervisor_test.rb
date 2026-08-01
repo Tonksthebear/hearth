@@ -170,7 +170,7 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
         operation: "delete_meal", arguments: arguments, proposal: grant
       )
       proposal, token = Agent::MutationProposal.propose!(
-        grant: grant, operation: "delete_meal", arguments: arguments,
+        grant: grant, capability: "health.write", operation: "delete_meal", arguments: arguments,
         preview: Agent::Mutation::Operations.preview(operation: "delete_meal", arguments: arguments, context: grant),
         expected_state: expected, idempotency_key: idempotency_key, deadline_at: 5.seconds.from_now
       )
@@ -236,7 +236,7 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     meal = meals(:sam_recipe_target_week)
     arguments = { "id" => meal.id }
     proposal, = Agent::MutationProposal.propose!(
-      grant: grant, operation: "delete_meal", arguments: arguments, preview: {},
+      grant: grant, capability: "health.write", operation: "delete_meal", arguments: arguments, preview: {},
       expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: grant),
       idempotency_key: "permission-mismatch", deadline_at: 1.minute.from_now
     )
@@ -316,7 +316,7 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     meal = meals(:sam_recipe_target_week)
     arguments = { id: meal.id }
     proposal, = Agent::MutationProposal.propose!(
-      grant: grant, operation: "delete_meal", arguments: arguments, preview: {},
+      grant: grant, capability: "health.write", operation: "delete_meal", arguments: arguments, preview: {},
       expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: grant),
       idempotency_key: "sweep-expired-proposal", deadline_at: 1.minute.from_now
     )
@@ -418,7 +418,7 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     def stage_delete_proposal(grant, meal, idempotency_key, deadline_at)
       arguments = { id: meal.id }
       Agent::MutationProposal.propose!(
-        grant: grant, operation: "delete_meal", arguments: arguments, preview: {},
+        grant: grant, capability: "health.write", operation: "delete_meal", arguments: arguments, preview: {},
         expected_state: Agent::Mutation::Operations.expected_state(operation: "delete_meal", arguments: arguments, proposal: grant),
         idempotency_key: idempotency_key, deadline_at: deadline_at
       )

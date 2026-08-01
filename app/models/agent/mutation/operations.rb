@@ -46,6 +46,8 @@ module Agent::Mutation::Operations
     end
 
     def preview(operation:, arguments:, context:)
+      return Agent::Mutation::ManagementOperations.preview(operation:, arguments:, context:) if Agent::Mutation::ManagementOperations.handles?(operation)
+
       arguments = arguments.deep_stringify_keys
       record = record_for(operation, arguments, context)
       {
@@ -69,6 +71,8 @@ module Agent::Mutation::Operations
     end
 
     def validate_arguments!(operation:, arguments:)
+      return Agent::Mutation::ManagementOperations.validate_arguments!(operation:, arguments:) if Agent::Mutation::ManagementOperations.handles?(operation)
+
       arguments = arguments.deep_stringify_keys
       if operation == "update_weekly_dose_targets" && arguments.slice(*WEEKLY_TARGET_KEYS).empty?
         raise ArgumentError, "At least one weekly dose target is required"
@@ -77,6 +81,8 @@ module Agent::Mutation::Operations
 
     private
       def dispatch(operation, arguments, context)
+        return Agent::Mutation::ManagementOperations.execute!(operation:, arguments:, context:) if Agent::Mutation::ManagementOperations.handles?(operation)
+
         case operation
         when "create_planned_meal" then create_planned_meal(arguments, context)
         when "update_planned_meal" then update_planned_meal(arguments, context)
@@ -262,6 +268,8 @@ module Agent::Mutation::Operations
       end
 
       def record_for(operation, arguments, context)
+        return Agent::Mutation::ManagementOperations.record_for(operation:, arguments:, context:) if Agent::Mutation::ManagementOperations.handles?(operation)
+
         id = arguments["id"]
         case operation
         when "update_planned_meal", "delete_planned_meal"
@@ -315,6 +323,7 @@ module Agent::Mutation::Operations
       def snapshot(record)
         return record if record.is_a?(Hash)
         return {} unless record
+        return Agent::Mutation::ManagementOperations.snapshot(record) if Agent::Mutation::ManagementOperations.management_record?(record)
         case record
         when Meal
           record.as_json.except("created_at", "updated_at").merge(
