@@ -13,6 +13,8 @@ class Agent::Grant < ApplicationRecord
     "catalog_manage" => %w[ catalog.manage ],
     "people_manage" => %w[ people.manage ]
   }.freeze
+  DEFAULT_RUNTIME_GROUPS = %w[ health_read knowledge_read knowledge_submit ].freeze
+  READ_ONLY_RUNTIME_GROUPS = %w[ health_read knowledge_read ].freeze
 
   belongs_to :household
   belongs_to :person
@@ -98,16 +100,19 @@ class Agent::Grant < ApplicationRecord
       grant
     end
 
-    def issue_runtime!(agent_session:)
+    def issue_runtime!(agent_session:, capability_groups: nil)
       raise ArgumentError, "Persisted starting ACP session is required" unless
         agent_session&.persisted? && agent_session.status == "starting"
+      if capability_groups && capability_groups.map(&:to_s) != READ_ONLY_RUNTIME_GROUPS
+        raise ArgumentError, "Runtime capability narrowing is limited to the fixed read-only acceptance set"
+      end
 
       locator = SecureRandom.hex(16)
       secret = SecureRandom.urlsafe_base64(32)
       transaction do
         authorization = agent_session.active_operational_authorization
-        capability_groups = %w[ health_read knowledge_read knowledge_submit ]
-        capability_groups << "health_write" if authorization
+        capability_groups = capability_groups&.map(&:to_s)&.dup || DEFAULT_RUNTIME_GROUPS.dup
+        capability_groups << "health_write" if authorization && capability_groups == DEFAULT_RUNTIME_GROUPS
         grant = create!(
           household: agent_session.household,
           person: agent_session.person,

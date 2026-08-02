@@ -23,6 +23,14 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     end
   end
 
+  test "acceptance supervisor issues the fixed read-only grant without changing the default" do
+    with_supervisor(runtime_capability_groups: Agent::Grant::READ_ONLY_RUNTIME_GROUPS) do |supervisor|
+      agent_session = supervisor.start_session(conversation: agent_conversations(:active))
+
+      assert_equal %w[health_read knowledge_read], agent_session.grants.active_at.sole.capability_groups
+    end
+  end
+
   test "advertised default and sole methods send no authenticate frame without operator approval" do
     %w[default_auth sole_auth].each do |mode|
       Dir.mktmpdir("hearth-auth-wire") do |directory|
@@ -597,14 +605,15 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     end
 
     def with_supervisor(mode: "normal", timeout: 2, recovery_backoffs: [ 0, 0, 0 ],
-      on_fatal: ->(_session, _error) { }, connection_factory: nil)
+      on_fatal: ->(_session, _error) { }, connection_factory: nil, runtime_capability_groups: nil)
       with_instance_root do |root|
         configure_profile
         supervisor = Acp::Supervisor.new(
           instance_root: root,
           connection_factory: connection_factory || self.connection_factory(modes: [ mode ], timeout: timeout),
           recovery_backoffs: recovery_backoffs,
-          on_fatal: on_fatal
+          on_fatal: on_fatal,
+          runtime_capability_groups: runtime_capability_groups
         ).start!
         yield supervisor
       ensure

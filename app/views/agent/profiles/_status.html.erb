@@ -1,0 +1,13 @@
+<% styles = {
+  "not_checked" => "bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300",
+  "pending" => "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-400/10 dark:text-blue-300",
+  "running" => "bg-yellow-50 text-yellow-800 ring-1 ring-inset ring-yellow-600/20 dark:bg-yellow-400/10 dark:text-yellow-300",
+  "succeeded" => "bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-400/10 dark:text-green-300",
+  "failed" => "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10 dark:bg-red-400/10 dark:text-red-300",
+  "cancelled" => "bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300",
+  "expired" => "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10 dark:bg-red-400/10 dark:text-red-300"
+} %>
+<span class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium <%= styles.fetch(status) %>">
+  <span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
+  <%= status.humanize %>
+</span>

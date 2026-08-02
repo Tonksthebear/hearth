@@ -76,8 +76,8 @@ class Agent::Session < ApplicationRecord
     self
   end
 
-  def issue_runtime_grant!
-    Agent::Grant.issue_runtime!(agent_session: self)
+  def issue_runtime_grant!(capability_groups: nil)
+    Agent::Grant.issue_runtime!(agent_session: self, capability_groups: capability_groups)
   end
 
   def active_operational_authorization(at: Time.current)

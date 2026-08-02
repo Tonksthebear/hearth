@@ -115,11 +115,17 @@ Agent executable, argv, contained working directory, environment-name allowlist,
 and manual update policy live on `Agent::Profile`. Session transport and recovery
 truth live in the database; `.hearth/tmp/acp` contains only restrictive lock/PID
 state. Run `bin/hearth agents --root PATH` to distinguish installed provider CLIs
-from available ACP adapters. Then run `bin/hearth agent setup --root PATH --profile grok`
-in a TTY. Hearth shows the executable, version, advertised methods, and third-party
-credential-store ownership before confirmation. It persists only the selected method,
-status, timestamp, and `operator_command` origin—not credentials. Runtime startup and
-recovery never infer consent from a default or sole advertised method.
+from available ACP adapters. After signing in, open **Agent settings** from the person menu to re-check certified providers, enable one, and explicitly approve an advertised authentication method. Hearth persists only method identity and setup state; provider credentials remain in the provider-owned store.
+
+`bin/hearth agent setup --root PATH --profile grok` remains the recovery/headless path. It uses the same durable setup requests as the web UI. Headless use requires both `--yes` and an explicit `--auth-method ID`; it never accepts credentials, executable paths, argv, or environment values.
+
+The deterministic ACP/browser acceptance remains part of normal CI. The real-Grok seam is separate, credential-bearing, and opt-in:
+
+```sh
+HEARTH_REAL_GROK_SYSTEM_TEST=1 bin/agent-grok-acceptance
+```
+
+That command initializes a temporary synthetic Hearth instance, proves all four database roles stay beneath it before starting Puma or the sibling runtime, unsets Lorester integration, narrows runtime grants to `health_read` and `knowledge_read`, and writes only sanitized evidence to `docs/acp-evidence/grok-web-setup.jsonl`. It is intentionally absent from `bin/ci`. Runtime startup and recovery never infer consent from a default or sole advertised method.
 
 ## UI assets
 

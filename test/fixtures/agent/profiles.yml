@@ -1,5 +1,6 @@
 hearth:
   household: home
+  certified_key: grok
   name: Test ACP agent
   executable_path: test-agent
   arguments: []

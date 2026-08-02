@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_01_121000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_02_010000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -366,6 +366,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_121000) do
 
   create_table "agent_profiles", force: :cascade do |t|
     t.json "arguments", default: [], null: false
+    t.string "certified_key"
     t.datetime "created_at", null: false
     t.boolean "enabled", default: true, null: false
     t.json "environment_keys", default: [], null: false
@@ -375,9 +376,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_121000) do
     t.string "update_policy", default: "manual", null: false
     t.datetime "updated_at", null: false
     t.string "working_directory"
+    t.index ["household_id", "certified_key"], name: "index_agent_profiles_on_household_and_certified_key", unique: true, where: "certified_key IS NOT NULL"
     t.index ["household_id", "name"], name: "index_agent_profiles_on_household_id_and_name", unique: true
     t.index ["household_id"], name: "index_agent_profiles_on_household_id"
     t.check_constraint "update_policy = 'manual'", name: "agent_profiles_manual_update_policy"
+  end
+
+  create_table "agent_runtime_statuses", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "failure_category"
+    t.datetime "heartbeat_at", null: false
+    t.integer "household_id", null: false
+    t.string "owner", null: false
+    t.datetime "started_at", null: false
+    t.string "status", default: "online", null: false
+    t.datetime "stopped_at"
+    t.datetime "updated_at", null: false
+    t.index ["household_id"], name: "index_agent_runtime_statuses_on_household_id", unique: true
+    t.check_constraint "status IN ('online', 'stopped', 'failed')", name: "agent_runtime_statuses_status"
   end
 
   create_table "agent_sessions", force: :cascade do |t|
@@ -410,6 +426,39 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_121000) do
     t.check_constraint "mcp_authorization_status IN ('not_configured', 'authorized', 'reauthorization_required')", name: "agent_sessions_mcp_authorization_status"
     t.check_constraint "recovery_attempts >= 0", name: "agent_sessions_nonnegative_recovery_attempts"
     t.check_constraint "status IN ('starting', 'connected', 'disconnected', 'closed', 'failed')", name: "agent_sessions_status"
+  end
+
+  create_table "agent_setup_requests", force: :cascade do |t|
+    t.string "action", null: false
+    t.boolean "adapter_available"
+    t.string "adapter_version"
+    t.string "authentication_method_id"
+    t.datetime "cancel_requested_at"
+    t.string "certified_key", null: false
+    t.datetime "claimed_at"
+    t.string "claimed_by"
+    t.boolean "cli_available"
+    t.string "cli_version"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "dispatched_at"
+    t.string "error_category"
+    t.string "error_message"
+    t.datetime "heartbeat_at"
+    t.integer "household_id", null: false
+    t.string "idempotency_key", null: false
+    t.datetime "lease_expires_at"
+    t.string "origin", null: false
+    t.integer "requested_by_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id", "idempotency_key"], name: "index_agent_setup_requests_on_household_and_idempotency", unique: true
+    t.index ["household_id"], name: "index_agent_setup_requests_on_household_id"
+    t.index ["requested_by_id"], name: "index_agent_setup_requests_on_requested_by_id"
+    t.index ["status", "created_at"], name: "index_agent_setup_requests_on_status_and_created_at"
+    t.check_constraint "action IN ('detect', 'enable', 'authenticate', 'reauthenticate', 'disable')", name: "agent_setup_requests_action"
+    t.check_constraint "origin IN ('web', 'cli')", name: "agent_setup_requests_origin"
+    t.check_constraint "status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled', 'expired')", name: "agent_setup_requests_status"
   end
 
   create_table "agent_tool_activities", force: :cascade do |t|
@@ -1150,11 +1199,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_01_121000) do
   add_foreign_key "agent_plans", "households"
   add_foreign_key "agent_plans", "people"
   add_foreign_key "agent_profiles", "households"
+  add_foreign_key "agent_runtime_statuses", "households"
   add_foreign_key "agent_sessions", "agent_conversations", column: "conversation_id"
   add_foreign_key "agent_sessions", "agent_installations", column: "installation_id"
   add_foreign_key "agent_sessions", "households"
   add_foreign_key "agent_sessions", "people"
   add_foreign_key "agent_sessions", "sessions", column: "browser_session_id", on_delete: :nullify
+  add_foreign_key "agent_setup_requests", "households"
+  add_foreign_key "agent_setup_requests", "users", column: "requested_by_id"
   add_foreign_key "agent_tool_activities", "agent_conversations", column: "conversation_id"
   add_foreign_key "agent_tool_activities", "agent_sessions"
   add_foreign_key "agent_tool_activities", "households"

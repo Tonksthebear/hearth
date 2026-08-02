@@ -3,9 +3,18 @@ require "timeout"
 
 class Agent::Profile::Certified
   Definition = Data.define(
-    :key, :name, :cli_command, :adapter_command, :arguments, :environment_keys, :credential_store
+    :key, :name, :cli_command, :adapter_command, :arguments, :environment_keys, :credential_store, :guidance_url
   )
   Probe = Data.define(:definition, :executable_path, :cli_path, :version, :initialized, :connection)
+  State = Data.define(:candidate, :profile, :installation, :request, :detection, :runtime_status) do
+    delegate :definition, to: :candidate
+
+    def enabled? = profile&.enabled? || false
+    def authentication_methods = installation&.authentication_methods || []
+    def authentication_status = installation&.authentication_status || "unknown"
+    def request_status = request&.status || "not_checked"
+    def runtime_online? = runtime_status&.online? || false
+  end
 
   DEFINITIONS = [
     Definition.new(
@@ -14,8 +23,9 @@ class Agent::Profile::Certified
       cli_command: "grok",
       adapter_command: "grok",
       arguments: %w[--no-auto-update agent stdio],
-      environment_keys: %w[HOME PATH XDG_CONFIG_HOME GROK_API_KEY],
-      credential_store: "Grok Build's documented local credential store"
+      environment_keys: %w[HOME PATH XDG_CONFIG_HOME XAI_API_KEY],
+      credential_store: "Grok Build's documented local credential store",
+      guidance_url: "https://docs.x.ai/build/overview"
     ),
     Definition.new(
       key: "codex",
@@ -24,7 +34,8 @@ class Agent::Profile::Certified
       adapter_command: "codex-acp",
       arguments: [],
       environment_keys: %w[HOME PATH CODEX_HOME OPENAI_API_KEY],
-      credential_store: "Codex's documented local credential store"
+      credential_store: "Codex's documented local credential store",
+      guidance_url: "https://developers.openai.com/codex"
     ),
     Definition.new(
       key: "claude",
@@ -33,7 +44,8 @@ class Agent::Profile::Certified
       adapter_command: "claude-agent-acp",
       arguments: [],
       environment_keys: %w[HOME PATH XDG_CONFIG_HOME ANTHROPIC_API_KEY],
-      credential_store: "Claude's documented local credential store"
+      credential_store: "Claude's documented local credential store",
+      guidance_url: "https://docs.anthropic.com/en/docs/claude-code"
     )
   ].index_by(&:key).freeze
 
@@ -47,6 +59,8 @@ class Agent::Profile::Certified
     new(DEFINITIONS.fetch(key.to_s) { raise ArgumentError, "Unknown certified profile: #{key}" })
   end
 
+  def self.keys = DEFINITIONS.keys
+
   def initialize(definition)
     @definition = definition
   end
@@ -55,17 +69,30 @@ class Agent::Profile::Certified
   def executable_path = resolve(definition.adapter_command)
   def cli_available? = cli_path.present?
   def transport_available? = executable_path.present?
+  def cli_version = version_for(cli_path)
 
   def detection
     {
       key: definition.key,
       name: definition.name,
       cli: cli_path,
-      cli_version: version_for(cli_path),
+      cli_version: cli_version,
       acp_executable: executable_path,
       acp_available: transport_available?,
       credential_store: definition.credential_store
     }
+  end
+
+  def state_for(household)
+    profile = household.agent_profiles.find_by(certified_key: definition.key)
+    State.new(
+      candidate: self,
+      profile: profile,
+      installation: profile&.installations&.order(last_seen_at: :desc)&.first,
+      request: household.agent_setup_requests.where(certified_key: definition.key).order(created_at: :desc, id: :desc).first,
+      detection: household.agent_setup_requests.where(certified_key: definition.key).where.not(adapter_available: nil).order(created_at: :desc, id: :desc).first,
+      runtime_status: household.agent_runtime_status
+    )
   end
 
   def with_probe(instance:, &block)
@@ -91,22 +118,20 @@ class Agent::Profile::Certified
     connection&.stop
   end
 
-  def persist_authentication!(household:, probe:, method_id: nil)
-    profile = household.agent_profiles.find_or_initialize_by(name: definition.name)
+  def observe_probe!(household:, probe:, enabled: true)
+    profile = household.agent_profiles.find_or_initialize_by(certified_key: definition.key)
     profile.assign_attributes(
+      name: definition.name,
       executable_path: probe.executable_path,
       arguments: definition.arguments,
       environment_keys: definition.environment_keys,
       working_directory: nil,
       update_policy: "manual",
-      enabled: true
+      enabled: enabled
     )
     profile.save!
 
-    installation = profile.installations.find_or_initialize_by(
-      household: household,
-      external_id: "profile-#{profile.id}"
-    )
+    installation = profile.installations.find_or_initialize_by(household: household, external_id: "profile-#{profile.id}")
     installation.executable_path = probe.executable_path
     installation.protocol_version ||= probe.initialized.fetch("protocolVersion")
     installation.save! if installation.new_record?
@@ -118,13 +143,17 @@ class Agent::Profile::Certified
       authentication_status: methods.empty? ? "not_required" : "required",
       agent_version: probe.connection.agent_info["version"] || probe.version
     )
-    return installation if methods.empty?
+    installation.require_authentication! if methods.any?
+    installation
+  end
 
+  def authenticate_probe!(household:, probe:, method_id:, origin:)
+    installation = observe_probe!(household: household, probe: probe)
     selected = probe.connection.authentication_method_id(method_id)
     raise ArgumentError, "Select one advertised authentication method" unless selected
 
     probe.connection.authenticate(selected)
-    installation.approve_authentication!(method_id: selected)
+    installation.approve_authentication!(method_id: selected, origin: origin)
     installation
   rescue Acp::Connection::Error
     installation&.authentication_failed!

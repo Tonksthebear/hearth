@@ -1,6 +1,22 @@
 require "test_helper"
 
 class Agent::GrantTest < ActiveSupport::TestCase
+  test "runtime grant defaults retain knowledge submission" do
+    grant = create_runtime_session.issue_runtime_grant!.grant
+
+    assert_equal %w[health_read knowledge_read knowledge_submit], grant.capability_groups
+  end
+
+  test "runtime grant accepts only the fixed read-only acceptance set" do
+    grant = create_runtime_session.issue_runtime_grant!(
+      capability_groups: Agent::Grant::READ_ONLY_RUNTIME_GROUPS
+    ).grant
+
+    assert_equal %w[health_read knowledge_read], grant.capability_groups
+    assert_raises(ArgumentError) do
+      create_runtime_session.issue_runtime_grant!(capability_groups: %w[health_read knowledge_submit])
+    end
+  end
   setup do
     Current.session = sessions(:browser)
     Current.household = households(:home)

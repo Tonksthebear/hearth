@@ -1,0 +1,87 @@
+<% request = provider.request %>
+<% detection = provider.detection %>
+<article id="agent_provider_<%= provider.definition.key %>" class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+  <div class="px-4 py-5 sm:px-6">
+    <div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="truncate text-base font-semibold text-gray-900 dark:text-white"><%= provider.definition.name %></h2>
+          <%= render "agent/profiles/status", status: provider.request_status %>
+        </div>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Certified provider: <%= provider.definition.key %></p>
+      </div>
+      <%= button_to "Re-check availability", agent_setup_requests_path,
+            params: { setup_request: { certified_key: provider.definition.key, action: "detect", idempotency_key: SecureRandom.uuid } },
+            class: { btn: [ :base, { sm: :base }, { neutral: :outline } ] } %>
+    </div>
+
+    <dl class="mt-5 grid grid-cols-1 gap-4 border-t border-gray-100 pt-5 sm:grid-cols-3 dark:border-white/10">
+      <div>
+        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Provider CLI</dt>
+        <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white"><%= detection ? (detection.cli_available? ? "Installed" : "Not detected") : "Not checked" %></dd>
+        <% if detection&.cli_version.present? %><dd class="truncate text-xs text-gray-500 dark:text-gray-400"><%= detection.cli_version %></dd><% end %>
+      </div>
+      <div>
+        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">ACP adapter</dt>
+        <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white"><%= detection ? (detection.adapter_available? ? "Available" : "Missing") : "Not checked" %></dd>
+        <% if detection&.adapter_version.present? %><dd class="truncate text-xs text-gray-500 dark:text-gray-400"><%= detection.adapter_version %></dd><% end %>
+      </div>
+      <div>
+        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Hearth profile</dt>
+        <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white"><%= provider.enabled? ? "Enabled" : "Disabled" %></dd>
+        <dd class="text-xs text-gray-500 dark:text-gray-400">Authentication: <%= provider.authentication_status.humanize.downcase %></dd>
+      </div>
+    </dl>
+  </div>
+
+  <% if request&.error_message.present? %>
+    <div class="border-t border-red-200 bg-red-50 px-4 py-4 sm:px-6 dark:border-red-500/20 dark:bg-red-500/10" role="alert">
+      <p class="text-sm font-medium text-red-800 dark:text-red-100"><%= request.error_message %></p>
+    </div>
+  <% elsif detection && !detection.adapter_available? %>
+    <div class="border-t border-yellow-200 bg-yellow-50 px-4 py-4 sm:px-6 dark:border-yellow-500/20 dark:bg-yellow-500/10" role="status">
+      <p class="text-sm text-yellow-800 dark:text-yellow-100">Hearth cannot install provider software. Follow the provider's official installation guidance, then re-check.</p>
+      <%= link_to "Open provider guidance", provider.definition.guidance_url, class: "mt-2 inline-flex text-sm font-semibold text-yellow-900 underline underline-offset-2 dark:text-yellow-100", target: "_blank", rel: "noopener noreferrer" %>
+    </div>
+  <% end %>
+
+  <% if provider.enabled? && provider.authentication_methods.any? && provider.authentication_status != "authenticated" %>
+    <div class="border-t border-gray-100 px-4 py-5 sm:px-6 dark:border-white/10">
+      <%= form_with url: agent_setup_requests_path, scope: :setup_request, class: "space-y-4" do |form| %>
+        <%= form.hidden_field :certified_key, value: provider.definition.key %>
+        <%= form.hidden_field :action, value: provider.authentication_status == "failed" ? "reauthenticate" : "authenticate" %>
+        <%= form.hidden_field :idempotency_key, value: SecureRandom.uuid %>
+        <fieldset>
+          <legend class="text-sm font-semibold text-gray-900 dark:text-white">Choose and approve an authentication method</legend>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Selection is required even when the provider advertises only one method. Hearth stores the method ID and name, never provider instructions or credential paths.</p>
+          <div class="mt-3 space-y-2">
+            <% provider.authentication_methods.each do |method| %>
+              <label class="flex cursor-pointer items-center gap-3 rounded-md border border-gray-200 p-3 has-[:checked]:border-primary-600 has-[:checked]:ring-1 has-[:checked]:ring-primary-600 dark:border-white/10 dark:has-[:checked]:border-primary-400">
+                <%= form.radio_button :authentication_method_id, method.fetch("id"), required: true, class: "size-4 border-gray-300 text-primary-600 focus:ring-primary-600" %>
+                <span class="min-w-0"><span class="block text-sm font-medium text-gray-900 dark:text-white"><%= method["name"].presence || method.fetch("id") %></span><span class="block truncate text-xs text-gray-500 dark:text-gray-400"><%= method.fetch("id") %></span></span>
+              </label>
+            <% end %>
+          </div>
+        </fieldset>
+        <%= form.submit "Approve authentication", class: { btn: [ :base, { md: :base }, { primary: :solid } ] } %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div class="border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex sm:items-center sm:justify-between sm:px-6 dark:border-white/10 dark:bg-white/2.5">
+    <p class="text-sm text-gray-600 dark:text-gray-400"><%= provider.runtime_online? ? "Sibling ACP runtime online" : "Sibling ACP runtime offline or stale; queued work will resume when Hearth is serving." %></p>
+    <div class="mt-3 flex flex-wrap gap-2 sm:mt-0">
+      <% if request&.cancellable? %>
+        <%= button_to "Cancel request", agent_setup_request_cancellation_path(request), class: { btn: [ :base, { sm: :base }, { neutral: :outline } ] } %>
+      <% end %>
+      <% if !provider.enabled? && detection&.adapter_available? %>
+        <%= button_to "Enable", agent_setup_requests_path, params: { setup_request: { certified_key: provider.definition.key, action: "enable", idempotency_key: SecureRandom.uuid } }, class: { btn: [ :base, { sm: :base }, { primary: :solid } ] } %>
+      <% elsif provider.enabled? %>
+        <%= button_to "Disable and revoke", agent_setup_requests_path,
+              params: { setup_request: { certified_key: provider.definition.key, action: "disable", idempotency_key: SecureRandom.uuid } },
+              form: { data: { turbo_confirm: "Disable this agent and revoke its Hearth access? Provider credentials will not be changed." } },
+              class: { btn: [ :base, { sm: :base }, { danger: :outline } ] } %>
+      <% end %>
+    </div>
+  </div>
+</article>

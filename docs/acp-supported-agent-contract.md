@@ -44,6 +44,22 @@ bin/hearth-acp-runtime \
   --conversation CONVERSATION_ID
 ```
 
+## Authenticated web setup
+
+Once the instance and first household user exist, `/agent/profiles` is the primary certified-agent setup surface. Browser controllers only authorize and enqueue household-owned `Agent::SetupRequest` rows. They never probe executables, construct `Acp::Supervisor`, spawn a process, write ACP stdio, or accept runtime configuration.
+
+The sibling runtime atomically claims `detect`, `enable`, `authenticate`, `reauthenticate`, and `disable` requests. Authentication always requires an explicitly selected advertised method ID, including when only one method is advertised. Persisted method snapshots contain only `id` and `name`; provider descriptions, credentials, OAuth artifacts, paths, argv, and environment values are excluded.
+
+Availability is deliberately separated into provider CLI presence/version, ACP adapter presence/version, Hearth profile enabled state, authentication state, runtime liveness, and conversation operational permission. Grok Build installation and ACP invocation are documented by [xAI's official Grok Build guide](https://docs.x.ai/build/overview) and [headless/ACP reference](https://docs.x.ai/build/cli/headless-scripting). Codex and Claude are reported as CLI-installed but ACP-unavailable unless their separately certified adapter executables are actually detected; Hearth does not invent or bundle an adapter.
+
+`bin/hearth agent setup` is a recovery/headless client of the same durable request model. It accepts a certified key and explicit advertised method identity only. Dispatched authentication with an uncertain outcome expires and requires a fresh approval; it is never replayed automatically.
+
+## Real-provider acceptance
+
+`HEARTH_REAL_GROK_SYSTEM_TEST=1 bin/agent-grok-acceptance` is the distinct, opt-in real-provider seam. It is not called by `bin/rails test`, `bin/agent-chat-acceptance`, or `bin/ci`. The harness uses a newly initialized temporary instance with synthetic demo data, verifies primary/cache/queue/cable paths before startup, unsets Lorester integration, uses the existing Grok-owned credential store without inspecting it, and grants exactly `health_read` plus `knowledge_read` for one bounded Coach turn.
+
+The post-run audit requires zero knowledge submissions, write tool activity, mutation proposals/executions, write/submit permission requests, and operational authorizations. It also proves the ACP child belongs to the sibling runtime and replaces `docs/acp-evidence/grok-web-setup.jsonl` with one allowlisted sanitized result row.
+
 `Agent::Profile` supplies a single executable plus JSON argv, a working directory
 contained by the instance root, an environment-name allowlist, and manual update
 policy. The runtime never evaluates a shell command. To recover a persisted

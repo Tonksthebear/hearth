@@ -54,6 +54,51 @@ class AcpRuntimeTest < ActiveSupport::TestCase
     end
   end
 
+  test "sibling runtime claims web setup and persists only advertised method identity" do
+    with_instance_root do |root|
+      executable_directory = File.join(root, "bin")
+      FileUtils.mkdir_p(executable_directory)
+      fake_grok = File.join(executable_directory, "grok")
+      File.write(fake_grok, <<~RUBY)
+        #!/usr/bin/env ruby
+        ENV["FAKE_ACP_MODE"] = "credential_path_auth"
+        load #{FAKE_AGENT.inspect}
+      RUBY
+      FileUtils.chmod(0o700, fake_grok)
+      environment = {
+        "PATH" => "#{executable_directory}#{File::PATH_SEPARATOR}#{ENV.fetch('PATH')}"
+      }
+      profile = agent_profiles(:hearth)
+      profile.update!(enabled: false)
+      enable_request = Agent::SetupRequest.enqueue!(household: households(:home), requested_by: users(:two),
+        certified_key: "grok", action: "enable", idempotency_key: "runtime-web-enable")
+
+      enable_runtime = start_runtime(root, environment: environment)
+      enable_result = enable_runtime.wait
+
+      assert_predicate enable_result.fetch(:status), :success?, enable_result.fetch(:stderr)
+      assert_equal "succeeded", enable_request.reload.status
+      installation = Agent::Installation.uncached { Agent::Installation.where(profile: profile).order(:id).last }
+      assert_equal [ { "id" => "fake-auth", "name" => "Fake authentication" } ], installation.authentication_methods
+      assert_no_match(/hearth-credential-canary|provider-token/, installation.attributes.to_json)
+      assert_equal "required", installation.authentication_status
+
+      authenticate_request = Agent::SetupRequest.enqueue!(household: households(:home), requested_by: users(:two),
+        certified_key: "grok", action: "authenticate", authentication_method_id: "fake-auth",
+        idempotency_key: "runtime-web-authenticate")
+      authenticate_runtime = start_runtime(root, environment: environment)
+      authenticate_result = authenticate_runtime.wait
+
+      assert_predicate authenticate_result.fetch(:status), :success?, authenticate_result.fetch(:stderr)
+      assert_equal "succeeded", authenticate_request.reload.status
+      assert_equal "authenticated", installation.reload.authentication_status
+      assert_equal "web_setting", installation.authentication_origin
+    ensure
+      authenticate_runtime&.stop
+      enable_runtime&.stop
+    end
+  end
+
   test "production runtime remains agent parent across an unconditional Puma stop and restart" do
     with_instance_root do |root|
       configure_runtime_profile

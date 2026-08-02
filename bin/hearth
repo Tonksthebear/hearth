@@ -2,6 +2,7 @@
 
 require "optparse"
 require "pathname"
+require "securerandom"
 
 File.umask(0o077)
 
@@ -11,6 +12,8 @@ port = 3000
 demo = false
 profile_key = "grok"
 live = false
+authentication_method_id = nil
+confirmed = false
 
 parser = OptionParser.new do |options|
   options.banner = "Usage: bin/hearth COMMAND [options]"
@@ -19,6 +22,8 @@ parser = OptionParser.new do |options|
   options.on("--demo", "Initialize the existing demo data") { demo = true }
   options.on("--profile KEY", "Certified agent profile key") { |value| profile_key = value }
   options.on("--live", "Explicitly allow live provider certification") { live = true }
+  options.on("--auth-method ID", "Explicit advertised ACP authentication method for headless recovery") { |value| authentication_method_id = value }
+  options.on("--yes", "Confirm the selected certified setup action") { confirmed = true }
 end
 parser.parse!(ARGV)
 
@@ -92,33 +97,61 @@ begin
         profile = household.agent_profiles.find_by!(name: Agent::Profile::Certified.fetch(profile_key).definition.name)
         puts Acp::Conformance.new(instance: instance, profile: profile, live: true).run!
       else
-        abort "Agent authentication requires an interactive terminal" unless $stdin.tty? && $stdout.tty?
         household = Household.order(:id).sole
         candidate = Agent::Profile::Certified.fetch(profile_key)
-        candidate.with_probe(instance: instance) do |probe|
-          methods = probe.connection.auth_methods
-          puts "Agent: #{probe.definition.name}"
-          puts "Executable: #{File.basename(probe.executable_path)}"
-          puts "Version: #{probe.version || "unreported"}"
-          puts "Credentials remain in #{probe.definition.credential_store}; Hearth never stores them."
-          if methods.empty?
-            puts "Authentication: not required"
+        interactive = $stdin.tty? && $stdout.tty?
+        abort "Headless setup requires --yes and --auth-method when authentication is advertised" unless interactive || confirmed
+        execute_request = lambda do |request|
+          status = household.agent_runtime_status
+          if status&.online?
+            deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 35
+            until request.reload.terminal?
+              abort "Sibling ACP runtime did not finish the setup request" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+              sleep 0.1
+            end
           else
-            methods.each_with_index do |method, index|
-              puts "#{index + 1}. #{method['name'] || method['id']}"
+            begin
+              supervisor = Acp::Supervisor.new(instance_root: instance.root).start!
+              runtime = Agent::SetupRequest::Runtime.new(instance: instance, supervisor: supervisor, owner: "cli-#{Process.pid}")
+              runtime.run_next until request.reload.terminal?
+            ensure
+              supervisor&.shutdown!
             end
           end
-          print "Continue and save this profile? [y/N] "
+          abort(request.error_message) unless request.status == "succeeded"
+          request
+        end
+        enqueue = lambda do |request_action, method_id = nil|
+          execute_request.call(Agent::SetupRequest.enqueue!(household: household, certified_key: profile_key,
+            action: request_action, authentication_method_id: method_id,
+            idempotency_key: SecureRandom.uuid, origin: "cli"))
+        end
+
+        detection = enqueue.call("detect")
+        puts "Agent: #{candidate.definition.name}"
+        puts "CLI: #{detection.cli_available? ? detection.cli_version || "installed" : "unavailable"}"
+        puts "ACP adapter: #{detection.adapter_available? ? detection.adapter_version || "available" : "unavailable"}"
+        puts "Credentials remain in the provider-owned store; Hearth never stores them."
+        abort detection.error_message unless detection.adapter_available?
+        unless confirmed
+          print "Continue and enable this profile? [y/N] "
           abort "No changes made" unless $stdin.gets.to_s.strip.casecmp?("y")
-          method_id = if methods.any?
+        end
+        enqueue.call("enable")
+        installation = household.agent_profiles.find_by!(certified_key: profile_key).installations.order(:id).last
+        methods = installation.authentication_methods
+        if methods.any?
+          methods.each_with_index { |method, index| puts "#{index + 1}. #{method['name'] || method['id']}" }
+          if authentication_method_id.nil? && interactive
             print "Authentication method [1-#{methods.length}]: "
             index = Integer($stdin.gets.to_s.strip, exception: false)
             abort "Invalid authentication method" unless index&.between?(1, methods.length)
-            methods.fetch(index - 1).fetch("id")
+            authentication_method_id = methods.fetch(index - 1).fetch("id")
           end
-          installation = candidate.persist_authentication!(household: household, probe: probe, method_id: method_id)
-          puts "Authentication status: #{installation.authentication_status}"
+          abort "An explicit advertised --auth-method is required" if authentication_method_id.blank?
+          enqueue.call("authenticate", authentication_method_id)
         end
+        puts "Authentication status: #{installation.reload.authentication_status}"
       end
     else
       abort parser.to_s

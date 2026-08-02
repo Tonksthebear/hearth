@@ -45,6 +45,7 @@ fatal_error = nil
 
 supervisor = Acp::Supervisor.new(
   instance_root: instance_root,
+  runtime_capability_groups: ENV["HEARTH_REAL_GROK_SYSTEM_TEST"] == "1" ? Agent::Grant::READ_ONLY_RUNTIME_GROUPS : nil,
   on_fatal: ->(_agent_session, error) {
     fatal_error ||= error
     stop_requested = true
@@ -55,6 +56,9 @@ turn_runtime = Agent::Turn::Runtime.new(
   owner: "runtime-#{Process.pid}",
   stopping: -> { stop_requested }
 )
+runtime_owner = "runtime-#{Process.pid}"
+setup_runtime = Agent::SetupRequest::Runtime.new(instance: instance, supervisor: supervisor, owner: runtime_owner)
+Agent::RuntimeStatus.heartbeat_all!(owner: runtime_owner)
 
 agent_session = nil
 operation = "recover_due"
@@ -68,9 +72,10 @@ begin
     agent_session = supervisor.recover_session(Agent::Session.find(options[:session_id]))
     operation = "recover"
   else
-    operation = "turn_queue"
-    agent_session = turn_runtime.run_next&.agent_session
-    supervisor.tick
+    operation = "request_queue"
+    setup_request = setup_runtime.run_next
+    agent_session = turn_runtime.run_next&.agent_session unless setup_request
+    supervisor.tick unless setup_request
   end
 
   sleep(options[:hold]) if options[:hold].positive?
@@ -145,14 +150,21 @@ begin
   end
 
   unless options[:once]
+    next_runtime_heartbeat = Time.current
     until stop_requested
       supervisor.tick
-      processed = turn_runtime.run_next
+      if Time.current >= next_runtime_heartbeat
+        Agent::RuntimeStatus.heartbeat_all!(owner: runtime_owner)
+        next_runtime_heartbeat = Time.current + 2.seconds
+      end
+      processed = setup_runtime.run_next || turn_runtime.run_next
       sleep 0.1 unless processed
     end
   end
 ensure
   supervisor.shutdown!
+  Agent::RuntimeStatus.stop_all!(owner: runtime_owner, failed: fatal_error.present?,
+    failure_category: fatal_error.present? ? "runtime_error" : nil)
 end
 
 abort "ACP runtime stopped after recovery exhaustion: #{fatal_error.message}" if fatal_error

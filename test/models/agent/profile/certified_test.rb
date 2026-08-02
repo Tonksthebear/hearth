@@ -47,7 +47,8 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
       adapter_command: RbConfig.ruby,
       arguments: [ Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s ],
       environment_keys: %w[FAKE_ACP_MODE FAKE_AUTH_LOG],
-      credential_store: "the fake test store"
+      credential_store: "the fake test store",
+      guidance_url: "https://example.test/fake-agent"
     )
     candidate = Agent::Profile::Certified.new(definition)
     original_mode = ENV["FAKE_ACP_MODE"]
@@ -61,10 +62,11 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
       household = households(:home)
 
       candidate.with_probe(instance: instance) do |probe|
-        installation = candidate.persist_authentication!(
+        installation = candidate.authenticate_probe!(
           household: household,
           probe: probe,
-          method_id: "fake-auth"
+          method_id: "fake-auth",
+          origin: "operator_command"
         )
         assert_equal %w[authenticate], File.readlines(auth_log, chomp: true)
         conversation = installation.profile.conversations.create!(

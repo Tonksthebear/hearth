@@ -15,6 +15,7 @@ module Acp
 
     def initialize(instance_root:, runtime_directory: nil, connection_factory: nil,
       recovery_backoffs: DEFAULT_BACKOFFS, on_fatal: ->(_session, _error) { },
+      runtime_capability_groups: nil,
       mcp_url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"))
       @instance_root = File.expand_path(instance_root)
       @mcp_url = validate_mcp_url(mcp_url)
@@ -22,6 +23,7 @@ module Acp
       @connection_factory = connection_factory || ->(**arguments) { Acp::Connection.new(**arguments) }
       @recovery_backoffs = recovery_backoffs.map { |value| Float(value) }.freeze
       @on_fatal = on_fatal
+      @runtime_capability_groups = runtime_capability_groups
       @connections = {}
       @connections_mutex = Mutex.new
       @session_list_observations = {}
@@ -57,7 +59,7 @@ module Acp
         mcp_authorization_status: "not_configured"
       )
       configure_permission_handler(connection, agent_session)
-      credential = agent_session.issue_runtime_grant!
+      credential = agent_session.issue_runtime_grant!(capability_groups: @runtime_capability_groups)
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       result = connection.new_session
       agent_session.bind_external_session!(result.fetch("sessionId"))
@@ -84,7 +86,7 @@ module Acp
       authenticate!(connection, installation)
       agent_session.begin_recovery!
       configure_permission_handler(connection, agent_session)
-      credential = agent_session.issue_runtime_grant!
+      credential = agent_session.issue_runtime_grant!(capability_groups: @runtime_capability_groups)
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       observe_session_list(agent_session, connection)
       @recovery_methods[agent_session.id] = restore_session(connection, agent_session.external_session_id)

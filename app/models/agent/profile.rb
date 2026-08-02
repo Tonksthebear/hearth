@@ -14,6 +14,7 @@ class Agent::Profile < ApplicationRecord
     message: "must be one explicit executable without shell whitespace"
   }
   validates :name, uniqueness: { scope: :household_id }
+  validates :certified_key, uniqueness: { scope: :household_id }, allow_nil: true
   validates :update_policy, inclusion: { in: UPDATE_POLICIES }
   validate :arguments_are_explicit
   validate :environment_keys_do_not_contain_values
@@ -35,6 +36,19 @@ class Agent::Profile < ApplicationRecord
     end
 
     directory.to_s
+  end
+
+  def disable_runtime_access!
+    transaction do
+      update!(enabled: false)
+      installations.find_each(&:require_authentication!)
+      conversations.includes(:sessions).find_each do |conversation|
+        conversation.sessions.where(status: %w[ starting connected disconnected ]).find_each do |session|
+          session.close!
+        end
+      end
+    end
+    self
   end
 
   private

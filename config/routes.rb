@@ -2,6 +2,10 @@ Rails.application.routes.draw do
   resource :mcp, only: %i[ show create destroy ]
 
   namespace :agent do
+    resources :profiles, only: :index
+    resources :setup_requests, only: :create do
+      resource :cancellation, only: :create, controller: "setup_request/cancellations"
+    end
     resources :conversations, only: %i[ index new create show ] do
       resources :turns, only: :create do
         resource :cancellation, only: :create, controller: "turn/cancellations"
