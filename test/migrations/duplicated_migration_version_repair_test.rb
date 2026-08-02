@@ -20,6 +20,8 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
   LORESTER_KNOWLEDGE_VERSION = 20260731220000
   AGENT_CHAT_VERSION = 20260801010000
   AGENT_TURN_DIAGNOSTICS_VERSION = 20260801110000
+  EXPLICIT_AGENT_AUTHENTICATION_VERSION = 20260801120000
+  STABLE_AGENT_INSTALLATION_IDENTITY_VERSION = 20260801121000
 
   class IsolatedMigrationBase < ActiveRecord::Base
     self.abstract_class = true
@@ -37,7 +39,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
 
     assert_empty duplicates, "migration versions must have exactly one owner, found duplicates: #{duplicates.inspect}"
 
-    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION ].each do |version|
+    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, EXPLICIT_AGENT_AUTHENTICATION_VERSION, STABLE_AGENT_INSTALLATION_IDENTITY_VERSION ].each do |version|
       assert_equal 1, versions.count(version.to_s), "expected migration version #{version} to have exactly one owner"
     end
   end
@@ -71,7 +73,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       context.migrate
 
       assert_supported_final_state(connection)
-      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, AGENT_TURN_DIAGNOSTICS_VERSION ],
+      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, AGENT_TURN_DIAGNOSTICS_VERSION, EXPLICIT_AGENT_AUTHENTICATION_VERSION, STABLE_AGENT_INSTALLATION_IDENTITY_VERSION ],
         context.get_all_versions.select { |version| version >= RUNTIME_VERSION }
       schema_dump(pool)
     end
@@ -343,7 +345,17 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       installation = insert(connection, :agent_installations,
         household_id: household,
         profile_id: profile,
-        external_id: "installation",
+        external_id: "profile-#{profile}",
+        executable_path: "/usr/bin/true",
+        protocol_version: 1,
+        advertised_capabilities: "{}",
+        authentication_methods: "[]",
+        created_at: now,
+        updated_at: now)
+      duplicate_installation = insert(connection, :agent_installations,
+        household_id: household,
+        profile_id: profile,
+        external_id: "migration-agent",
         executable_path: "/usr/bin/true",
         protocol_version: 1,
         advertised_capabilities: "{}",
@@ -361,7 +373,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
         household_id: household,
         person_id: person,
         conversation_id: conversation,
-        installation_id: installation,
+        installation_id: duplicate_installation,
         external_session_id: "external-session",
         advertised_capabilities: "{}",
         created_at: now,
@@ -390,13 +402,26 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
         created_at: now,
         updated_at: now)
 
-      { session: agent_session, grant: grant, message: message }
+      { profile: profile, installation: installation, duplicate_installation: duplicate_installation,
+        session: agent_session, grant: grant, message: message }
     end
 
     def assert_agent_rows_survived(connection, ids)
       assert_equal ids[:session], connection.select_value("SELECT id FROM agent_sessions WHERE id = #{ids[:session]}")
       assert_equal ids[:grant], connection.select_value("SELECT id FROM agent_grants WHERE id = #{ids[:grant]}")
       assert_equal ids[:message], connection.select_value("SELECT id FROM agent_messages WHERE agent_session_id = #{ids[:session]}")
+      assert_equal "profile-#{ids[:profile]}", connection.select_value(
+        "SELECT external_id FROM agent_installations WHERE id = #{ids[:installation]}"
+      )
+      assert_nil connection.select_value(
+        "SELECT id FROM agent_installations WHERE id = #{ids[:duplicate_installation]}"
+      )
+      assert_equal ids[:installation], connection.select_value(
+        "SELECT installation_id FROM agent_sessions WHERE id = #{ids[:session]}"
+      )
+      assert_equal 1, connection.select_value(
+        "SELECT COUNT(*) FROM agent_installations WHERE profile_id = #{ids[:profile]}"
+      )
     end
 
     def assert_agent_session_rebuild_fidelity(connection)

@@ -2,8 +2,9 @@ class Agent::Installation < ApplicationRecord
   include Agent::SecretFreeSnapshot
 
   STATUSES = %w[ observed available unavailable ].freeze
-  AUTHENTICATION_STATUSES = %w[ unknown required authenticated failed ].freeze
-  AUTHENTICATION_METHOD_KEYS = %w[ id name description ].freeze
+  AUTHENTICATION_STATUSES = %w[ unknown not_required required authenticated failed ].freeze
+  AUTHENTICATION_ORIGINS = %w[ operator_command ].freeze
+  AUTHENTICATION_METHOD_KEYS = %w[ id name ].freeze
 
   belongs_to :household
   belongs_to :profile, class_name: "Agent::Profile"
@@ -18,6 +19,7 @@ class Agent::Installation < ApplicationRecord
   validate :profile_matches_household
   validate :authentication_snapshot_is_secret_free
   validate :authentication_methods_are_metadata_only
+  validate :authentication_approval_is_complete
 
   def observe!(protocol_version:, capabilities:, authentication_methods:, authentication_status:, agent_version:)
     update!(
@@ -26,9 +28,43 @@ class Agent::Installation < ApplicationRecord
       advertised_capabilities: capabilities,
       authentication_methods: authentication_methods,
       authentication_status: authentication_status,
-      agent_version: agent_version,
+      agent_version: agent_version.presence || self.agent_version,
       last_seen_at: Time.current
     )
+  end
+
+  def approved_authentication_method
+    return unless authentication_method_id.present? && authentication_approved_at.present?
+    return unless authentication_methods.any? { |method| method["id"] == authentication_method_id }
+
+    authentication_method_id
+  end
+
+  def approve_authentication!(method_id:, origin: "operator_command", at: Time.current)
+    unless authentication_methods.any? { |method| method["id"] == method_id }
+      errors.add(:authentication_method_id, "must be advertised by the ACP agent")
+      raise ActiveRecord::RecordInvalid, self
+    end
+
+    update!(
+      authentication_status: "authenticated",
+      authentication_method_id: method_id,
+      authentication_approved_at: at,
+      authentication_origin: origin
+    )
+  end
+
+  def require_authentication!
+    update!(
+      authentication_status: authentication_methods.empty? ? "not_required" : "required",
+      authentication_method_id: nil,
+      authentication_approved_at: nil,
+      authentication_origin: nil
+    )
+  end
+
+  def authentication_failed!
+    update!(authentication_status: "failed")
   end
 
   private
@@ -52,5 +88,16 @@ class Agent::Installation < ApplicationRecord
           method.values.all? { |value| value.nil? || value.is_a?(String) }
       end
       errors.add(:authentication_methods, "must contain ACP method metadata only") unless valid
+    end
+
+
+    def authentication_approval_is_complete
+      values = [ authentication_method_id, authentication_approved_at, authentication_origin ]
+      return if values.all?(&:blank?)
+
+      errors.add(:base, "Authentication approval metadata must be complete") unless values.none?(&:blank?)
+      if authentication_origin.present? && !AUTHENTICATION_ORIGINS.include?(authentication_origin)
+        errors.add(:authentication_origin, "is not included in the list")
+      end
     end
 end

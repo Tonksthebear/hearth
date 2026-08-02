@@ -36,8 +36,7 @@ class Acp::RuntimeDirectoryTest < ActiveSupport::TestCase
   private
     def with_instance_root
       Dir.mktmpdir("hearth-instance") do |root|
-        FileUtils.mkdir_p(File.join(root, ".hearth"))
-        File.write(File.join(root, ".hearth/instance.yml"), "---\n")
+        Hearth::Instance.new(root).initialize!
         yield root
       end
     end

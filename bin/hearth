@@ -1,0 +1,131 @@
+#!/usr/bin/env ruby
+
+require "optparse"
+require "pathname"
+
+File.umask(0o077)
+
+command = ARGV.shift
+root = Dir.pwd
+port = 3000
+demo = false
+profile_key = "grok"
+live = false
+
+parser = OptionParser.new do |options|
+  options.banner = "Usage: bin/hearth COMMAND [options]"
+  options.on("--root PATH", "Instance directory (default: current directory)") { |value| root = value }
+  options.on("--port PORT", Integer, "Loopback web port") { |value| port = value }
+  options.on("--demo", "Initialize the existing demo data") { demo = true }
+  options.on("--profile KEY", "Certified agent profile key") { |value| profile_key = value }
+  options.on("--live", "Explicitly allow live provider certification") { live = true }
+end
+parser.parse!(ARGV)
+
+if command == "version"
+  require_relative "../lib/hearth/version"
+  puts Hearth::VERSION
+  exit 0
+end
+
+require_relative "../app/models/hearth/instance"
+instance = Hearth::Instance.new(root)
+
+begin
+  case command
+  when "init"
+    abort parser.to_s unless ARGV.empty?
+    instance.initialize!
+    ENV.update(instance.environment)
+    ENV["HEARTH_DEMO_DATA"] = "1" if demo
+    require_relative "../config/environment"
+    ActiveRecord::Tasks::DatabaseTasks.prepare_all
+    puts "Initialized Hearth in #{instance.root}"
+  when "restore"
+    archive = ARGV.shift or abort "Usage: bin/hearth restore BACKUP [--root PATH]"
+    abort parser.to_s unless ARGV.empty?
+    instance.restore!(archive)
+    puts "Restored Hearth in #{instance.root}"
+  when "backup"
+    destination = ARGV.shift or abort "Usage: bin/hearth backup BACKUP [--root PATH]"
+    abort parser.to_s unless ARGV.empty?
+    puts instance.backup!(destination)
+  else
+    instance.require_initialized!
+    ENV.update(instance.environment(port: port, runtime: true))
+    require_relative "../config/environment"
+    case command
+    when "serve"
+      abort parser.to_s unless ARGV.empty?
+      Hearth::Launcher.new(instance: instance, port: port).serve!
+    when "doctor"
+      abort parser.to_s unless ARGV.empty?
+      configurations = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).index_by(&:name)
+      result = {
+        initialized: instance.initialized?,
+        ready: instance.ready?,
+        stopped: instance.stopped?,
+        database_roles_distinct: configurations.keys.sort == %w[cable cache primary queue] &&
+          configurations.values.map(&:database).uniq.length == 4,
+        storage_root: ActiveStorage::Blob.service.root.to_s,
+        storage_instance_scoped: ActiveStorage::Blob.service.root.to_s == instance.uploads_path.to_s,
+        tmp_root: Rails.application.config.paths["tmp"].first.to_s,
+        tmp_instance_scoped: Rails.application.config.paths["tmp"].first.to_s == instance.tmp_path.to_s
+      }
+      puts result.map { |key, value| "#{key}: #{value}" }.join("\n")
+      exit(result.values_at(:initialized, :ready, :database_roles_distinct, :storage_instance_scoped,
+        :tmp_instance_scoped).all? ? 0 : 1)
+    when "agents"
+      abort parser.to_s unless ARGV.empty?
+      Agent::Profile::Certified.all.each do |candidate|
+        detection = candidate.detection
+        puts [ detection[:key], "cli=#{detection[:cli_version] || "unavailable"}",
+          "acp=#{detection[:acp_available] ? "available" : "unavailable"}" ].join("\t")
+      end
+    when "agent"
+      action = ARGV.shift
+      abort "Usage: bin/hearth agent setup|certify [--profile KEY] [--live]" unless %w[setup certify].include?(action)
+      abort parser.to_s unless ARGV.empty?
+      if action == "certify"
+        abort "Live certification requires --live" unless live
+        household = Household.order(:id).sole
+        profile = household.agent_profiles.find_by!(name: Agent::Profile::Certified.fetch(profile_key).definition.name)
+        puts Acp::Conformance.new(instance: instance, profile: profile, live: true).run!
+      else
+        abort "Agent authentication requires an interactive terminal" unless $stdin.tty? && $stdout.tty?
+        household = Household.order(:id).sole
+        candidate = Agent::Profile::Certified.fetch(profile_key)
+        candidate.with_probe(instance: instance) do |probe|
+          methods = probe.connection.auth_methods
+          puts "Agent: #{probe.definition.name}"
+          puts "Executable: #{File.basename(probe.executable_path)}"
+          puts "Version: #{probe.version || "unreported"}"
+          puts "Credentials remain in #{probe.definition.credential_store}; Hearth never stores them."
+          if methods.empty?
+            puts "Authentication: not required"
+          else
+            methods.each_with_index do |method, index|
+              puts "#{index + 1}. #{method['name'] || method['id']}"
+            end
+          end
+          print "Continue and save this profile? [y/N] "
+          abort "No changes made" unless $stdin.gets.to_s.strip.casecmp?("y")
+          method_id = if methods.any?
+            print "Authentication method [1-#{methods.length}]: "
+            index = Integer($stdin.gets.to_s.strip, exception: false)
+            abort "Invalid authentication method" unless index&.between?(1, methods.length)
+            methods.fetch(index - 1).fetch("id")
+          end
+          installation = candidate.persist_authentication!(household: household, probe: probe, method_id: method_id)
+          puts "Authentication status: #{installation.authentication_status}"
+        end
+      end
+    else
+      abort parser.to_s
+    end
+  end
+rescue Hearth::Instance::Error, Hearth::Launcher::Error, Acp::Connection::Error, Acp::Conformance::Error,
+  ActiveRecord::ActiveRecordError, ArgumentError => error
+  warn error.message
+  exit 1
+end

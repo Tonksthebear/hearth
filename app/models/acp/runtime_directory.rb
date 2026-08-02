@@ -7,28 +7,21 @@ module Acp
     class UninitializedInstance < Error; end
     class AlreadyRunning < Error; end
 
-    DIRECTORY_MODE = 0o700
-    FILE_MODE = 0o600
-
-    attr_reader :instance_root, :path
-
-    def self.initialized_instance?(root)
-      Pathname.new(root).expand_path.join(".hearth/instance.yml").file?
-    end
+    attr_reader :instance, :instance_root, :path
 
     def initialize(instance_root:)
-      @instance_root = Pathname.new(instance_root).expand_path
-      @path = @instance_root.join(".hearth/tmp/acp")
+      @instance = Hearth::Instance.new(instance_root)
+      @instance_root = instance.root
+      @path = instance.acp_path
     end
 
     def acquire!
-      raise UninitializedInstance, "Hearth instance is not initialized at #{instance_root}" unless
-        self.class.initialized_instance?(instance_root)
+      instance.require_initialized!
 
-      FileUtils.mkdir_p(path, mode: DIRECTORY_MODE)
-      File.chmod(DIRECTORY_MODE, path)
-      @lock = File.open(path.join("supervisor.lock"), File::RDWR | File::CREAT, FILE_MODE)
-      File.chmod(FILE_MODE, @lock.path)
+      FileUtils.mkdir_p(path, mode: Hearth::Instance::DIRECTORY_MODE)
+      File.chmod(Hearth::Instance::DIRECTORY_MODE, path)
+      @lock = File.open(instance.acp_lock_path, File::RDWR | File::CREAT, Hearth::Instance::FILE_MODE)
+      File.chmod(Hearth::Instance::FILE_MODE, @lock.path)
       unless @lock.flock(File::LOCK_EX | File::LOCK_NB)
         raise AlreadyRunning, "An ACP runtime already owns #{instance_root}"
       end
@@ -36,13 +29,16 @@ module Acp
       @owns_lock = true
       write_pid
       self
+    rescue Hearth::Instance::Uninitialized => error
+      release!
+      raise UninitializedInstance, error.message
     rescue
       release!
       raise
     end
 
     def release!
-      File.unlink(pid_path) if @owns_lock && pid_path&.file?
+      File.unlink(instance.acp_pid_path) if @owns_lock && instance.acp_pid_path.file?
       @lock&.flock(File::LOCK_UN)
       @lock&.close unless @lock&.closed?
       @lock = nil
@@ -57,17 +53,13 @@ module Acp
     end
 
     private
-      def pid_path
-        path.join("supervisor.pid")
-      end
-
       def write_pid
-        File.open(pid_path, File::WRONLY | File::CREAT | File::TRUNC, FILE_MODE) do |file|
+        File.open(instance.acp_pid_path, File::WRONLY | File::CREAT | File::TRUNC, Hearth::Instance::FILE_MODE) do |file|
           file.write("#{Process.pid}\n")
           file.flush
           file.fsync
         end
-        File.chmod(FILE_MODE, pid_path)
+        File.chmod(Hearth::Instance::FILE_MODE, instance.acp_pid_path)
       end
   end
 end

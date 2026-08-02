@@ -48,6 +48,21 @@ class Acp::ConnectionTest < ActiveSupport::TestCase
     end
   end
 
+  test "authentication method selection accepts only an explicit advertised choice" do
+    with_connection(mode: "default_auth") do |connection|
+      connection.initialize_connection
+
+      assert_nil connection.authentication_method_id
+      assert_equal "fake-auth", connection.authentication_method_id("fake-auth")
+      assert_raises(Acp::Connection::Unsupported) { connection.authentication_method_id("missing") }
+    end
+
+    with_connection(mode: "sole_auth") do |connection|
+      connection.initialize_connection
+      assert_nil connection.authentication_method_id
+    end
+  end
+
   test "routes permission requests through the configured exact-session callback" do
     observed = nil
     with_connection do |connection|

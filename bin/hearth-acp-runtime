@@ -2,10 +2,10 @@
 
 require "json"
 require "optparse"
-require "pathname"
+
+File.umask(0o077)
 
 options = {
-  authentication_method: nil,
   conversation_id: nil,
   evidence: nil,
   hold: 0,
@@ -21,7 +21,6 @@ parser = OptionParser.new do |arguments|
   arguments.on("--root PATH", "Previously initialized Hearth instance root") { |value| options[:root] = value }
   arguments.on("--conversation ID", Integer, "Create an ACP session for this persisted conversation") { |value| options[:conversation_id] = value }
   arguments.on("--session ID", Integer, "Recover this persisted Agent::Session") { |value| options[:session_id] = value }
-  arguments.on("--auth-method ID", "Advertised ACP authentication method") { |value| options[:authentication_method] = value }
   arguments.on("--prompt TEXT", "Send one text prompt after start or recovery") { |value| options[:prompt] = value }
   arguments.on("--hold SECONDS", Float, "Keep the child alive before prompting (boundary proof)") { |value| options[:hold] = value }
   arguments.on("--hold-until PATH", "Wait for this release file before prompting (boundary proof)") { |value| options[:hold_until] = value }
@@ -33,23 +32,11 @@ abort parser.to_s unless ARGV.empty?
 abort "Choose either --conversation or --session, not both" if
   options.values_at(:conversation_id, :session_id).compact.length > 1
 
-instance_root = Pathname.new(options[:root]).expand_path
-instance_marker = instance_root.join(".hearth/instance.yml")
-abort "Hearth instance is not initialized at #{instance_root}; expected #{instance_marker}. No files were written." unless instance_marker.file?
-
 ENV["RAILS_ENV"] ||= "production"
-if ENV["RAILS_ENV"] == "production"
-  storage = instance_root.join(".hearth/storage")
-  {
-    "DATABASE_URL" => "production.sqlite3",
-    "CACHE_DATABASE_URL" => "production_cache.sqlite3",
-    "QUEUE_DATABASE_URL" => "production_queue.sqlite3",
-    "CABLE_DATABASE_URL" => "production_cable.sqlite3"
-  }.each do |name, filename|
-    ENV[name] ||= "sqlite3:#{storage.join(filename)}"
-  end
-end
-
+require_relative "../app/models/hearth/instance"
+instance = Hearth::Instance.new(options[:root]).require_initialized!.prepare_runtime!
+instance.environment(runtime: true).each { |name, value| ENV[name] ||= value } if ENV["RAILS_ENV"] == "production"
+instance_root = instance.root
 require_relative "../config/environment"
 
 stop_requested = false
@@ -75,16 +62,10 @@ operation_error = nil
 begin
   if options[:conversation_id]
     conversation = Agent::Conversation.find(options[:conversation_id])
-    agent_session = supervisor.start_session(
-      conversation: conversation,
-      authentication_method: options[:authentication_method]
-    )
+    agent_session = supervisor.start_session(conversation: conversation)
     operation = "new"
   elsif options[:session_id]
-    agent_session = supervisor.recover_session(
-      Agent::Session.find(options[:session_id]),
-      authentication_method: options[:authentication_method]
-    )
+    agent_session = supervisor.recover_session(Agent::Session.find(options[:session_id]))
     operation = "recover"
   else
     operation = "turn_queue"
@@ -104,7 +85,7 @@ begin
   if options[:evidence]
     connection = supervisor.connection_for(agent_session) if agent_session&.status == "connected"
     updates = connection ? connection.drain_events : []
-    storage = instance_root.join(".hearth/storage").expand_path
+    storage = instance.storage_path.expand_path
     database_targets = if Rails.env.production?
       ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).to_h do |configuration|
         database = Pathname.new(configuration.database).expand_path

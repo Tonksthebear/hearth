@@ -1,14 +1,16 @@
 # ACP supported-agent contract
 
-Status: production ACP runtime and authenticated guarded MCP operations implemented.
+Status: packaging-ready source launcher, explicit authentication, production ACP runtime,
+and authenticated guarded MCP operations implemented. Tebako pressing and clean-machine
+release certification belong to Ticket 10.
 
 This contract records two deliberately separate paths:
 
 1. `bin/hearth-acp-runtime` supervises configured ACP agents over ordinary stdin/stdout pipes, persists recovery truth, and runs as an operating-system sibling of Puma.
 2. Rails serves the canonical stateless Streamable HTTP MCP transport at loopback-only `POST /mcp`, authenticated on every request by a short-lived `Agent::Grant`.
 
-The runtime does not add product UI, `hearth serve`, automatic installation/update,
-or automatic installation/update. Before the first `session/new`, Hearth persists
+The runtime does not add a browser settings UI or automatic installation/update.
+`bin/hearth serve` owns the source-checkout production lifecycle. Before the first `session/new`, Hearth persists
 an initializing local `Agent::Session`, issues a server-owned runtime grant from
 that persisted conversation/session context, and injects authorized `mcpServers`.
 The returned external ACP session ID is then bound once. Initialization failures
@@ -36,10 +38,10 @@ SQLite targets. Puma only commits messages, turns, cancellations, and human
 decisions. It never constructs the supervisor or writes ACP stdio.
 
 ```sh
+bin/hearth agent setup --root /path/to/initialized-instance --profile grok
 bin/hearth-acp-runtime \
   --root /path/to/initialized-instance \
-  --conversation CONVERSATION_ID \
-  --auth-method cached_token
+  --conversation CONVERSATION_ID
 ```
 
 `Agent::Profile` supplies a single executable plus JSON argv, a working directory
@@ -51,7 +53,6 @@ session:
 bin/hearth-acp-runtime \
   --root /path/to/initialized-instance \
   --session AGENT_SESSION_ID \
-  --auth-method cached_token \
   --prompt 'Reply HEARTH_ACP_RECOVERED_OK.' \
   --evidence /tmp/hearth-acp-runtime.jsonl \
   --once
@@ -59,6 +60,29 @@ bin/hearth-acp-runtime \
 
 The evidence is explicitly ACP-only. It records no prompt, session ID, headers,
 environment values, household data, or developer path.
+
+Authentication is operator-owned. Setup runs only in a TTY, displays the exact
+executable/version and advertised method names, and explains that credentials remain
+in the provider's store. Provider method descriptions are neither displayed nor persisted
+because they may disclose credential-store paths. Hearth records only method IDs/names,
+the selected method ID, outcome, timestamp, and `operator_command` origin. An advertised default or sole method produces no
+`authenticate` frame until this approval exists. No advertised methods is the explicit
+`not_required` state. Missing, changed, or failed authentication returns a stable setup
+instruction rather than blocking Puma or prompting inside Rails.
+
+## Directory-scoped launcher and backup boundary
+
+`Hearth::Instance` is the sole owner of `.hearth` marker, secret, modes, writable paths,
+upload root, and four role URLs. `Acp::RuntimeDirectory` owns only the ACP lock/PID
+lifecycle and delegates those paths. The source launcher starts loopback Puma and the
+ACP runtime as sibling process groups, forwards shutdown, reaps both groups, and stores
+only allowlisted component/category/exit metadata in a `0600` launcher log.
+
+Backups require both launcher/runtime locks to be free and contain only `instance.yml`,
+`secret_key_base`, and `storage/` (four SQLite roles plus uploads). Restore requires an
+empty root and validates every archive entry before extraction. Logs and all transient
+tmp/socket/lock/PID state are excluded. Ticket 10 owns Tebako artifact pressing,
+redistribution/license inventory, and proof on a genuinely clean macOS arm64 machine.
 
 ## Reproducing the process and database boundaries
 
@@ -104,7 +128,7 @@ The process proof recorded in `docs/acp-evidence/process-boundary.jsonl` shows:
 Ticket 03 owns the production supervisor, concurrent sessions, bounded queues,
 persistent recovery, standalone entry, and `.hearth/tmp/acp` transient state.
 `Acp::Probe` and `bin/hearth-acp-spike` were cold-replaced, leaving one ACP
-client. Ticket 09 owns `hearth serve`/Tebako supervision.
+client. Ticket 09 owns source `bin/hearth serve`; Ticket 10 owns Tebako packaging.
 
 ## Required ACP v1 behavior
 
@@ -266,20 +290,27 @@ plaintext, evidence, or object inspection.
 | Agent path | Install/auth | Session + stream | Session list | Permission | MCP HTTP | MCP stdio | Text resource | Image | Cancel/failure | Close | Load/resume |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Fake ACP peer | observed | observed | observed | deny observed | observed config | observed config and proxy E2E | observed | observed | observed | observed | observed |
-| Grok Build 0.2.117 native | installed; `cached_token` authenticate observed | production runtime new + recovered prompt observed | observed | no live request; deny policy active | first-turn live proof observed: 8 read tools across meals/activity/training/habits/recovery, no DB/filesystem access | configuration + proxy E2E observed; live fallback not induced | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | load observed; fresh MCP config implemented; resume unsupported |
+| Grok Build 0.2.118 native | installed; explicit `cached_token` authenticate observed | production supervisor new prompt observed | historical observation | no live request; deny policy active | authenticated live HTTP calls to `get_current_context` and `list_recipes` observed | configuration + proxy E2E observed; live fallback not induced | historical spike-only observation | unsupported by capability | automated protocol proof; live failure not induced | unsupported | recovery capability advertised; live recovery not induced |
 | Codex ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 | Claude ACP adapter | unavailable locally | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred | deferred |
 
 Codex CLI 0.146.0 and Claude Code 2.1.220 are installed as CLIs, but no `codex-acp` or `claude-agent-acp` executable is installed. Their registered Botster agent choices do not supply a local ACP adapter executable to this probe, so adapter cells are explicitly deferred rather than inferred from the non-ACP CLIs.
 
 HTTP and stdio are separate columns intentionally: an agent advertising HTTP does not prove the fallback executable.
-If Grok 0.2.117 is unavailable or unauthenticated during verification, the live
+If the pinned Grok certification candidate is unavailable or unauthenticated during verification, the live
 acceptance check is escalated as a human question. The fake peer remains protocol
 evidence and is never substituted for the required live-agent result.
 
 ## Evidence and privacy
 
 Machine-readable summaries live in `docs/acp-evidence/*.jsonl`.
+`certification.jsonl` is the Ticket 09 production-supervisor result from a temporary
+synthetic instance. Grok 0.2.118 authenticated, created a session, completed a prompt,
+and made the two allowed read-only HTTP MCP calls. The row is `degraded`, not `passed`:
+the earlier harness did not measure the requested acknowledgement, and the agent emitted
+no HTTPS ACP `citation` update, so acknowledgement and public search/citation structure
+remain explicitly unverified rather than being inferred from generic hook updates. No
+write, management, submission, shell, or filesystem MCP call was observed.
 `runtime-live-agent.jsonl` was emitted directly by `bin/hearth-acp-runtime` and
 records the earlier 0.2.117 new/load proof with `mcpServers=[]`; exact recorded agent
 PIDs were absent after both runs. The older `live-agents.jsonl` and
@@ -306,3 +337,5 @@ is diagnostic only and must not be copied wholesale.
 - [ACP v1 content blocks](https://agentclientprotocol.com/protocol/v1/content)
 - [ACP v1 stdio transport](https://agentclientprotocol.com/protocol/v1/transports)
 - [Official MCP Ruby SDK](https://github.com/modelcontextprotocol/ruby-sdk)
+- [Grok Build CLI reference (`grok agent stdio`)](https://docs.x.ai/build/cli/reference)
+- [Grok Build headless guidance (`--no-auto-update`)](https://docs.x.ai/build/cli/headless-scripting)

@@ -99,6 +99,25 @@ loop do
       sleep 60
     end
 
+    auth_methods = case mode
+    when "auth", "default_auth"
+      [
+        { id: "other-auth", name: "Other authentication" },
+        { id: "fake-auth", name: "Fake authentication" }
+      ]
+    when "sole_auth"
+      [ { id: "fake-auth", name: "Fake authentication" } ]
+    when "credential_path_auth"
+      [
+        {
+          id: "fake-auth",
+          name: "Fake authentication",
+          description: "Uses /private/var/hearth-credential-canary/provider-token.json"
+        }
+      ]
+    else
+      []
+    end
     write.call(jsonrpc: "2.0", id: message["id"], result: {
       protocolVersion: 1,
       agentCapabilities: {
@@ -120,11 +139,8 @@ loop do
         pid: Process.pid,
         ppid: Process.ppid
       },
-      authMethods: mode == "auth" ? [
-        { id: "other-auth", name: "Other authentication" },
-        { id: "fake-auth", name: "Fake authentication" }
-      ] : [],
-      _meta: mode == "auth" ? { defaultAuthMethodId: "fake-auth" } : {}
+      authMethods: auth_methods,
+      _meta: %w[auth default_auth].include?(mode) ? { defaultAuthMethodId: "fake-auth" } : {}
     })
     if mode == "duplicate_id"
       write.call(jsonrpc: "2.0", id: message["id"], result: {})
@@ -141,6 +157,7 @@ loop do
     end
   when "authenticate"
     abort "unexpected auth method" unless message.dig("params", "methodId") == "fake-auth"
+    File.open(ENV["FAKE_AUTH_LOG"], "a") { |file| file.puts("authenticate") } if ENV["FAKE_AUTH_LOG"]
     write.call(jsonrpc: "2.0", id: message["id"], result: {})
   when "session/new"
     expected_mcp_servers = message.dig("params", "mcpServers")
@@ -152,7 +169,15 @@ loop do
     prompt_id = message["id"]
     prompt = message.dig("params", "prompt")
     abort "unsupported attachment was written" if mode == "no_attachments" && prompt.any? { |block| %w[image resource].include?(block["type"]) }
-    if mode == "tick_flood"
+    if %w[conformance conformance_missing_ack].include?(mode)
+      text = mode == "conformance" ? "HEARTH_ACP_CERTIFIED_OK" : "CERTIFICATION_NOT_ACKNOWLEDGED"
+      write.call(jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: session_id,
+        update: { sessionUpdate: "agent_message_chunk", messageId: "conformance-message", content: { type: "text", text: text } }
+      })
+      write.call(jsonrpc: "2.0", id: prompt_id, result: { stopReason: "end_turn" })
+      prompt_id = nil
+    elsif mode == "tick_flood"
       50.times do
         write.call(jsonrpc: "2.0", method: "session/update", params: {
           sessionId: session_id,
