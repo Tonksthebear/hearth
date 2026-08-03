@@ -49,11 +49,13 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
         auth_log = File.join(directory, "authenticate.log")
         factory = connection_factory(modes: [ mode ], extra_environment: { "FAKE_AUTH_LOG" => auth_log })
 
-        assert_raises(Acp::Supervisor::AuthenticationRequired) do
+        error = assert_raises(Acp::Supervisor::AuthenticationRequired) do
           with_supervisor(connection_factory: factory) do |supervisor|
             supervisor.start_session(conversation: agent_conversations(:active))
           end
         end
+        assert_match(/Agent settings/i, error.message)
+        refute_match(/bin\/hearth|terminal|command line/i, error.message)
         refute File.exist?(auth_log), "#{mode} inferred authentication without approval"
         installation = agent_profiles(:hearth).installations.find_by!(
           external_id: "profile-#{agent_profiles(:hearth).id}"
@@ -62,6 +64,27 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
         assert_nil installation.authentication_method_id
       end
     end
+  end
+
+  test "failed provider authentication directs the user to Agent settings without CLI guidance" do
+    installation = agent_installations(:local)
+    installation.update!(
+      authentication_methods: [ { "id" => "fake-auth", "name" => "Fake authentication" } ],
+      authentication_status: "required",
+      authentication_method_id: nil,
+      authentication_approved_at: nil,
+      authentication_origin: nil
+    )
+    installation.approve_authentication!(method_id: "fake-auth")
+
+    error = assert_raises(Acp::Supervisor::AuthenticationRequired) do
+      with_supervisor(mode: "auth_failure") do |supervisor|
+        supervisor.start_session(conversation: agent_conversations(:active))
+      end
+    end
+
+    assert_match(/Agent settings/i, error.message)
+    refute_match(/bin\/hearth|terminal|command line/i, error.message)
   end
 
   test "recovery also sends no authenticate frame without operator approval" do
@@ -81,7 +104,8 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
         with_supervisor(connection_factory: factory) do |supervisor|
           recovered = supervisor.recover_session(agent_sessions(:connected))
           assert_equal "failed", recovered.status
-          assert_match(/setup is required/, recovered.recovery_error)
+          assert_match(/Agent settings/i, recovered.recovery_error)
+          refute_match(/bin\/hearth|terminal|command line/i, recovered.recovery_error)
         end
         refute File.exist?(auth_log), "#{mode} inferred authentication during recovery"
       end

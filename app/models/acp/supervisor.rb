@@ -371,14 +371,16 @@ module Acp
         method_id = installation.approved_authentication_method
         unless method_id
           installation.require_authentication!
-          raise AuthenticationRequired, "Agent authentication setup is required; run `bin/hearth agent setup`"
+          raise AuthenticationRequired,
+            "Agent authentication approval is required. Open Agent settings to choose and approve an authentication method."
         end
 
         connection.authenticate(connection.authentication_method_id(method_id))
         installation.update!(authentication_status: "authenticated")
       rescue Acp::Connection::Error
         installation.authentication_failed!
-        raise AuthenticationRequired, "Agent authentication failed; run `bin/hearth agent setup`"
+        raise AuthenticationRequired,
+          "Agent authentication failed. Open Agent settings to choose and re-approve an authentication method."
       end
 
       def prepare_for_recovery!(agent_session)

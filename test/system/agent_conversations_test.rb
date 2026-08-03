@@ -1,7 +1,11 @@
 require "application_system_test_case"
+require "rbconfig"
+require "tmpdir"
 
 class AgentConversationsTest < ApplicationSystemTestCase
   self.use_transactional_tests = false
+
+  FAKE_AGENT = Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s
 
   test "server rendered chat submits and reconstructs persisted projections" do
     sign_in_via_browser users(:two)
@@ -87,6 +91,48 @@ class AgentConversationsTest < ApplicationSystemTestCase
     assert_selector "label.sr-only", text: "Message the coach", visible: :all
   ensure
     page.current_window.resize_to(original_size[0], original_size[1]) if original_size
+  end
+
+  test "authentication failures render Agent settings guidance without stale CLI instructions" do
+    sign_in_via_browser users(:two)
+    original_mode = ENV["FAKE_ACP_MODE"]
+    agent_profiles(:hearth).update!(
+      executable_path: RbConfig.ruby,
+      arguments: [ FAKE_AGENT ],
+      environment_keys: [ "FAKE_ACP_MODE" ]
+    )
+    installation = agent_installations(:local)
+    installation.update!(executable_path: RbConfig.ruby, agent_version: "1.0.0")
+
+    [ "sole_auth", "auth_failure" ].each_with_index do |mode, index|
+      ENV["FAKE_ACP_MODE"] = mode
+      installation.update!(
+        authentication_methods: [ { "id" => "fake-auth", "name" => "Fake authentication" } ],
+        authentication_status: "required",
+        authentication_method_id: nil,
+        authentication_approved_at: nil,
+        authentication_origin: nil
+      )
+      installation.approve_authentication!(method_id: "fake-auth") if mode == "auth_failure"
+      visit_and_wait_for_path agent_conversation_path(agent_conversations(:active))
+      fill_in_and_wait_for_value "Message the coach", "Authentication guidance #{index}"
+      click_button "Send"
+      assert_text "Authentication guidance #{index}", wait: 5
+
+      Dir.mktmpdir("hearth-auth-guidance") do |root|
+        instance = Hearth::Instance.new(root).initialize!
+        supervisor = Acp::Supervisor.new(instance_root: instance.root).start!
+        Agent::Turn::Runtime.new(supervisor: supervisor, owner: "system-auth-guidance").run_next
+      ensure
+        supervisor&.shutdown!
+      end
+
+      refresh
+      assert_selector "#agent_turn_status", text: /Agent settings/i
+      assert_no_selector "#agent_turn_status", text: /bin\/hearth|terminal|command line/i
+    end
+  ensure
+    ENV["FAKE_ACP_MODE"] = original_mode
   end
 
   private
