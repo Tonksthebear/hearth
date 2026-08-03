@@ -37,7 +37,7 @@ class ApplicationController < ActionController::Base
         recovery_days habit_check_ins habits person_habits workout_templates exercises
       ].include?(controller_path)
       return :today if controller_path == "todays"
-      return :coach if controller_path.start_with?("agent/conversations", "agent/turns", "agent/turn/cancellations")
+      return :coach if controller_path.start_with?("agent/")
 
       nil
     end

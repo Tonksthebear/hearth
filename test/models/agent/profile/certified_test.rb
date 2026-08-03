@@ -35,8 +35,43 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
     end
     assert_equal "grok", definitions.first.adapter_command
     assert_equal %w[--no-auto-update agent stdio], definitions.first.arguments
+    assert_equal %w[HOME PATH XDG_CONFIG_HOME XAI_API_KEY], definitions.first.environment_keys
     assert_equal "codex-acp", definitions.second.adapter_command
     assert_equal "claude-agent-acp", definitions.third.adapter_command
+  end
+
+  test "real Grok acceptance environment is fixed and cannot become generic runtime configuration" do
+    environment = Agent::Profile::Certified::GROK_ACCEPTANCE_ENVIRONMENT
+
+    assert_equal "0", environment.fetch("GROK_CLAUDE_AGENTS_ENABLED")
+    assert_raises(ArgumentError) do
+      Agent::Profile::Certified.validate_acceptance_environment("ARBITRARY_SECRET" => "value")
+    end
+  end
+
+  test "legacy named profile is projected and claimed under its certified identity" do
+    profile = agent_profiles(:hearth)
+    profile.update!(certified_key: nil, name: "Grok Build")
+    candidate = Agent::Profile::Certified.fetch("grok")
+    connection = Object.new
+    connection.define_singleton_method(:auth_methods) { [] }
+    connection.define_singleton_method(:agent_capabilities) { {} }
+    connection.define_singleton_method(:agent_info) { { "version" => "legacy 1.0" } }
+    probe = Agent::Profile::Certified::Probe.new(
+      definition: candidate.definition,
+      executable_path: "/usr/bin/grok",
+      cli_path: "/usr/bin/grok",
+      version: "legacy 1.0",
+      initialized: { "protocolVersion" => 1 },
+      connection: connection
+    )
+
+    assert_equal profile, candidate.state_for(households(:home)).profile
+
+    installation = candidate.observe_probe!(household: households(:home), probe: probe)
+
+    assert_equal "grok", profile.reload.certified_key
+    assert_equal profile, installation.profile
   end
 
   test "operator approved installation identity is reused by the production supervisor" do
@@ -47,7 +82,8 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
       adapter_command: RbConfig.ruby,
       arguments: [ Rails.root.join("test/fixtures/files/acp/fake_agent.rb").to_s ],
       environment_keys: %w[FAKE_ACP_MODE FAKE_AUTH_LOG],
-      credential_store: "the fake test store"
+      credential_store: "the fake test store",
+      guidance_url: "https://example.test/fake-agent"
     )
     candidate = Agent::Profile::Certified.new(definition)
     original_mode = ENV["FAKE_ACP_MODE"]
@@ -61,10 +97,11 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
       household = households(:home)
 
       candidate.with_probe(instance: instance) do |probe|
-        installation = candidate.persist_authentication!(
+        installation = candidate.authenticate_probe!(
           household: household,
           probe: probe,
-          method_id: "fake-auth"
+          method_id: "fake-auth",
+          origin: "operator_command"
         )
         assert_equal %w[authenticate], File.readlines(auth_log, chomp: true)
         conversation = installation.profile.conversations.create!(

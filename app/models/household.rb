@@ -15,6 +15,8 @@ class Household < ApplicationRecord
   has_many :habits, dependent: :destroy
   has_many :agent_profiles, class_name: "Agent::Profile", dependent: :restrict_with_exception
   has_many :agent_conversations, class_name: "Agent::Conversation", dependent: :restrict_with_exception
+  has_many :agent_setup_requests, class_name: "Agent::SetupRequest", dependent: :restrict_with_exception
+  has_one :agent_runtime_status, class_name: "Agent::RuntimeStatus", dependent: :destroy
 
   validates :name, presence: true
   validates :installation_key, inclusion: { in: [ 1 ] }, uniqueness: true

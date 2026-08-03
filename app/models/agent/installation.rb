@@ -3,7 +3,7 @@ class Agent::Installation < ApplicationRecord
 
   STATUSES = %w[ observed available unavailable ].freeze
   AUTHENTICATION_STATUSES = %w[ unknown not_required required authenticated failed ].freeze
-  AUTHENTICATION_ORIGINS = %w[ operator_command ].freeze
+  AUTHENTICATION_ORIGINS = %w[ operator_command web_setting ].freeze
   AUTHENTICATION_METHOD_KEYS = %w[ id name ].freeze
 
   belongs_to :household

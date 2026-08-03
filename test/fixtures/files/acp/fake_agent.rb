@@ -105,7 +105,7 @@ loop do
         { id: "other-auth", name: "Other authentication" },
         { id: "fake-auth", name: "Fake authentication" }
       ]
-    when "sole_auth"
+    when "sole_auth", "auth_failure"
       [ { id: "fake-auth", name: "Fake authentication" } ]
     when "credential_path_auth"
       [
@@ -158,7 +158,11 @@ loop do
   when "authenticate"
     abort "unexpected auth method" unless message.dig("params", "methodId") == "fake-auth"
     File.open(ENV["FAKE_AUTH_LOG"], "a") { |file| file.puts("authenticate") } if ENV["FAKE_AUTH_LOG"]
-    write.call(jsonrpc: "2.0", id: message["id"], result: {})
+    if mode == "auth_failure"
+      write.call(jsonrpc: "2.0", id: message["id"], error: { code: -32_000, message: "Synthetic authentication failure" })
+    else
+      write.call(jsonrpc: "2.0", id: message["id"], result: {})
+    end
   when "session/new"
     expected_mcp_servers = message.dig("params", "mcpServers")
     result = mode == "missing_session_id" ? {} : { sessionId: session_id }

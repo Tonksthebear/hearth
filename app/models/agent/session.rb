@@ -46,7 +46,7 @@ class Agent::Session < ApplicationRecord
 
   validates :external_session_id,
     presence: true,
-    unless: -> { status.in?(%w[ starting failed ]) }
+    unless: -> { status.in?(%w[ starting closed failed ]) }
   validates :external_session_id,
     uniqueness: { scope: :installation_id },
     allow_nil: true
@@ -76,8 +76,8 @@ class Agent::Session < ApplicationRecord
     self
   end
 
-  def issue_runtime_grant!
-    Agent::Grant.issue_runtime!(agent_session: self)
+  def issue_runtime_grant!(capability_groups: nil)
+    Agent::Grant.issue_runtime!(agent_session: self, capability_groups: capability_groups)
   end
 
   def active_operational_authorization(at: Time.current)

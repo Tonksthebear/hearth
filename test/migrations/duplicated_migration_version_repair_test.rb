@@ -22,6 +22,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
   AGENT_TURN_DIAGNOSTICS_VERSION = 20260801110000
   EXPLICIT_AGENT_AUTHENTICATION_VERSION = 20260801120000
   STABLE_AGENT_INSTALLATION_IDENTITY_VERSION = 20260801121000
+  WEB_AGENT_SETUP_VERSION = 20260802010000
 
   class IsolatedMigrationBase < ActiveRecord::Base
     self.abstract_class = true
@@ -39,7 +40,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
 
     assert_empty duplicates, "migration versions must have exactly one owner, found duplicates: #{duplicates.inspect}"
 
-    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, EXPLICIT_AGENT_AUTHENTICATION_VERSION, STABLE_AGENT_INSTALLATION_IDENTITY_VERSION ].each do |version|
+    [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, EXPLICIT_AGENT_AUTHENTICATION_VERSION, STABLE_AGENT_INSTALLATION_IDENTITY_VERSION, WEB_AGENT_SETUP_VERSION ].each do |version|
       assert_equal 1, versions.count(version.to_s), "expected migration version #{version} to have exactly one owner"
     end
   end
@@ -73,7 +74,7 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       context.migrate
 
       assert_supported_final_state(connection)
-      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, AGENT_TURN_DIAGNOSTICS_VERSION, EXPLICIT_AGENT_AUTHENTICATION_VERSION, STABLE_AGENT_INSTALLATION_IDENTITY_VERSION ],
+      assert_equal [ RUNTIME_VERSION, WORKOUT_VERSION, RECIPE_VERSION, RECONCILIATION_VERSION, MEAL_EVENTS_VERSION, SHOPPING_VERSION, NUTRITION_VERSION, GUARDED_MUTATIONS_VERSION, LORESTER_KNOWLEDGE_VERSION, AGENT_CHAT_VERSION, AGENT_TURN_DIAGNOSTICS_VERSION, EXPLICIT_AGENT_AUTHENTICATION_VERSION, STABLE_AGENT_INSTALLATION_IDENTITY_VERSION, WEB_AGENT_SETUP_VERSION ],
         context.get_all_versions.select { |version| version >= RUNTIME_VERSION }
       schema_dump(pool)
     end
@@ -115,6 +116,31 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
       schema_dump(pool)
     end
     assert_equal canonical_schema, both_effects_schema
+  end
+
+  test "web agent setup backfills certified identity for existing profiles" do
+    with_isolated_database do |connection, context, _pool|
+      context.migrate(STABLE_AGENT_INSTALLATION_IDENTITY_VERSION)
+      now = Time.current
+      household = insert(connection, :households,
+        name: "Existing agent household", installation_key: 1, created_at: now, updated_at: now)
+      profile = insert(connection, :agent_profiles,
+        household_id: household,
+        name: "Grok Build",
+        executable_path: "/usr/bin/grok",
+        arguments: "[]",
+        environment_keys: "[]",
+        enabled: true,
+        update_policy: "manual",
+        created_at: now,
+        updated_at: now)
+
+      context.migrate
+
+      assert_equal "grok", connection.select_value(
+        "SELECT certified_key FROM agent_profiles WHERE id = #{connection.quote(profile)}"
+      )
+    end
   end
 
   test "partial normalized ingredient schema fails before DDL" do

@@ -15,6 +15,7 @@ module Acp
 
     def initialize(instance_root:, runtime_directory: nil, connection_factory: nil,
       recovery_backoffs: DEFAULT_BACKOFFS, on_fatal: ->(_session, _error) { },
+      runtime_capability_groups: nil, acceptance_environment: nil,
       mcp_url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"))
       @instance_root = File.expand_path(instance_root)
       @mcp_url = validate_mcp_url(mcp_url)
@@ -22,6 +23,8 @@ module Acp
       @connection_factory = connection_factory || ->(**arguments) { Acp::Connection.new(**arguments) }
       @recovery_backoffs = recovery_backoffs.map { |value| Float(value) }.freeze
       @on_fatal = on_fatal
+      @runtime_capability_groups = runtime_capability_groups
+      @acceptance_environment = Agent::Profile::Certified.validate_acceptance_environment(acceptance_environment)
       @connections = {}
       @connections_mutex = Mutex.new
       @session_list_observations = {}
@@ -57,7 +60,7 @@ module Acp
         mcp_authorization_status: "not_configured"
       )
       configure_permission_handler(connection, agent_session)
-      credential = agent_session.issue_runtime_grant!
+      credential = agent_session.issue_runtime_grant!(capability_groups: @runtime_capability_groups)
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       result = connection.new_session
       agent_session.bind_external_session!(result.fetch("sessionId"))
@@ -84,7 +87,7 @@ module Acp
       authenticate!(connection, installation)
       agent_session.begin_recovery!
       configure_permission_handler(connection, agent_session)
-      credential = agent_session.issue_runtime_grant!
+      credential = agent_session.issue_runtime_grant!(capability_groups: @runtime_capability_groups)
       connection.configure_mcp_servers!(mcp_servers_for(connection, credential))
       observe_session_list(agent_session, connection)
       @recovery_methods[agent_session.id] = restore_session(connection, agent_session.external_session_id)
@@ -189,7 +192,7 @@ module Acp
         @connection_factory.call(
           argv: profile.argv,
           cwd: profile.working_directory_for(@instance_root),
-          environment: profile.environment_from,
+          environment: profile.environment_from.merge(@acceptance_environment),
           mcp_servers: []
         )
       end
@@ -368,14 +371,16 @@ module Acp
         method_id = installation.approved_authentication_method
         unless method_id
           installation.require_authentication!
-          raise AuthenticationRequired, "Agent authentication setup is required; run `bin/hearth agent setup`"
+          raise AuthenticationRequired,
+            "Agent authentication approval is required. Open Agent settings to choose and approve an authentication method."
         end
 
         connection.authenticate(connection.authentication_method_id(method_id))
         installation.update!(authentication_status: "authenticated")
       rescue Acp::Connection::Error
         installation.authentication_failed!
-        raise AuthenticationRequired, "Agent authentication failed; run `bin/hearth agent setup`"
+        raise AuthenticationRequired,
+          "Agent authentication failed. Open Agent settings to choose and re-approve an authentication method."
       end
 
       def prepare_for_recovery!(agent_session)

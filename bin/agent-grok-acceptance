@@ -1,0 +1,122 @@
+#!/bin/sh
+set -eu
+
+APP_ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+[ "${HEARTH_REAL_GROK_SYSTEM_TEST:-}" = "1" ] || {
+  echo "Set HEARTH_REAL_GROK_SYSTEM_TEST=1 to authorize the isolated real-Grok acceptance run" >&2
+  exit 1
+}
+ACCEPTANCE_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/hearth-real-grok.XXXXXX")
+ACCEPTANCE_ROOT=$(cd "$ACCEPTANCE_ROOT" && pwd -P)
+SERVER_PID=""
+
+cleanup() {
+  if [ -n "$SERVER_PID" ]; then
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
+  fi
+  rm -rf "$ACCEPTANCE_ROOT"
+}
+trap cleanup EXIT HUP INT TERM
+
+unset LORESTER_VAULT LORESTER_EXECUTABLE LORESTER_DATA_DIR GROK_SANDBOX
+export HEARTH_DEMO_PASSWORD="synthetic-acceptance-password"
+
+cd "$APP_ROOT"
+SECRET_KEY_BASE_DUMMY=1 bin/rails tailwindcss:build assets:precompile >/dev/null
+bin/hearth init --root "$ACCEPTANCE_ROOT" --demo >/dev/null
+
+ruby -rpathname -e '
+  root = ARGV.fetch(0)
+  require File.join(Dir.pwd, "app/models/hearth/instance")
+  instance = Hearth::Instance.new(root).require_initialized!
+  ENV.update(instance.environment(runtime: true))
+  require File.join(Dir.pwd, "config/environment")
+  storage = instance.storage_path.realpath
+  targets = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env)
+  raise "four isolated database roles required" unless targets.map(&:name).sort == %w[cable cache primary queue]
+  targets.each do |config|
+    target = Pathname.new(config.database).realpath
+    raise "database escaped isolated root" unless target.to_s.start_with?("#{storage}#{File::SEPARATOR}")
+  end
+  puts "Pre-start database isolation verified"
+' "$ACCEPTANCE_ROOT"
+
+PORT=$(ruby -rsocket -e 'server = TCPServer.new("127.0.0.1", 0); puts server.addr[1]; server.close')
+export HEARTH_REAL_GROK_BASE_URL="http://127.0.0.1:$PORT"
+bin/hearth serve --root "$ACCEPTANCE_ROOT" --port "$PORT" >"$ACCEPTANCE_ROOT/serve.out" 2>"$ACCEPTANCE_ROOT/serve.err" &
+SERVER_PID=$!
+
+attempt=0
+until curl --fail --silent --output /dev/null "$HEARTH_REAL_GROK_BASE_URL/up"; do
+  attempt=$((attempt + 1))
+  [ "$attempt" -lt 200 ] || { echo "Isolated Hearth did not become ready" >&2; exit 1; }
+  kill -0 "$SERVER_PID" 2>/dev/null || { echo "Isolated Hearth stopped before browser verification" >&2; exit 1; }
+  sleep 0.1
+done
+
+if ! bin/system-test-browser bin/rails test test/system/agent_grok_live_test.rb; then
+  ruby -rjson -e '
+    log, root = ARGV
+    data = File.binread(log)
+    classes = data.scan(/\b(?:[A-Z][A-Za-z0-9_]*::)*(?:[A-Z][A-Za-z0-9_]*)(?:Error|Exception)\b/).uniq.last(8)
+    frames = data.scan(/#{Regexp.escape(root)}\/(?:app|config|lib)\/[^:\s]+:\d+/).map { |frame| frame.delete_prefix("#{root}/") }.uniq.last(12)
+    routes = data.scan(/No route matches \[[A-Z]+\] \"(\/[A-Za-z0-9_\/.?-]*)\"/).flatten.uniq.last(8)
+    warn JSON.generate(error_classes: classes, application_frames: frames, unmatched_routes: routes)
+  ' "$ACCEPTANCE_ROOT/.hearth/log/production.log" "$APP_ROOT"
+  exit 1
+fi
+
+ruby -rpathname -e '
+  root, evidence_path = ARGV
+  require File.join(Dir.pwd, "app/models/hearth/instance")
+  instance = Hearth::Instance.new(root).require_initialized!
+  ENV.update(instance.environment(runtime: true))
+  require File.join(Dir.pwd, "config/environment")
+  storage = instance.storage_path.expand_path
+  targets = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env)
+  raise "four isolated database roles required" unless targets.map(&:name).sort == %w[cable cache primary queue]
+  raise "database escaped isolated root" unless targets.all? { |config| Pathname.new(config.database).expand_path.to_s.start_with?("#{storage}#{File::SEPARATOR}") }
+  profile = Agent::Profile.find_by!(certified_key: "grok")
+  installation = profile.installations.order(:id).last!
+  turn = Agent::Turn.order(:id).last!
+  session = turn.agent_session
+  grant = session.grants.order(:id).last!
+  raise "real acceptance grant was not read only" unless grant.capability_groups == Agent::Grant::READ_ONLY_RUNTIME_GROUPS
+  raise "coach turn did not succeed" unless turn.status == "succeeded"
+  raise "write or submission state exists" unless [
+    Agent::KnowledgeSubmission.count,
+    Agent::MutationProposal.count,
+    Agent::MutationExecution.count,
+    Agent::OperationalAuthorization.count,
+    Agent::PermissionRequest.where(capability: ["health.write", "knowledge.submit"]).count,
+    Agent::ToolActivity.where(capability: ["health.write", "knowledge.submit"]).count
+  ].all?(&:zero?)
+  runtime_pid = Integer(instance.acp_pid_path.read)
+  process_rows = IO.popen(["ps", "-eo", "pid=,ppid=,command="], &:readlines)
+  agent_owned_by_runtime = process_rows.any? do |row|
+    _pid, ppid, command = row.strip.split(/\s+/, 3)
+    ppid.to_i == runtime_pid && command.to_s.include?("grok")
+  end
+  raise "ACP child was not observed under the sibling runtime" unless agent_owned_by_runtime
+  scans = [instance.log_path.join("production.log"), instance.root.join("serve.out"), instance.root.join("serve.err")]
+  forbidden = /(XAI_API_KEY|GROK_API_KEY|authorization:\s*bearer|oauth[_ -]?code|LORESTER_VAULT|\/Users\/|\.claude(?:\/|\b))/i
+  raise "sensitive material reached acceptance output" if scans.any? { |path| path.file? && path.binread.match?(forbidden) }
+  evidence = {
+    evidence_schema: "hearth_grok_web_setup/v1",
+    observed_at: Time.current.utc.iso8601,
+    outcome: "passed",
+    provider: "grok",
+    provider_version: installation.agent_version.to_s.first(100),
+    cli_detected: true,
+    adapter_detected: true,
+    method_explicitly_selected: installation.authentication_method_id.present?,
+    authenticated: installation.authentication_status == "authenticated",
+    coach_turn_succeeded: true,
+    read_only_groups: grant.capability_groups,
+    no_write_or_submission_state: true,
+    all_database_roles_isolated: true,
+    agent_owned_by_sibling_runtime: true
+  }
+  File.write(evidence_path, JSON.generate(evidence) + "\n", mode: "w", perm: 0o600)
+' "$ACCEPTANCE_ROOT" "$APP_ROOT/docs/acp-evidence/grok-web-setup.jsonl"
