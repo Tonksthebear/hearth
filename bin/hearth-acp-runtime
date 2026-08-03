@@ -43,9 +43,12 @@ stop_requested = false
 fatal_error = nil
 %w[ INT TERM ].each { |signal| Signal.trap(signal) { stop_requested = true } }
 
+real_grok_acceptance = ENV["HEARTH_REAL_GROK_SYSTEM_TEST"] == "1"
+acceptance_environment = real_grok_acceptance ? Agent::Profile::Certified::GROK_ACCEPTANCE_ENVIRONMENT : nil
 supervisor = Acp::Supervisor.new(
   instance_root: instance_root,
-  runtime_capability_groups: ENV["HEARTH_REAL_GROK_SYSTEM_TEST"] == "1" ? Agent::Grant::READ_ONLY_RUNTIME_GROUPS : nil,
+  runtime_capability_groups: real_grok_acceptance ? Agent::Grant::READ_ONLY_RUNTIME_GROUPS : nil,
+  acceptance_environment: acceptance_environment,
   on_fatal: ->(_agent_session, error) {
     fatal_error ||= error
     stop_requested = true
@@ -57,7 +60,12 @@ turn_runtime = Agent::Turn::Runtime.new(
   stopping: -> { stop_requested }
 )
 runtime_owner = "runtime-#{Process.pid}"
-setup_runtime = Agent::SetupRequest::Runtime.new(instance: instance, supervisor: supervisor, owner: runtime_owner)
+setup_runtime = Agent::SetupRequest::Runtime.new(
+  instance: instance,
+  supervisor: supervisor,
+  owner: runtime_owner,
+  acceptance_environment: acceptance_environment
+)
 Agent::RuntimeStatus.heartbeat_all!(owner: runtime_owner)
 
 agent_session = nil

@@ -24,10 +24,22 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
   end
 
   test "acceptance supervisor issues the fixed read-only grant without changing the default" do
-    with_supervisor(runtime_capability_groups: Agent::Grant::READ_ONLY_RUNTIME_GROUPS) do |supervisor|
+    environments = []
+    factory = connection_factory(modes: [ "no_auth" ])
+    capturing_factory = lambda do |**arguments|
+      environments << arguments.fetch(:environment)
+      factory.call(**arguments)
+    end
+    with_supervisor(
+      runtime_capability_groups: Agent::Grant::READ_ONLY_RUNTIME_GROUPS,
+      acceptance_environment: Agent::Profile::Certified::GROK_ACCEPTANCE_ENVIRONMENT,
+      connection_factory: capturing_factory
+    ) do |supervisor|
       agent_session = supervisor.start_session(conversation: agent_conversations(:active))
 
       assert_equal %w[health_read knowledge_read], agent_session.grants.active_at.sole.capability_groups
+      assert_equal "0", environments.sole.fetch("GROK_CLAUDE_AGENTS_ENABLED")
+      refute_includes agent_session.conversation.profile.environment_keys, "GROK_CLAUDE_AGENTS_ENABLED"
     end
   end
 
@@ -605,7 +617,8 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
     end
 
     def with_supervisor(mode: "normal", timeout: 2, recovery_backoffs: [ 0, 0, 0 ],
-      on_fatal: ->(_session, _error) { }, connection_factory: nil, runtime_capability_groups: nil)
+      on_fatal: ->(_session, _error) { }, connection_factory: nil, runtime_capability_groups: nil,
+      acceptance_environment: nil)
       with_instance_root do |root|
         configure_profile
         supervisor = Acp::Supervisor.new(
@@ -613,7 +626,8 @@ class Acp::SupervisorTest < ActiveSupport::TestCase
           connection_factory: connection_factory || self.connection_factory(modes: [ mode ], timeout: timeout),
           recovery_backoffs: recovery_backoffs,
           on_fatal: on_fatal,
-          runtime_capability_groups: runtime_capability_groups
+          runtime_capability_groups: runtime_capability_groups,
+          acceptance_environment: acceptance_environment
         ).start!
         yield supervisor
       ensure

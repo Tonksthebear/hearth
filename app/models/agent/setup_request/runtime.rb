@@ -1,8 +1,9 @@
 class Agent::SetupRequest::Runtime
-  def initialize(instance:, supervisor:, owner:)
+  def initialize(instance:, supervisor:, owner:, acceptance_environment: nil)
     @instance = instance
     @supervisor = supervisor
     @owner = owner
+    @acceptance_environment = Agent::Profile::Certified.validate_acceptance_environment(acceptance_environment)
   end
 
   def run_next
@@ -27,10 +28,8 @@ class Agent::SetupRequest::Runtime
       end
     when "disable"
       profile = request.household.agent_profiles.find_by!(certified_key: request.certified_key)
-      profile.transaction do
-        profile.disable_runtime_access!
-        @supervisor.tick
-      end
+      profile.transaction { profile.disable_runtime_access! }
+      @supervisor.tick
       request.succeed!
     end
     request
@@ -58,7 +57,7 @@ class Agent::SetupRequest::Runtime
     end
 
     def with_probe(request, candidate, cli_version: nil)
-      candidate.with_probe(instance: @instance) do |probe|
+      candidate.with_probe(instance: @instance, acceptance_environment: @acceptance_environment) do |probe|
         yield probe
         request.succeed!(cli_available: candidate.cli_available?,
           cli_version: cli_version || candidate.cli_version,

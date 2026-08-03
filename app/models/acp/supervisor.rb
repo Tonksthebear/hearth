@@ -15,7 +15,7 @@ module Acp
 
     def initialize(instance_root:, runtime_directory: nil, connection_factory: nil,
       recovery_backoffs: DEFAULT_BACKOFFS, on_fatal: ->(_session, _error) { },
-      runtime_capability_groups: nil,
+      runtime_capability_groups: nil, acceptance_environment: nil,
       mcp_url: ENV.fetch("HEARTH_MCP_URL", "http://127.0.0.1:3000/mcp"))
       @instance_root = File.expand_path(instance_root)
       @mcp_url = validate_mcp_url(mcp_url)
@@ -24,6 +24,7 @@ module Acp
       @recovery_backoffs = recovery_backoffs.map { |value| Float(value) }.freeze
       @on_fatal = on_fatal
       @runtime_capability_groups = runtime_capability_groups
+      @acceptance_environment = Agent::Profile::Certified.validate_acceptance_environment(acceptance_environment)
       @connections = {}
       @connections_mutex = Mutex.new
       @session_list_observations = {}
@@ -191,7 +192,7 @@ module Acp
         @connection_factory.call(
           argv: profile.argv,
           cwd: profile.working_directory_for(@instance_root),
-          environment: profile.environment_from,
+          environment: profile.environment_from.merge(@acceptance_environment),
           mcp_servers: []
         )
       end

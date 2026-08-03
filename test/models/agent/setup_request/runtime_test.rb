@@ -4,14 +4,15 @@ class Agent::SetupRequest::RuntimeTest < ActiveSupport::TestCase
   FakeProbe = Data.define(:version)
 
   class FakeCandidate
-    attr_reader :observed, :authenticated
+    attr_reader :observed, :authenticated, :acceptance_environment
 
     def cli_available? = true
     def cli_version = "cli 1.0"
     def transport_available? = true
     def state_for(household) = Agent::Profile::Certified.new(Agent::Profile::Certified::DEFINITIONS.fetch("grok")).state_for(household)
 
-    def with_probe(instance:)
+    def with_probe(instance:, acceptance_environment: nil)
+      @acceptance_environment = acceptance_environment
       yield FakeProbe.new(version: "adapter 2.0")
     end
 
@@ -25,9 +26,12 @@ class Agent::SetupRequest::RuntimeTest < ActiveSupport::TestCase
   end
 
   class FakeSupervisor
-    attr_reader :ticks
+    attr_reader :ticks, :open_transactions_at_tick
     def initialize = @ticks = 0
-    def tick = @ticks += 1
+    def tick
+      @ticks += 1
+      @open_transactions_at_tick = ActiveRecord::Base.connection.open_transactions
+    end
   end
 
   setup do
@@ -51,6 +55,21 @@ class Agent::SetupRequest::RuntimeTest < ActiveSupport::TestCase
     assert_no_match(/path|token|secret/i, request.attributes.to_json)
   end
 
+  test "acceptance runtime passes only the fixed provider isolation environment" do
+    environment = Agent::Profile::Certified::GROK_ACCEPTANCE_ENVIRONMENT
+    runtime = Agent::SetupRequest::Runtime.new(
+      instance: Object.new,
+      supervisor: @supervisor,
+      owner: "acceptance-runtime",
+      acceptance_environment: environment
+    )
+    enqueue(action: "enable", key: "runtime-acceptance-environment")
+
+    with_stubbed_method(Agent::Profile::Certified, :fetch, @candidate) { runtime.run_next }
+
+    assert_equal environment, @candidate.acceptance_environment
+  end
+
   test "authentication passes only the explicitly approved method identity" do
     request = enqueue(action: "authenticate", key: "runtime-auth", authentication_method_id: "browser-login")
 
@@ -63,7 +82,9 @@ class Agent::SetupRequest::RuntimeTest < ActiveSupport::TestCase
   end
 
   test "provider errors become allowlisted messages without raw exception text" do
-    @candidate.define_singleton_method(:with_probe) { |instance:| raise Acp::Connection::TimeoutError, "token=/secret/path" }
+    @candidate.define_singleton_method(:with_probe) do |instance:, acceptance_environment: nil|
+      raise Acp::Connection::TimeoutError, "token=/secret/path"
+    end
     request = enqueue(action: "enable", key: "runtime-timeout")
 
     with_stubbed_method(Agent::Profile::Certified, :fetch, @candidate) { @runtime.run_next }
@@ -129,6 +150,7 @@ class Agent::SetupRequest::RuntimeTest < ActiveSupport::TestCase
         deadline_at: 5.minutes.from_now
       )
       request = enqueue(action: "disable", key: key)
+      open_transactions_before = ActiveRecord::Base.connection.open_transactions
 
       with_stubbed_method(Agent::Profile::Certified, :fetch, @candidate) { @runtime.run_next }
 
@@ -142,6 +164,7 @@ class Agent::SetupRequest::RuntimeTest < ActiveSupport::TestCase
       assert_predicate authorization.reload.revoked_at, :present?
       assert_equal "cancelled", proposal.reload.status
       assert_equal 1, @supervisor.ticks
-      assert_nil @candidate.authenticated
+    assert_nil @candidate.authenticated
+      assert_equal open_transactions_before, @supervisor.open_transactions_at_tick
     end
 end

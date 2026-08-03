@@ -35,11 +35,18 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
     end
     assert_equal "grok", definitions.first.adapter_command
     assert_equal %w[--no-auto-update agent stdio], definitions.first.arguments
-    assert_includes definitions.first.environment_keys, "GROK_CLAUDE_AGENTS_ENABLED"
-    assert_includes definitions.first.environment_keys, "GROK_CODEX_MCPS_ENABLED"
-    assert_includes definitions.first.environment_keys, "GROK_CURSOR_HOOKS_ENABLED"
+    assert_equal %w[HOME PATH XDG_CONFIG_HOME XAI_API_KEY], definitions.first.environment_keys
     assert_equal "codex-acp", definitions.second.adapter_command
     assert_equal "claude-agent-acp", definitions.third.adapter_command
+  end
+
+  test "real Grok acceptance environment is fixed and cannot become generic runtime configuration" do
+    environment = Agent::Profile::Certified::GROK_ACCEPTANCE_ENVIRONMENT
+
+    assert_equal "0", environment.fetch("GROK_CLAUDE_AGENTS_ENABLED")
+    assert_raises(ArgumentError) do
+      Agent::Profile::Certified.validate_acceptance_environment("ARBITRARY_SECRET" => "value")
+    end
   end
 
   test "legacy named profile is projected and claimed under its certified identity" do

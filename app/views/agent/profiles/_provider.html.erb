@@ -82,7 +82,7 @@
         <%= form.hidden_field :certified_key, value: provider.definition.key %>
         <%= form.hidden_field :action, value: reauthentication ? "reauthenticate" : "authenticate" %>
         <%= form.hidden_field :idempotency_key, value: SecureRandom.uuid %>
-        <fieldset aria-label="Authentication method" class="space-y-3">
+          <fieldset class="space-y-3">
           <legend class="text-sm font-semibold text-gray-900 dark:text-white"><%= reauthentication ? "Choose and re-approve an authentication method" : "Choose and approve an authentication method" %></legend>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Selection is required even when the provider advertises only one method. Hearth stores the method ID and name, never provider instructions or credential paths.</p>
           <div class="-space-y-px rounded-md bg-white dark:bg-gray-800/50">

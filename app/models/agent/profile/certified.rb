@@ -2,6 +2,16 @@ require "open3"
 require "timeout"
 
 class Agent::Profile::Certified
+  GROK_ACCEPTANCE_ENVIRONMENT = %w[
+    GROK_MEMORY GROK_SUBAGENTS GROK_WORKFLOWS
+    GROK_CURSOR_SKILLS_ENABLED GROK_CURSOR_RULES_ENABLED GROK_CURSOR_AGENTS_ENABLED
+    GROK_CURSOR_MCPS_ENABLED GROK_CURSOR_HOOKS_ENABLED GROK_CURSOR_SESSIONS_ENABLED
+    GROK_CLAUDE_SKILLS_ENABLED GROK_CLAUDE_RULES_ENABLED GROK_CLAUDE_AGENTS_ENABLED
+    GROK_CLAUDE_MCPS_ENABLED GROK_CLAUDE_HOOKS_ENABLED GROK_CLAUDE_SESSIONS_ENABLED
+    GROK_CODEX_SKILLS_ENABLED GROK_CODEX_RULES_ENABLED GROK_CODEX_AGENTS_ENABLED
+    GROK_CODEX_MCPS_ENABLED GROK_CODEX_HOOKS_ENABLED GROK_CODEX_SESSIONS_ENABLED
+  ].index_with { "0" }.freeze
+
   Definition = Data.define(
     :key, :name, :cli_command, :adapter_command, :arguments, :environment_keys, :credential_store, :guidance_url
   )
@@ -23,15 +33,7 @@ class Agent::Profile::Certified
       cli_command: "grok",
       adapter_command: "grok",
       arguments: %w[--no-auto-update agent stdio],
-      environment_keys: %w[
-        HOME PATH XDG_CONFIG_HOME XAI_API_KEY GROK_SANDBOX GROK_MEMORY GROK_SUBAGENTS GROK_WORKFLOWS
-        GROK_CURSOR_SKILLS_ENABLED GROK_CURSOR_RULES_ENABLED GROK_CURSOR_AGENTS_ENABLED
-        GROK_CURSOR_MCPS_ENABLED GROK_CURSOR_HOOKS_ENABLED GROK_CURSOR_SESSIONS_ENABLED
-        GROK_CLAUDE_SKILLS_ENABLED GROK_CLAUDE_RULES_ENABLED GROK_CLAUDE_AGENTS_ENABLED
-        GROK_CLAUDE_MCPS_ENABLED GROK_CLAUDE_HOOKS_ENABLED GROK_CLAUDE_SESSIONS_ENABLED
-        GROK_CODEX_SKILLS_ENABLED GROK_CODEX_RULES_ENABLED GROK_CODEX_AGENTS_ENABLED
-        GROK_CODEX_MCPS_ENABLED GROK_CODEX_HOOKS_ENABLED GROK_CODEX_SESSIONS_ENABLED
-      ],
+      environment_keys: %w[HOME PATH XDG_CONFIG_HOME XAI_API_KEY],
       credential_store: "Grok Build's documented local credential store",
       guidance_url: "https://docs.x.ai/build/overview"
     ),
@@ -69,6 +71,13 @@ class Agent::Profile::Certified
 
   def self.keys = DEFINITIONS.keys
 
+  def self.validate_acceptance_environment(environment)
+    return {} if environment.nil? || environment.empty?
+    return environment if environment == GROK_ACCEPTANCE_ENVIRONMENT
+
+    raise ArgumentError, "Unsupported ACP acceptance environment"
+  end
+
   def initialize(definition)
     @definition = definition
   end
@@ -103,13 +112,15 @@ class Agent::Profile::Certified
     )
   end
 
-  def with_probe(instance:, &block)
+  def with_probe(instance:, acceptance_environment: nil, &block)
     raise Acp::Connection::ConfigurationError, "#{definition.name} ACP executable is unavailable" unless transport_available?
 
     connection = Acp::Connection.new(
       argv: [ executable_path, *definition.arguments ],
       cwd: instance.root.to_s,
-      environment: ENV.slice(*definition.environment_keys),
+      environment: ENV.slice(*definition.environment_keys).merge(
+        self.class.validate_acceptance_environment(acceptance_environment)
+      ),
       mcp_servers: [],
       timeout: 30
     ).start
