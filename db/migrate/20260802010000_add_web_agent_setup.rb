@@ -1,6 +1,23 @@
 class AddWebAgentSetup < ActiveRecord::Migration[8.1]
+  CERTIFIED_PROFILES = {
+    "grok" => "Grok Build",
+    "codex" => "Codex ACP adapter",
+    "claude" => "Claude ACP wrapper"
+  }.freeze
+
   def change
     add_column :agent_profiles, :certified_key, :string
+    reversible do |direction|
+      direction.up do
+        CERTIFIED_PROFILES.each do |key, name|
+          execute <<~SQL.squish
+            UPDATE agent_profiles
+            SET certified_key = #{connection.quote(key)}
+            WHERE certified_key IS NULL AND name = #{connection.quote(name)}
+          SQL
+        end
+      end
+    end
     add_index :agent_profiles, %i[ household_id certified_key ], unique: true,
       where: "certified_key IS NOT NULL",
       name: "index_agent_profiles_on_household_and_certified_key"

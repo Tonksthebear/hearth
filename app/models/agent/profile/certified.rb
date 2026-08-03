@@ -23,7 +23,15 @@ class Agent::Profile::Certified
       cli_command: "grok",
       adapter_command: "grok",
       arguments: %w[--no-auto-update agent stdio],
-      environment_keys: %w[HOME PATH XDG_CONFIG_HOME XAI_API_KEY],
+      environment_keys: %w[
+        HOME PATH XDG_CONFIG_HOME XAI_API_KEY GROK_SANDBOX GROK_MEMORY GROK_SUBAGENTS GROK_WORKFLOWS
+        GROK_CURSOR_SKILLS_ENABLED GROK_CURSOR_RULES_ENABLED GROK_CURSOR_AGENTS_ENABLED
+        GROK_CURSOR_MCPS_ENABLED GROK_CURSOR_HOOKS_ENABLED GROK_CURSOR_SESSIONS_ENABLED
+        GROK_CLAUDE_SKILLS_ENABLED GROK_CLAUDE_RULES_ENABLED GROK_CLAUDE_AGENTS_ENABLED
+        GROK_CLAUDE_MCPS_ENABLED GROK_CLAUDE_HOOKS_ENABLED GROK_CLAUDE_SESSIONS_ENABLED
+        GROK_CODEX_SKILLS_ENABLED GROK_CODEX_RULES_ENABLED GROK_CODEX_AGENTS_ENABLED
+        GROK_CODEX_MCPS_ENABLED GROK_CODEX_HOOKS_ENABLED GROK_CODEX_SESSIONS_ENABLED
+      ],
       credential_store: "Grok Build's documented local credential store",
       guidance_url: "https://docs.x.ai/build/overview"
     ),
@@ -84,7 +92,7 @@ class Agent::Profile::Certified
   end
 
   def state_for(household)
-    profile = household.agent_profiles.find_by(certified_key: definition.key)
+    profile = household.agent_profiles.find_by(certified_key: definition.key) || legacy_profile_for(household)
     State.new(
       candidate: self,
       profile: profile,
@@ -119,8 +127,10 @@ class Agent::Profile::Certified
   end
 
   def observe_probe!(household:, probe:, enabled: true)
-    profile = household.agent_profiles.find_or_initialize_by(certified_key: definition.key)
+    profile = household.agent_profiles.find_by(certified_key: definition.key) ||
+      legacy_profile_for(household) || household.agent_profiles.new(certified_key: definition.key)
     profile.assign_attributes(
+      certified_key: definition.key,
       name: definition.name,
       executable_path: probe.executable_path,
       arguments: definition.arguments,
@@ -161,6 +171,10 @@ class Agent::Profile::Certified
   end
 
   private
+    def legacy_profile_for(household)
+      household.agent_profiles.find_by(certified_key: nil, name: definition.name)
+    end
+
     def resolve(command)
       return File.expand_path(command) if command.include?(File::SEPARATOR) && File.executable?(command)
 

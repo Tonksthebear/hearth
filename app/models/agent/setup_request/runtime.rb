@@ -11,7 +11,6 @@ class Agent::SetupRequest::Runtime
   end
 
   def run(request)
-    request.dispatch!
     candidate = Agent::Profile::Certified.fetch(request.certified_key)
     case request.action
     when "detect"
@@ -21,15 +20,17 @@ class Agent::SetupRequest::Runtime
     when "authenticate", "reauthenticate"
       request.household.agent_profiles.find_by!(certified_key: request.certified_key, enabled: true)
       with_probe(request, candidate) do |probe|
+        request.dispatch!
         candidate.authenticate_probe!(household: request.household, probe: probe,
           method_id: request.authentication_method_id,
           origin: request.origin == "web" ? "web_setting" : "operator_command")
       end
     when "disable"
       profile = request.household.agent_profiles.find_by!(certified_key: request.certified_key)
-      profile.update!(enabled: false)
-      @supervisor.tick
-      profile.disable_runtime_access!
+      profile.transaction do
+        profile.disable_runtime_access!
+        @supervisor.tick
+      end
       request.succeed!
     end
     request

@@ -65,4 +65,23 @@ class AgentProfilesTest < ApplicationSystemTestCase
   ensure
     page.current_window.resize_to(original_size[0], original_size[1]) if original_size
   end
+
+  test "authenticated provider allows proactive explicit reauthentication" do
+    Agent::SetupRequest.create!(household: households(:home), requested_by: users(:two), certified_key: "grok",
+      action: "detect", idempotency_key: "reauth-detection", origin: "web", status: "succeeded",
+      cli_available: true, adapter_available: true, adapter_version: "1.0")
+    sign_in_via_browser users(:two)
+    visit_and_wait_for_path agent_profiles_path
+
+    within "#agent_provider_grok" do
+      choose "Cached login"
+      click_button "Re-authenticate"
+    end
+
+    assert_text "Agent setup request queued.", wait: 5
+    request = Agent::SetupRequest.uncached { Agent::SetupRequest.order(:id).last }
+    assert_equal "reauthenticate", request.action
+    assert_equal "cached_token", request.authentication_method_id
+    assert_equal "pending", request.status
+  end
 end

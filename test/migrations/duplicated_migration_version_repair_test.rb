@@ -118,6 +118,31 @@ class DuplicatedMigrationVersionRepairTest < ActiveSupport::TestCase
     assert_equal canonical_schema, both_effects_schema
   end
 
+  test "web agent setup backfills certified identity for existing profiles" do
+    with_isolated_database do |connection, context, _pool|
+      context.migrate(STABLE_AGENT_INSTALLATION_IDENTITY_VERSION)
+      now = Time.current
+      household = insert(connection, :households,
+        name: "Existing agent household", installation_key: 1, created_at: now, updated_at: now)
+      profile = insert(connection, :agent_profiles,
+        household_id: household,
+        name: "Grok Build",
+        executable_path: "/usr/bin/grok",
+        arguments: "[]",
+        environment_keys: "[]",
+        enabled: true,
+        update_policy: "manual",
+        created_at: now,
+        updated_at: now)
+
+      context.migrate
+
+      assert_equal "grok", connection.select_value(
+        "SELECT certified_key FROM agent_profiles WHERE id = #{connection.quote(profile)}"
+      )
+    end
+  end
+
   test "partial normalized ingredient schema fails before DDL" do
     with_isolated_database do |connection, context, _pool|
       context.migrate(PRE_COLLISION_VERSION)

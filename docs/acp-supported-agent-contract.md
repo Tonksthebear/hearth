@@ -56,7 +56,7 @@ Availability is deliberately separated into provider CLI presence/version, ACP a
 
 ## Real-provider acceptance
 
-`HEARTH_REAL_GROK_SYSTEM_TEST=1 bin/agent-grok-acceptance` is the distinct, opt-in real-provider seam. It is not called by `bin/rails test`, `bin/agent-chat-acceptance`, or `bin/ci`. The harness uses a newly initialized temporary instance with synthetic demo data, verifies primary/cache/queue/cable paths before startup, unsets Lorester integration, uses the existing Grok-owned credential store without inspecting it, and grants exactly `health_read` plus `knowledge_read` for one bounded Coach turn.
+`HEARTH_REAL_GROK_SYSTEM_TEST=1 bin/agent-grok-acceptance` is the distinct, opt-in real-provider seam. It is not called by `bin/rails test`, `bin/agent-chat-acceptance`, or `bin/ci`. The harness uses a newly initialized temporary instance with synthetic demo data, verifies primary/cache/queue/cable paths before startup, unsets Lorester integration, disables Grok's Cursor/Claude/Codex compatibility loaders plus memory, subagents, and workflows, uses the existing Grok-owned credential store without inspecting it, and grants exactly `health_read` plus `knowledge_read` for one bounded Coach turn. Disabling those compatibility sources is part of the isolation boundary: a temporary working directory alone does not prevent provider-side discovery of host-level instructions, MCP configuration, hooks, or skills.
 
 The post-run audit requires zero knowledge submissions, write tool activity, mutation proposals/executions, write/submit permission requests, and operational authorizations. It also proves the ACP child belongs to the sibling runtime and replaces `docs/acp-evidence/grok-web-setup.jsonl` with one allowlisted sanitized result row.
 

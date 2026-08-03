@@ -37,14 +37,23 @@ class Agent::SetupRequestTest < ActiveSupport::TestCase
   test "stale work recovers before dispatch and expires after dispatch" do
     safe = Agent::SetupRequest.enqueue!(household: households(:home), requested_by: users(:two),
       certified_key: "grok", action: "detect", idempotency_key: "safe")
-    safe.update_columns(status: "running", lease_expires_at: 1.second.ago)
-    uncertain = Agent::SetupRequest.enqueue!(household: households(:home), requested_by: users(:two),
-      certified_key: "grok", action: "authenticate", authentication_method_id: "cached_token", idempotency_key: "uncertain")
-    uncertain.update_columns(status: "running", dispatched_at: 1.second.ago, lease_expires_at: 1.second.ago)
+    assert_equal safe, Agent::SetupRequest.claim_next!(owner: "runtime")
+    safe.update_columns(lease_expires_at: 1.second.ago)
 
     Agent::SetupRequest.recover_stale_claims!
 
     assert_equal "pending", safe.reload.status
+    assert_nil safe.dispatched_at
+    safe.request_cancel!
+
+    uncertain = Agent::SetupRequest.enqueue!(household: households(:home), requested_by: users(:two),
+      certified_key: "grok", action: "authenticate", authentication_method_id: "cached_token", idempotency_key: "uncertain")
+    assert_equal uncertain, Agent::SetupRequest.claim_next!(owner: "runtime")
+    uncertain.dispatch!
+    uncertain.update_columns(lease_expires_at: 1.second.ago)
+
+    Agent::SetupRequest.recover_stale_claims!
+
     assert_equal "expired", uncertain.reload.status
     assert_equal "authentication_failed", uncertain.error_category
   end
@@ -56,7 +65,8 @@ class Agent::SetupRequestTest < ActiveSupport::TestCase
     assert_equal "cancelled", pending.reload.status
 
     running = Agent::SetupRequest.enqueue!(household: households(:home), requested_by: users(:two),
-      certified_key: "grok", action: "detect", idempotency_key: "running")
+      certified_key: "grok", action: "authenticate", authentication_method_id: "cached_token",
+      idempotency_key: "running")
     Agent::SetupRequest.claim_next!(owner: "runtime").dispatch!
     running.reload.request_cancel!
     assert_equal "running", running.reload.status

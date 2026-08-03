@@ -61,7 +61,7 @@ class Agent::SetupRequest < ApplicationRecord
 
     def claim_next!(owner:, now: Time.current)
       recover_stale_claims!(now: now)
-      where(status: "pending").order(:created_at, :id).find_each do |candidate|
+      where(status: "pending").order(:created_at, :id).each do |candidate|
         changed = where(id: candidate.id, status: "pending").update_all(status: "running",
           claimed_by: owner, claimed_at: now, heartbeat_at: now,
           lease_expires_at: now + LEASE_DURATION, updated_at: now)
@@ -140,7 +140,5 @@ class Agent::SetupRequest < ApplicationRecord
         target: "agent_provider_#{certified_key}",
         partial: "agent/profiles/provider",
         locals: { provider: Agent::Profile::Certified.fetch(certified_key).state_for(household) }
-    rescue ActiveRecord::RecordNotFound
-      nil
     end
 end

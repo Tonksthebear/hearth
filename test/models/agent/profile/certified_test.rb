@@ -35,8 +35,36 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
     end
     assert_equal "grok", definitions.first.adapter_command
     assert_equal %w[--no-auto-update agent stdio], definitions.first.arguments
+    assert_includes definitions.first.environment_keys, "GROK_CLAUDE_AGENTS_ENABLED"
+    assert_includes definitions.first.environment_keys, "GROK_CODEX_MCPS_ENABLED"
+    assert_includes definitions.first.environment_keys, "GROK_CURSOR_HOOKS_ENABLED"
     assert_equal "codex-acp", definitions.second.adapter_command
     assert_equal "claude-agent-acp", definitions.third.adapter_command
+  end
+
+  test "legacy named profile is projected and claimed under its certified identity" do
+    profile = agent_profiles(:hearth)
+    profile.update!(certified_key: nil, name: "Grok Build")
+    candidate = Agent::Profile::Certified.fetch("grok")
+    connection = Object.new
+    connection.define_singleton_method(:auth_methods) { [] }
+    connection.define_singleton_method(:agent_capabilities) { {} }
+    connection.define_singleton_method(:agent_info) { { "version" => "legacy 1.0" } }
+    probe = Agent::Profile::Certified::Probe.new(
+      definition: candidate.definition,
+      executable_path: "/usr/bin/grok",
+      cli_path: "/usr/bin/grok",
+      version: "legacy 1.0",
+      initialized: { "protocolVersion" => 1 },
+      connection: connection
+    )
+
+    assert_equal profile, candidate.state_for(households(:home)).profile
+
+    installation = candidate.observe_probe!(household: households(:home), probe: probe)
+
+    assert_equal "grok", profile.reload.certified_key
+    assert_equal profile, installation.profile
   end
 
   test "operator approved installation identity is reused by the production supervisor" do

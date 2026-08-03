@@ -34,11 +34,12 @@ class Agent::SetupRequestsControllerTest < ActionDispatch::IntegrationTest
     post agent_setup_requests_path, params: { setup_request: {
       certified_key: "grok", action: "detect", idempotency_key: "hostile",
       executable_path: "/tmp/evil", arguments: [ "--shell" ], environment_keys: [ "SECRET=value" ],
-      working_directory: "/tmp", enabled: false, provider: { token: "secret" }
+      working_directory: "/tmp", enabled: false, household_id: 999_999, provider: { token: "secret" }
     } }
 
     assert_equal before, profile.reload.attributes.slice(*before.keys)
     request = Agent::SetupRequest.find_by!(idempotency_key: "hostile")
+    assert_equal households(:home), request.household
     assert_nil request.authentication_method_id
     assert_no_match(/evil|SECRET|secret/, request.attributes.to_json)
   end
