@@ -1,16 +1,28 @@
 class Agent::RuntimeStatus < ApplicationRecord
   STALE_AFTER = 10.seconds
-  STATUSES = %w[ online stopped failed ].freeze
+  STATUSES = %w[ starting online stopped failed ].freeze
 
   belongs_to :household
 
   validates :owner, presence: true
   validates :status, inclusion: { in: STATUSES }
 
+  after_commit :broadcast_providers, if: :saved_change_to_status?
+
+  def self.start_all!(owner:, at: Time.current)
+    Household.find_each do |household|
+      status = find_or_initialize_by(household: household)
+      status.assign_attributes(owner: owner, status: "starting", started_at: at,
+        heartbeat_at: at, stopped_at: nil, failure_category: nil)
+      status.save!
+    end
+  end
+
   def self.heartbeat_all!(owner:, at: Time.current)
     Household.find_each do |household|
       status = find_or_initialize_by(household: household)
-      status.assign_attributes(owner: owner, status: "online", started_at: status.started_at || at,
+      status.assign_attributes(owner: owner, status: "online",
+        started_at: status.owner == owner ? status.started_at || at : at,
         heartbeat_at: at, stopped_at: nil, failure_category: nil)
       status.save!
     end
@@ -27,5 +39,23 @@ class Agent::RuntimeStatus < ApplicationRecord
     status == "online" && heartbeat_at >= at - STALE_AFTER
   end
 
-  def stale?(at: Time.current) = status == "online" && !online?(at: at)
+  def stale?(at: Time.current)
+    status.in?(%w[ starting online ]) && heartbeat_at < at - STALE_AFTER
+  end
+
+  def state(at: Time.current)
+    return "recovering" if stale?(at: at)
+
+    status
+  end
+
+  private
+    def broadcast_providers
+      Agent::Profile::Certified.all.each do |candidate|
+        broadcast_replace_to household,
+          target: "agent_provider_#{candidate.definition.key}",
+          partial: "agent/profiles/provider",
+          locals: { provider: candidate.state_for(household) }
+      end
+    end
 end

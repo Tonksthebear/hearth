@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_02_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -393,7 +393,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_010000) do
     t.datetime "stopped_at"
     t.datetime "updated_at", null: false
     t.index ["household_id"], name: "index_agent_runtime_statuses_on_household_id", unique: true
-    t.check_constraint "status IN ('online', 'stopped', 'failed')", name: "agent_runtime_statuses_status"
+    t.check_constraint "status IN ('starting', 'online', 'stopped', 'failed')", name: "agent_runtime_statuses_status"
   end
 
   create_table "agent_sessions", force: :cascade do |t|

@@ -33,6 +33,21 @@ class Acp::RuntimeDirectoryTest < ActiveSupport::TestCase
     end
   end
 
+  test "development ownership uses checkout tmp without initializing an instance" do
+    Dir.mktmpdir("hearth-development-runtime") do |root|
+      runtime_directory = Acp::RuntimeDirectory.new(instance_root: root, development: true).acquire!
+
+      assert_equal File.join(root, "tmp/acp"), runtime_directory.path.to_s
+      assert File.exist?(File.join(root, "tmp/acp/supervisor.pid"))
+      refute File.exist?(File.join(root, ".hearth"))
+
+      runtime_directory.release!
+      refute File.exist?(File.join(root, "tmp/acp/supervisor.pid"))
+    ensure
+      runtime_directory&.release!
+    end
+  end
+
   private
     def with_instance_root
       Dir.mktmpdir("hearth-instance") do |root|

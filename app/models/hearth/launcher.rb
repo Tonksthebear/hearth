@@ -6,14 +6,23 @@ module Hearth
     class Error < StandardError; end
     class AlreadyRunning < Error; end
 
+    ACP_RESTART_BACKOFFS = [ 0.25, 1, 4 ].freeze
+    ACP_STABLE_AFTER = 10.seconds
+
     attr_reader :instance, :port, :children
 
-    def initialize(instance:, port: 3000)
+    def initialize(instance:, port: 3000, sleeper: ->(duration) { sleep duration },
+      monotonic_clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
       @instance = instance.require_initialized!
       @port = Integer(port)
       raise ArgumentError, "Port must be between 1 and 65535" unless @port.between?(1, 65_535)
 
       @children = {}
+      @child_specs = {}
+      @child_started_at = {}
+      @sleeper = sleeper
+      @monotonic_clock = monotonic_clock
+      @acp_restart_attempt = 0
       @stop_requested = false
     end
 
@@ -58,6 +67,8 @@ module Hearth
       def spawn_child(component, environment, *command)
         pid = Process.spawn(environment, *command, pgroup: true, out: File::NULL, err: File::NULL)
         children[pid] = component
+        @child_specs[component] = [ environment, command ]
+        @child_started_at[pid] = monotonic_now
         record(component: component, category: "started")
       rescue SystemCallError => error
         record(component: component, category: "spawn_failed", error: error.class.name)
@@ -73,7 +84,11 @@ module Hearth
           end
 
           component = children.delete(pid)
+          started_at = @child_started_at.delete(pid)
           record(component: component, category: "exited", exit_code: status.exitstatus, signal: status.termsig)
+          if component == :acp && restart_acp(started_at: started_at)
+            next
+          end
           raise Error, "#{component} exited unexpectedly (#{status.exitstatus || "signal #{status.termsig}"})"
         end
       rescue Errno::ECHILD
@@ -104,6 +119,7 @@ module Hearth
         return unless pid
 
         component = children.delete(pid)
+        @child_started_at.delete(pid)
         record(component: component, category: "stopped", exit_code: status.exitstatus, signal: status.termsig)
       rescue Errno::ECHILD
         children.clear
@@ -116,5 +132,34 @@ module Hearth
         end
         File.chmod(Hearth::Instance::FILE_MODE, path)
       end
+
+      def restart_acp(started_at:)
+        if started_at && monotonic_now - started_at >= ACP_STABLE_AFTER
+          @acp_restart_attempt = 0
+          record(component: :acp, category: "restart_budget_reset")
+        end
+        return false if @acp_restart_attempt >= ACP_RESTART_BACKOFFS.length
+
+        delay = ACP_RESTART_BACKOFFS.fetch(@acp_restart_attempt)
+        @acp_restart_attempt += 1
+        restart_owner = "launcher-#{Process.pid}"
+        Agent::RuntimeStatus.start_all!(owner: restart_owner)
+        warn "Hearth ACP runtime exited; restarting in #{delay}s (attempt #{@acp_restart_attempt}/#{ACP_RESTART_BACKOFFS.length})"
+        record(component: :acp, category: "restarting", delay: delay, attempt: @acp_restart_attempt)
+        @sleeper.call(delay)
+        if @stop_requested
+          Agent::RuntimeStatus.stop_all!(owner: restart_owner)
+          return true
+        end
+
+        environment, command = @child_specs.fetch(:acp)
+        spawn_child(:acp, environment, *command)
+        true
+      rescue Error
+        Agent::RuntimeStatus.stop_all!(owner: restart_owner, failed: true, failure_category: "runtime_error") if restart_owner
+        raise
+      end
+
+      def monotonic_now = @monotonic_clock.call
   end
 end

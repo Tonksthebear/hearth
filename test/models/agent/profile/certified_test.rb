@@ -49,6 +49,14 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
     end
   end
 
+  test "runtime copy is defined for the online state" do
+    Agent::RuntimeStatus.heartbeat_all!(owner: "runtime")
+
+    state = Agent::Profile::Certified.fetch("grok").state_for(households(:home))
+    assert_equal "online", state.runtime_state
+    assert_equal "Sibling ACP runtime online", state.runtime_heading
+  end
+
   test "legacy named profile is projected and claimed under its certified identity" do
     profile = agent_profiles(:hearth)
     profile.update!(certified_key: nil, name: "Grok Build")

@@ -93,28 +93,30 @@ configuration, stopped transport, unavailable projection, stale projection, and
 incompatible contract remain distinct bounded results. Inbox status polling is limited
 to once per second; normal Lorester reconciliation and processing may take longer.
 
-The source checkout is not implicitly a Hearth instance, so `Procfile.dev` does
-not start the ACP runtime. Development uses separate primary, cache, queue, and
-cable SQLite files, and Solid Cable carries committed chat projections between
-the web and runtime processes. Run the web process and durable turn consumer in
-two terminals, using an explicit initialized instance root:
+The source checkout is not implicitly a production Hearth instance. `bin/dev`
+starts Puma, the Tailwind watcher, and one ACP runtime as supervised siblings.
+Development uses separate primary, cache, queue, and cable SQLite files, and
+Solid Cable carries committed chat projections between the web and runtime
+processes. The runtime keeps only lock/PID ownership state beneath ignored
+`tmp/acp`; it does not run `hearth init`, create `.hearth`, or write to home.
 
 ```bash
 bin/dev
-RAILS_ENV=development bin/hearth-acp-runtime --root /path/to/initialized/hearth-instance
 ```
 
 The Coach form only commits a user message and pending `Agent::Turn`; it never
-starts an ACP process in Puma. If a turn remains Pending, confirm the second
-terminal is running, the selected profile is enabled, and the root contains
-`.hearth/instance.yml`. Do not point multiple database roles at one shared URL.
-The runtime polls the database as its authority, so a missed notification cannot
-lose queued work.
+starts an ACP process in Puma. Before migrations or first household setup finish,
+the sibling waits with capped, visible retry delays and creates no placeholder
+records. If its process fails, Foreman stops the development formation cleanly;
+restart the same `bin/dev` command. Do not point multiple database roles at one
+shared URL. The runtime polls the database as its authority, so a missed
+notification cannot lose queued work.
 
 Agent executable, argv, contained working directory, environment-name allowlist,
 and manual update policy live on `Agent::Profile`. Session transport and recovery
-truth live in the database; `.hearth/tmp/acp` contains only restrictive lock/PID
-state. Run `bin/hearth agents --root PATH` to distinguish installed provider CLIs
+truth live in the database; production `.hearth/tmp/acp` and development
+`tmp/acp` contain only restrictive lock/PID state. Run
+`bin/hearth agents --root PATH` to distinguish installed provider CLIs
 from available ACP adapters. After signing in, open **Agent settings** from the person menu to re-check certified providers, enable one, and explicitly approve an advertised authentication method. Hearth persists only method identity and setup state; provider credentials remain in the provider-owned store.
 
 `bin/hearth agent setup --root PATH --profile grok` remains the recovery/headless path. It uses the same durable setup requests as the web UI. Headless use requires both `--yes` and an explicit `--auth-method ID`; it never accepts credentials, executable paths, argv, or environment values.

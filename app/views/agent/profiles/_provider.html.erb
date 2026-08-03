@@ -111,8 +111,8 @@
       <div class="flex" role="status">
         <div class="shrink-0"><%= icon "bolt", variant: :mini, class: "size-5 text-blue-400" %></div>
         <div class="ml-3">
-          <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Sibling ACP runtime offline or stale</h3>
-          <div class="mt-2 text-sm text-blue-700 dark:text-blue-200/85"><p>Queued work will resume when Hearth is serving.</p></div>
+          <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200"><%= provider.runtime_heading %></h3>
+          <div class="mt-2 text-sm text-blue-700 dark:text-blue-200/85"><p><%= provider.runtime_message %></p></div>
           <div class="mt-4">
             <div class="-mx-2 -my-1.5 flex">
               <%= button_to "Queue availability check", agent_setup_requests_path,

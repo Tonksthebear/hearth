@@ -65,6 +65,27 @@ production_database_assertion = <<~'RUBY'
   puts "Production databases verified: #{configs.transform_values(&:database).inspect}"
   puts "Production Active Storage verified: #{actual_storage_root}"
 RUBY
+development_database_assertion = <<~'RUBY'
+  configs = ActiveRecord::Base.configurations.configs_for(env_name: "development").index_by(&:name)
+  expected_databases = {
+    "primary" => Rails.root.join("storage/development.sqlite3").to_s,
+    "cache" => Rails.root.join("storage/development_cache.sqlite3").to_s,
+    "queue" => Rails.root.join("storage/development_queue.sqlite3").to_s,
+    "cable" => Rails.root.join("storage/development_cable.sqlite3").to_s
+  }
+  actual_databases = configs.transform_values { |config| File.expand_path(config.database, Rails.root) }
+  raise "Development database targets changed: #{actual_databases.inspect}" unless actual_databases == expected_databases
+  raise "Development database targets collapsed" unless actual_databases.values.uniq.size == 4
+  expected_paths = {
+    "primary" => nil,
+    "cache" => "db/cache_migrate",
+    "queue" => "db/queue_migrate",
+    "cable" => "db/cable_migrate"
+  }
+  actual_paths = configs.transform_values { |config| config.configuration_hash[:migrations_paths] }
+  raise "Development migration paths changed: #{actual_paths.inspect}" unless actual_paths == expected_paths
+  puts "Development databases verified: #{actual_databases.inspect}"
+RUBY
 active_storage_write_assertion = <<~'RUBY'
   payload = "hearth release gate cover bytes\n"
   raise "Production database was not empty before the Active Storage check" if Household.exists? || User.exists?
@@ -105,7 +126,12 @@ CI.run do
   step "Security: Importmap vulnerability audit", "bin/importmap", "audit"
   step "Security: Brakeman code analysis", "bin/brakeman", "--quiet", "--no-pager", "--exit-on-warn", "--exit-on-error"
 
-  step "Tests: Rails", "bin/rails", "test"
+  step "Development gate: Verify default database isolation",
+    "env", "-u", "DATABASE_URL", "-u", "PRIMARY_DATABASE_URL", "-u", "CACHE_DATABASE_URL",
+    "-u", "QUEUE_DATABASE_URL", "-u", "CABLE_DATABASE_URL", "RAILS_ENV=development",
+    "bin/rails", "runner", development_database_assertion
+
+  step "Tests: Rails", "env", "HEARTH_REQUIRE_FOREMAN=1", "bin/rails", "test"
   step "Tests: System", "bin/system-test-browser", "bin/rails", "test:system"
   step "Tests: Agent chat cross-process acceptance", "bin/agent-chat-acceptance"
 
