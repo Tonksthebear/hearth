@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 
-require "json"
 require "optparse"
 
 File.umask(0o077)
 
 options = {
   conversation_id: nil,
+  development: false,
   evidence: nil,
   hold: 0,
   hold_until: nil,
@@ -18,6 +18,7 @@ options = {
 
 parser = OptionParser.new do |arguments|
   arguments.banner = "Usage: bin/hearth-acp-runtime [options]"
+  arguments.on("--development", "Use checkout-local development databases and tmp state") { options[:development] = true }
   arguments.on("--root PATH", "Previously initialized Hearth instance root") { |value| options[:root] = value }
   arguments.on("--conversation ID", Integer, "Create an ACP session for this persisted conversation") { |value| options[:conversation_id] = value }
   arguments.on("--session ID", Integer, "Recover this persisted Agent::Session") { |value| options[:session_id] = value }
@@ -32,12 +33,18 @@ abort parser.to_s unless ARGV.empty?
 abort "Choose either --conversation or --session, not both" if
   options.values_at(:conversation_id, :session_id).compact.length > 1
 
-ENV["RAILS_ENV"] ||= "production"
+ENV["RAILS_ENV"] ||= options[:development] ? "development" : "production"
 require_relative "../app/models/hearth/instance"
-instance = Hearth::Instance.new(options[:root]).require_initialized!.prepare_runtime!
-instance.environment(runtime: true).each { |name, value| ENV[name] ||= value } if ENV["RAILS_ENV"] == "production"
+if options[:development]
+  abort "--development requires RAILS_ENV=development" unless ENV["RAILS_ENV"] == "development"
+  instance = Hearth::Instance.new(File.expand_path("..", __dir__))
+else
+  instance = Hearth::Instance.new(options[:root]).require_initialized!.prepare_runtime!
+  instance.environment(runtime: true).each { |name, value| ENV[name] ||= value } if ENV["RAILS_ENV"] == "production"
+end
 instance_root = instance.root
 require_relative "../config/environment"
+require "json"
 
 stop_requested = false
 fatal_error = nil
@@ -45,8 +52,36 @@ fatal_error = nil
 
 real_grok_acceptance = ENV["HEARTH_REAL_GROK_SYSTEM_TEST"] == "1"
 acceptance_environment = real_grok_acceptance ? Agent::Profile::Certified::GROK_ACCEPTANCE_ENVIRONMENT : nil
+runtime_directory = Acp::RuntimeDirectory.new(instance_root: instance_root, development: options[:development]).acquire!
+at_exit { runtime_directory.release! }
+
+if options[:development]
+  delays = [ 0.25, 0.5, 1, 2, 5 ].freeze
+  attempt = 0
+  until stop_requested
+    begin
+      ActiveRecord::Migration.check_all_pending!
+      ready = ActiveRecord::Base.connection.data_source_exists?("households") &&
+        ActiveRecord::Base.connection.data_source_exists?("agent_runtime_statuses") &&
+        Household.exists?
+      break if ready
+
+      message = "database migrations and household setup"
+    rescue ActiveRecord::ActiveRecordError, SQLite3::Exception => error
+      message = "database readiness (#{error.class.name})"
+    end
+    delay = delays.fetch([ attempt, delays.length - 1 ].min)
+    warn "Hearth ACP is waiting for #{message} (retrying in #{delay}s)"
+    sleep delay
+    attempt += 1
+  end
+end
+
+exit 0 if stop_requested
+
 supervisor = Acp::Supervisor.new(
   instance_root: instance_root,
+  runtime_directory: runtime_directory,
   runtime_capability_groups: real_grok_acceptance ? Agent::Grant::READ_ONLY_RUNTIME_GROUPS : nil,
   acceptance_environment: acceptance_environment,
   on_fatal: ->(_agent_session, error) {
@@ -54,12 +89,13 @@ supervisor = Acp::Supervisor.new(
     stop_requested = true
   }
 ).start!
+runtime_owner = "runtime-#{Process.pid}"
+Agent::RuntimeStatus.start_all!(owner: runtime_owner)
 turn_runtime = Agent::Turn::Runtime.new(
   supervisor: supervisor,
-  owner: "runtime-#{Process.pid}",
+  owner: runtime_owner,
   stopping: -> { stop_requested }
 )
-runtime_owner = "runtime-#{Process.pid}"
 setup_runtime = Agent::SetupRequest::Runtime.new(
   instance: instance,
   supervisor: supervisor,

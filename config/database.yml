@@ -19,11 +19,19 @@ development:
 <% end %>
   cache:
     <<: *default
+<% if ENV["CACHE_DATABASE_URL"] %>
+    url: <%= ENV["CACHE_DATABASE_URL"] %>
+<% else %>
     database: storage/development_cache.sqlite3
+<% end %>
     migrations_paths: db/cache_migrate
   queue:
     <<: *default
+<% if ENV["QUEUE_DATABASE_URL"] %>
+    url: <%= ENV["QUEUE_DATABASE_URL"] %>
+<% else %>
     database: storage/development_queue.sqlite3
+<% end %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *default

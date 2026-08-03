@@ -24,6 +24,25 @@ class Agent::Profile::Certified
     def authentication_status = installation&.authentication_status || "unknown"
     def request_status = request&.status || "not_checked"
     def runtime_online? = runtime_status&.online? || false
+    def runtime_state = runtime_status&.state || "never_started"
+
+    def runtime_heading
+      {
+        "never_started" => "Hearth supervisor has not started ACP yet",
+        "starting" => "Hearth supervisor is starting ACP",
+        "recovering" => "Hearth supervisor is recovering ACP",
+        "stopped" => "Hearth ACP runtime stopped",
+        "failed" => "Hearth ACP runtime failed"
+      }.fetch(runtime_state)
+    end
+
+    def runtime_message
+      if runtime_state.in?(%w[ never_started stopped failed ])
+        "Restart Hearth with bin/dev, or bin/hearth serve --root PATH for source production."
+      else
+        "Queued work will resume automatically."
+      end
+    end
   end
 
   DEFINITIONS = [

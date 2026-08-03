@@ -84,4 +84,46 @@ class AgentProfilesTest < ApplicationSystemTestCase
     assert_equal "cached_token", request.authentication_method_id
     assert_equal "pending", request.status
   end
+
+  test "runtime footer preserves its structure across supervised lifecycle states" do
+    sign_in_via_browser users(:two)
+    household = households(:home)
+    footer = "#agent_provider_grok > div.border-t.border-gray-100.bg-gray-50"
+    offline_states = {
+      "never_started" => "Hearth supervisor has not started ACP yet",
+      "starting" => "Hearth supervisor is starting ACP",
+      "recovering" => "Hearth supervisor is recovering ACP",
+      "stopped" => "Hearth ACP runtime stopped",
+      "failed" => "Hearth ACP runtime failed"
+    }
+
+    offline_states.each do |state, heading|
+      Agent::RuntimeStatus.where(household: household).delete_all
+      unless state == "never_started"
+        persisted = state == "recovering" ? "online" : state
+        heartbeat = state == "recovering" ? 1.minute.ago : Time.current
+        Agent::RuntimeStatus.create!(household: household, owner: "runtime", status: persisted,
+          started_at: 1.minute.ago, heartbeat_at: heartbeat,
+          stopped_at: persisted.in?(%w[ stopped failed ]) ? Time.current : nil,
+          failure_category: persisted == "failed" ? "runtime_error" : nil)
+      end
+
+      visit_and_wait_for_path agent_profiles_path
+      within footer do
+        assert_selector "div[role='status'] > div.shrink-0"
+        assert_selector "div[role='status'] h3", text: heading
+        assert_selector "div[role='status'] p", count: 1
+        assert_button "Queue availability check"
+      end
+    end
+
+    Agent::RuntimeStatus.where(household: household).delete_all
+    Agent::RuntimeStatus.create!(household: household, owner: "runtime", status: "online",
+      started_at: Time.current, heartbeat_at: Time.current)
+    visit_and_wait_for_path agent_profiles_path
+    within footer do
+      assert_selector "p", text: "Sibling ACP runtime online"
+      assert_no_selector "div[role='status']"
+    end
+  end
 end

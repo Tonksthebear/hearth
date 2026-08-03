@@ -19,23 +19,28 @@ Recovery rotates the credential and injects fresh configuration for load/resume.
 
 ## Running the production ACP host
 
-The selected directory must already contain `.hearth/instance.yml`. Missing
-markers fail before Rails boots and write nothing. A source checkout is not
-initialized implicitly, and `Procfile.dev` is intentionally unchanged.
+For `bin/hearth serve --root PATH`, the selected directory must already contain
+`.hearth/instance.yml`. Missing markers fail before Rails boots and write nothing.
+Production ACP failure receives a fixed, bounded launcher restart budget; the
+budget resets only after a stable run, and exhaustion stops the whole formation
+without leaving children.
 
-For the Coach UI, start the durable queue consumer without a selected
-conversation. It conditionally claims pending `Agent::Turn` rows, serializes
-prompt work in the runtime, coalesces streamed message and activity updates on a
-bounded interval, and persists typed projections before broadcasting stable list
-targets:
+In development, one `bin/dev` command starts Puma, Tailwind, and the durable ACP
+queue consumer under Foreman. Development ownership is checkout-local under
+ignored `tmp/acp`; it does not initialize `.hearth`, production databases, or
+home state. The consumer waits visibly with capped delay while migrations or
+household setup are incomplete, then records `starting` before heartbeating
+`online`:
 
 ```sh
-RAILS_ENV=development bin/hearth-acp-runtime --root /path/to/initialized-instance
+bin/dev
 ```
 
 Development uses Solid Cable with distinct primary, cache, queue, and cable
 SQLite targets. Puma only commits messages, turns, cancellations, and human
-decisions. It never constructs the supervisor or writes ACP stdio.
+decisions. It never constructs the supervisor or writes ACP stdio. A hard ACP
+process failure makes Foreman stop the development formation; the supported
+recovery is the same one-command `bin/dev` restart, with no nested respawner.
 
 ```sh
 bin/hearth agent setup --root /path/to/initialized-instance --profile grok
@@ -92,7 +97,10 @@ instruction rather than blocking Puma or prompting inside Rails.
 upload root, and four role URLs. `Acp::RuntimeDirectory` owns only the ACP lock/PID
 lifecycle and delegates those paths. The source launcher starts loopback Puma and the
 ACP runtime as sibling process groups, forwards shutdown, reaps both groups, and stores
-only allowlisted component/category/exit metadata in a `0600` launcher log.
+only allowlisted component/category/exit metadata in a `0600` launcher log. Agent
+Settings derives never-started, starting, online, recovering, stopped, and failed
+from the persisted runtime row and heartbeat; it gives one-command launcher
+guidance and never asks a user to start `bin/hearth-acp-runtime` separately.
 
 Backups require both launcher/runtime locks to be free and contain only `instance.yml`,
 `secret_key_base`, and `storage/` (four SQLite roles plus uploads). Restore requires an
