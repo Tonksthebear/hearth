@@ -22,6 +22,9 @@ class HearthLauncherTest < ActiveSupport::TestCase
       assert_includes doctor, "storage_root: #{instance.uploads_path}"
       assert_includes doctor, "tmp_instance_scoped: true"
       assert_includes doctor, "tmp_root: #{instance.tmp_path}"
+      stdout, stderr, household_status = Open3.capture3(instance.environment, "bin/rails", "runner",
+        'Household.create!(name: "Launcher household", installation_key: 1)', chdir: Rails.root.to_s)
+      assert_predicate household_status, :success?, "#{stdout}\n#{stderr}"
 
       2.times do |iteration|
         port = available_port
@@ -35,8 +38,11 @@ class HearthLauncherTest < ActiveSupport::TestCase
         response = Net::HTTP.get_response(URI("http://127.0.0.1:#{port}/up"))
         assert_equal "200", response.code
         if iteration.zero?
+          wait_for_runtime_state(instance, "online")
           Process.kill("TERM", -acp_pid)
+          wait_for_runtime_state(instance, "starting")
           replacement_pid = wait_for_pid_change(instance.acp_pid_path, acp_pid)
+          wait_for_runtime_state(instance, "online")
           assert_process_gone(acp_pid)
           pids << replacement_pid
           assert_equal "200", Net::HTTP.get_response(URI("http://127.0.0.1:#{port}/up")).code
@@ -107,13 +113,13 @@ class HearthLauncherTest < ActiveSupport::TestCase
     Dir.mktmpdir("hearth-launcher-stable") do |root|
       instance = Hearth::Instance.new(root).initialize!
       delays = []
-      launcher = Hearth::Launcher.new(instance: instance, acp_restart_backoffs: [ 1, 2, 3 ],
-        acp_stable_after: 10, sleeper: ->(delay) { delays << delay }, monotonic_clock: -> { 11.0 })
-      launcher.instance_variable_set(:@acp_restart_attempt, 3)
+      launcher = Hearth::Launcher.new(instance: instance,
+        sleeper: ->(delay) { delays << delay }, monotonic_clock: -> { 11.0 })
+      launcher.instance_variable_set(:@acp_restart_attempt, Hearth::Launcher::ACP_RESTART_BACKOFFS.length)
       launcher.instance_variable_get(:@child_specs)[:acp] = [ {}, [ RbConfig.ruby, "-e", "sleep 60" ] ]
 
       assert launcher.send(:restart_acp, started_at: 0.0)
-      assert_equal [ 1.0 ], delays
+      assert_equal [ Hearth::Launcher::ACP_RESTART_BACKOFFS.first ], delays
       assert_equal 1, launcher.children.length
     ensure
       launcher&.send(:stop_children)
@@ -165,6 +171,23 @@ class HearthLauncherTest < ActiveSupport::TestCase
         raise "Hearth did not replace #{previous_pid}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
         sleep 0.1
       end
+    end
+
+    def wait_for_runtime_state(instance, expected, timeout: 20)
+      database = SQLite3::Database.new(instance.database_paths.fetch("DATABASE_URL").to_s)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+      loop do
+        state = database.get_first_value("SELECT status FROM agent_runtime_statuses ORDER BY id LIMIT 1")
+        return if state == expected
+
+        raise "Hearth ACP runtime did not become #{expected.inspect}; observed #{state.inspect}" if
+          Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        sleep 0.01
+      rescue SQLite3::BusyException
+        retry
+      end
+    ensure
+      database&.close
     end
 
     def wait_for_exit(pid, timeout: 10)

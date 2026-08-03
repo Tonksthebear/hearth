@@ -22,8 +22,8 @@ Recovery rotates the credential and injects fresh configuration for load/resume.
 For `bin/hearth serve --root PATH`, the selected directory must already contain
 `.hearth/instance.yml`. Missing markers fail before Rails boots and write nothing.
 Production ACP failure receives a fixed, bounded launcher restart budget; the
-budget resets only after a stable run, and exhaustion stops the whole formation
-without leaving children.
+budget is per burst and resets after ten seconds of continuous runtime. Exhaustion
+within one burst stops the whole formation without leaving children.
 
 In development, one `bin/dev` command starts Puma, Tailwind, and the durable ACP
 queue consumer under Foreman. Development ownership is checkout-local under
@@ -41,6 +41,10 @@ SQLite targets. Puma only commits messages, turns, cancellations, and human
 decisions. It never constructs the supervisor or writes ACP stdio. A hard ACP
 process failure makes Foreman stop the development formation; the supported
 recovery is the same one-command `bin/dev` restart, with no nested respawner.
+Persisted runtime status transitions replace the open Agent Settings provider
+cards over the existing household Turbo stream. The elapsed-time-only stale
+heartbeat state is evaluated on the next server render because no database
+transition occurs at the staleness threshold.
 
 ```sh
 bin/hearth agent setup --root /path/to/initialized-instance --profile grok

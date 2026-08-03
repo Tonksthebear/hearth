@@ -58,6 +58,8 @@ at_exit { runtime_directory.release! }
 if options[:development]
   delays = [ 0.25, 0.5, 1, 2, 5 ].freeze
   attempt = 0
+  last_wait_message = nil
+  last_wait_log_at = nil
   until stop_requested
     begin
       ActiveRecord::Migration.check_all_pending!
@@ -71,7 +73,12 @@ if options[:development]
       message = "database readiness (#{error.class.name})"
     end
     delay = delays.fetch([ attempt, delays.length - 1 ].min)
-    warn "Hearth ACP is waiting for #{message} (retrying in #{delay}s)"
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    if attempt < delays.length || message != last_wait_message || !last_wait_log_at || now - last_wait_log_at >= 60
+      warn "Hearth ACP is waiting for #{message} (retrying in #{delay}s)"
+      last_wait_message = message
+      last_wait_log_at = now
+    end
     sleep delay
     attempt += 1
   end
@@ -79,6 +86,8 @@ end
 
 exit 0 if stop_requested
 
+runtime_owner = "runtime-#{Process.pid}"
+Agent::RuntimeStatus.start_all!(owner: runtime_owner)
 supervisor = Acp::Supervisor.new(
   instance_root: instance_root,
   runtime_directory: runtime_directory,
@@ -89,8 +98,6 @@ supervisor = Acp::Supervisor.new(
     stop_requested = true
   }
 ).start!
-runtime_owner = "runtime-#{Process.pid}"
-Agent::RuntimeStatus.start_all!(owner: runtime_owner)
 turn_runtime = Agent::Turn::Runtime.new(
   supervisor: supervisor,
   owner: runtime_owner,

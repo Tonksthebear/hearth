@@ -30,6 +30,7 @@ class Agent::Profile::Certified
       {
         "never_started" => "Hearth supervisor has not started ACP yet",
         "starting" => "Hearth supervisor is starting ACP",
+        "online" => "Sibling ACP runtime online",
         "recovering" => "Hearth supervisor is recovering ACP",
         "stopped" => "Hearth ACP runtime stopped",
         "failed" => "Hearth ACP runtime failed"

@@ -42,6 +42,15 @@ class Agent::RuntimeStatusTest < ActiveSupport::TestCase
     assert_equal "runtime-2", status.owner
   end
 
+  test "starting status becomes recovering when startup stops heartbeating" do
+    now = Time.zone.local(2026, 8, 2, 12)
+    Agent::RuntimeStatus.start_all!(owner: "runtime", at: now)
+
+    status = households(:home).agent_runtime_status
+    assert_equal "starting", status.state(at: now)
+    assert_equal "recovering", status.state(at: now + Agent::RuntimeStatus::STALE_AFTER + 1.second)
+  end
+
   test "stale online state is recovering while terminal states remain persisted" do
     now = Time.zone.local(2026, 8, 2, 12)
     Agent::RuntimeStatus.heartbeat_all!(owner: "runtime", at: now)

@@ -9,12 +9,14 @@ class DevelopmentLauncherTest < ActiveSupport::TestCase
 
   BIN = Rails.root.join("bin/dev").to_s
   RUNTIME_PID = Rails.root.join("tmp/acp/supervisor.pid")
+  RUNTIME_LOCK = Rails.root.join("tmp/acp/supervisor.lock")
 
   test "bin dev owns web css and ACP against isolated development databases" do
     unless foreman_available?
       flunk "Foreman is required after bin/setup" if ENV["HEARTH_REQUIRE_FOREMAN"] == "1"
       skip "Foreman is unavailable; run bin/setup before this focused launcher test"
     end
+    assert_runtime_available!
 
     Dir.mktmpdir("hearth-development-launcher") do |root|
       environment = development_environment(root, available_port)
@@ -41,7 +43,8 @@ class DevelopmentLauncherTest < ActiveSupport::TestCase
       refute Rails.root.join(".hearth").exist?
 
       create_household(environment)
-      wait_for_runtime_online(environment, output_path: output_path)
+      observed_states = wait_for_runtime_online(File.join(root, "primary.sqlite3"), output_path: output_path)
+      assert_includes observed_states, "starting"
       assert_equal runtime_pid, wait_for_pid(RUNTIME_PID)
       assert_equal original_storage, development_storage_snapshot
 
@@ -70,6 +73,14 @@ class DevelopmentLauncherTest < ActiveSupport::TestCase
   end
 
   private
+    def assert_runtime_available!
+      FileUtils.mkdir_p(RUNTIME_LOCK.dirname)
+      File.open(RUNTIME_LOCK, File::RDWR | File::CREAT, 0o600) do |lock|
+        flunk "Stop bin/dev before running the development launcher test; it needs exclusive ownership of tmp/acp" unless
+          lock.flock(File::LOCK_EX | File::LOCK_NB)
+      end
+    end
+
     def foreman_available?
       Bundler.with_unbundled_env do
         system("foreman", "--version", out: File::NULL, err: File::NULL)
@@ -118,17 +129,24 @@ class DevelopmentLauncherTest < ActiveSupport::TestCase
       JSON.parse(stdout.lines.last)
     end
 
-    def wait_for_runtime_online(environment, timeout: 20, output_path: nil)
+    def wait_for_runtime_online(database_path, timeout: 20, output_path: nil)
+      database = SQLite3::Database.new(database_path)
       deadline = monotonic_now + timeout
+      observed_states = []
       loop do
-        rows = runtime_status_rows(environment)
-        return rows if rows.one? && rows.first.last == "online"
+        rows = database.execute("SELECT owner, status FROM agent_runtime_statuses ORDER BY id")
+        observed_states |= rows.map(&:last)
+        return observed_states if rows.one? && rows.first.last == "online"
         if monotonic_now >= deadline
           details = output_path ? "\n#{File.read(output_path)}" : ""
           raise "Development ACP did not begin heartbeating: #{rows.inspect}#{details}"
         end
-        sleep 0.2
+        sleep 0.01
+      rescue SQLite3::BusyException
+        retry
       end
+    ensure
+      database&.close
     end
 
     def spawn_formation(environment, output_path)

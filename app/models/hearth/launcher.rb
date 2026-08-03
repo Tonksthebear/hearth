@@ -11,8 +11,7 @@ module Hearth
 
     attr_reader :instance, :port, :children
 
-    def initialize(instance:, port: 3000, acp_restart_backoffs: ACP_RESTART_BACKOFFS,
-      acp_stable_after: ACP_STABLE_AFTER, sleeper: ->(duration) { sleep duration },
+    def initialize(instance:, port: 3000, sleeper: ->(duration) { sleep duration },
       monotonic_clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
       @instance = instance.require_initialized!
       @port = Integer(port)
@@ -21,8 +20,6 @@ module Hearth
       @children = {}
       @child_specs = {}
       @child_started_at = {}
-      @acp_restart_backoffs = acp_restart_backoffs.map { |delay| Float(delay) }.freeze
-      @acp_stable_after = Float(acp_stable_after)
       @sleeper = sleeper
       @monotonic_clock = monotonic_clock
       @acp_restart_attempt = 0
@@ -137,22 +134,30 @@ module Hearth
       end
 
       def restart_acp(started_at:)
-        if started_at && monotonic_now - started_at >= @acp_stable_after
+        if started_at && monotonic_now - started_at >= ACP_STABLE_AFTER
           @acp_restart_attempt = 0
           record(component: :acp, category: "restart_budget_reset")
         end
-        return false if @acp_restart_attempt >= @acp_restart_backoffs.length
+        return false if @acp_restart_attempt >= ACP_RESTART_BACKOFFS.length
 
-        delay = @acp_restart_backoffs.fetch(@acp_restart_attempt)
+        delay = ACP_RESTART_BACKOFFS.fetch(@acp_restart_attempt)
         @acp_restart_attempt += 1
-        warn "Hearth ACP runtime exited; restarting in #{delay}s (attempt #{@acp_restart_attempt}/#{@acp_restart_backoffs.length})"
+        restart_owner = "launcher-#{Process.pid}"
+        Agent::RuntimeStatus.start_all!(owner: restart_owner)
+        warn "Hearth ACP runtime exited; restarting in #{delay}s (attempt #{@acp_restart_attempt}/#{ACP_RESTART_BACKOFFS.length})"
         record(component: :acp, category: "restarting", delay: delay, attempt: @acp_restart_attempt)
         @sleeper.call(delay)
-        return true if @stop_requested
+        if @stop_requested
+          Agent::RuntimeStatus.stop_all!(owner: restart_owner)
+          return true
+        end
 
         environment, command = @child_specs.fetch(:acp)
         spawn_child(:acp, environment, *command)
         true
+      rescue Error
+        Agent::RuntimeStatus.stop_all!(owner: restart_owner, failed: true, failure_category: "runtime_error") if restart_owner
+        raise
       end
 
       def monotonic_now = @monotonic_clock.call

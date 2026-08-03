@@ -126,4 +126,23 @@ class AgentProfilesTest < ApplicationSystemTestCase
       assert_no_selector "div[role='status']"
     end
   end
+
+  test "runtime status transitions update an open Agent Settings page" do
+    household = households(:home)
+    Agent::RuntimeStatus.where(household: household).delete_all
+    Agent::RuntimeStatus.start_all!(owner: "runtime")
+    sign_in_via_browser users(:two)
+    visit_and_wait_for_path agent_profiles_path
+
+    within "#agent_provider_grok" do
+      assert_text "Hearth supervisor is starting ACP"
+    end
+
+    Agent::RuntimeStatus.heartbeat_all!(owner: "runtime")
+
+    within "#agent_provider_grok" do
+      assert_text "Sibling ACP runtime online", wait: 5
+      assert_no_text "Hearth supervisor is starting ACP"
+    end
+  end
 end
