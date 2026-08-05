@@ -1,0 +1,44 @@
+<% workout = item.record %>
+<% skip_reason_id = "planned-workout-#{workout.id}-skip-reason" %>
+<% scheduled_on_id = "planned-workout-#{workout.id}-scheduled-on" %>
+
+<%= render Elements::DisclosureComponent.new(id: "planned-workout-options-#{workout.id}") do |disclosure| %>
+  <div class="flex flex-wrap items-center gap-2 sm:col-start-2 sm:row-start-1 sm:justify-self-end">
+    <% if workout.startable? %>
+      <%= button_to "Start", training_sessions_path,
+            params: { planned_workout_id: workout.id, return_to:, date: activity_date },
+            class: yass(btn: [ :base, { md: :base }, today_execution ? execution_button : { primary: :solid } ]) %>
+    <% end %>
+    <%= disclosure.button("Plan options", class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ])) %>
+  </div>
+
+  <%= disclosure.panel do %>
+    <div class="col-span-full grid gap-4 rounded-lg bg-gray-50 p-4 dark:bg-white/5">
+      <% if workout.skippable? %>
+        <%= form_with url: planned_workout_skip_path(workout), scope: :planned_workout, class: "grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" do |form| %>
+          <%= hidden_field_tag :return_to, return_to, id: nil %>
+          <%= hidden_field_tag :date, activity_date, id: nil %>
+          <div>
+            <%= form.label :skip_reason, "Skip reason (optional)", for: skip_reason_id, class: :label %>
+            <%= form.text_field :skip_reason, id: skip_reason_id, class: :text_field %>
+          </div>
+          <%= form.submit "Skip", class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
+        <% end %>
+      <% end %>
+      <%= form_with model: workout, class: "grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" do |form| %>
+        <%= hidden_field_tag :return_to, return_to, id: nil %>
+        <%= hidden_field_tag :date, activity_date, id: nil %>
+        <div>
+          <%= form.label :scheduled_on, "Reschedule date", for: scheduled_on_id, class: :label %>
+          <%= form.date_field :scheduled_on, id: scheduled_on_id, class: :text_field, required: true %>
+        </div>
+        <%= form.submit "Reschedule", class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
+      <% end %>
+      <%= button_to "Remove from plan", planned_workout_path(workout),
+            method: :delete,
+            params: { return_to:, date: activity_date },
+            form: { data: { turbo_confirm: "Remove this workout from the plan?" } },
+            class: yass(btn: [ :base, { md: :base }, { danger: :outline } ]) %>
+    </div>
+  <% end %>
+<% end %>

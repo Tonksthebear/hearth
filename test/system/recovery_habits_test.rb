@@ -87,7 +87,7 @@ class RecoveryHabitsTest < ApplicationSystemTestCase
     assert_no_selector "#recovery-person-habit-#{configuration.id}"
     assert_selector "article", text: /Evening reset.*History only/im
 
-    switch_person_via_browser people(:two)
+    sign_in_as_person_via_browser people(:two)
     visit_and_wait_for_path recovery_day_path
     assert_no_text "Evening reset"
     assert_no_text "170.0 °F"

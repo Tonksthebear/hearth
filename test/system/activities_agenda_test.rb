@@ -9,7 +9,6 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       habits(:water).update!(description: nil)
       person_habits(:alex_water).habit_check_ins.delete_all
       sign_in_via_browser users(:one)
-      ensure_person_via_browser people(:one)
       click_link_and_wait_for_path "Activities", activity_week_path
 
       assert_selector "[data-activity-date='2026-07-30']", text: "Today"
@@ -40,6 +39,7 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       assert_equal Date.new(2026, 7, 30), plan.scheduled_on
 
       within "[data-activity-date='2026-07-30'] li", text: workout_templates(:balanced).title do
+        click_button "Plan options"
         set_date_and_wait "Reschedule date", "2026-07-31"
         click_button "Reschedule"
       end
@@ -47,7 +47,8 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       assert_selector "[data-activity-date='2026-07-31'] li", text: workout_templates(:balanced).title
 
       within "[data-activity-date='2026-07-31'] li", text: workout_templates(:balanced).title do
-        accept_confirm("Remove this workout from the plan?") { click_button "Remove" }
+        click_button "Plan options"
+        accept_confirm("Remove this workout from the plan?") { click_button "Remove from plan" }
       end
       assert_no_selector "form[action='#{planned_workout_path(plan)}']", wait: 5
 
@@ -58,6 +59,7 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       )
       visit_and_wait_for_path activity_week_path
       within "[data-activity-date='2026-07-30'] li", text: workout_templates(:balanced).title do
+        click_button "Plan options"
         fill_in "Skip reason (optional)", with: "Recovery day"
         click_button "Skip"
       end
@@ -69,20 +71,23 @@ class ActivitiesAgendaTest < ApplicationSystemTestCase
       within "[data-activity-date='2026-07-30'] [data-activity-status='skipped']", text: workout_templates(:balanced).title do
         click_button "Restore"
       end
-      assert_selector "form[action='#{planned_workout_path(skipped_plan)}']", wait: 5
+      within "[data-activity-date='2026-07-30'] li", text: workout_templates(:balanced).title do
+        click_button "Plan options"
+        assert_selector "form[action='#{planned_workout_path(skipped_plan)}']", wait: 5
+      end
     end
   end
 
-  test "switching people removes prior person agenda controls and records" do
+  test "signing in as another person removes prior account agenda controls and records" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
       sign_in_via_browser users(:one)
       click_link_and_wait_for_path "Activities", activity_week_path
 
-      assert_selector "form[action='#{planned_workout_path(planned_workouts(:planned_balanced))}']"
-      switch_person_via_browser people(:two)
+      assert_selector "form[action='#{planned_workout_path(planned_workouts(:planned_balanced))}']", visible: :all
+      sign_in_as_person_via_browser people(:two)
 
-      assert_no_selector "form[action='#{planned_workout_path(planned_workouts(:planned_balanced))}']"
-      assert_selector "form[action='#{planned_workout_path(planned_workouts(:sam_balanced))}']"
+      assert_no_selector "form[action='#{planned_workout_path(planned_workouts(:planned_balanced))}']", visible: :all
+      assert_selector "form[action='#{planned_workout_path(planned_workouts(:sam_balanced))}']", visible: :all
       assert_no_text training_sessions(:in_progress).snapshot_title
     end
   end

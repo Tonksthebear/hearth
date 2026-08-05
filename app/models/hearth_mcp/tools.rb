@@ -177,7 +177,7 @@ module HearthMcp
     end
 
     class GetToday < Base
-      contract name: "get_today", description: "Return the selected person's daily execution view from Person::Today.", properties: { date: { type: "string", format: "date" } }
+      contract name: "get_today", description: "Return the signed-in person's daily execution view from Person::Today.", properties: { date: { type: "string", format: "date" } }
       def self.call(date: nil, server_context:)
         target = date ? self.date(date) : Date.current
         today = Person::Today.new(household: household(server_context), person: person(server_context), date: target)
@@ -247,7 +247,7 @@ module HearthMcp
     end
 
     class GetMealWeek < Base
-      contract name: "get_meal_week", description: "Return the selected person's visible meal plans and logs for a Monday-to-Sunday week.", properties: WEEK_PROPERTIES
+      contract name: "get_meal_week", description: "Return the signed-in person's visible meal plans and logs for a Monday-to-Sunday week.", properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = MealWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
         response(
@@ -263,7 +263,7 @@ module HearthMcp
     end
 
     class ListPlannedMeals < Base
-      contract name: "list_planned_meals", description: "List meal plans visible to the selected person.", properties: PAGE_PROPERTIES
+      contract name: "list_planned_meals", description: "List meal plans visible to the signed-in person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         scope = household(server_context).planned_meals.visible_to(person(server_context)).includes(:person, :recipe)
         paginated_response(scope, limit: limit, cursor: cursor, server_context: server_context) do |row|
@@ -273,7 +273,7 @@ module HearthMcp
     end
 
     class ListMeals < Base
-      contract name: "list_meals", description: "List complete observed meal events for the selected person.", properties: PAGE_PROPERTIES
+      contract name: "list_meals", description: "List complete observed meal events for the signed-in person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         scope = person(server_context).meals.includes(meal_items: [ :recipe, :ingredient, :recipe_feedback ])
         paginated_response(scope, limit: limit, cursor: cursor,
@@ -321,7 +321,7 @@ module HearthMcp
 
     class GetActivityWeek < Base
       contract name: "get_activity_week",
-        description: "Return the selected person's truthful weekly activity agenda, including scheduled intent and actual execution once.",
+        description: "Return the signed-in person's truthful weekly activity agenda, including scheduled intent and actual execution once.",
         properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = ActivityWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
@@ -367,7 +367,7 @@ module HearthMcp
     end
 
     class ListTrainingSessions < Base
-      contract name: "list_training_sessions", description: "List actual training executions for the selected person.", properties: PAGE_PROPERTIES
+      contract name: "list_training_sessions", description: "List actual training executions for the signed-in person.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         paginated_response(person(server_context).training_sessions, limit: limit, cursor: cursor,
           server_context: server_context, &Serializer.method(:training_session))
@@ -375,7 +375,7 @@ module HearthMcp
     end
 
     class GetTrainingWeek < Base
-      contract name: "get_training_week", description: "Return selected-person training executions and dose progress for one week.", properties: WEEK_PROPERTIES
+      contract name: "get_training_week", description: "Return the signed-in person's training executions and dose progress for one week.", properties: WEEK_PROPERTIES
       def self.call(date: nil, server_context:)
         week = TrainingWeek.new(household: household(server_context), person: person(server_context), date: week_date(date))
         response(
@@ -419,7 +419,7 @@ module HearthMcp
     end
 
     class ListPersonHabits < Base
-      contract name: "list_person_habits", description: "List the selected person's habit schedules and typed targets.", properties: PAGE_PROPERTIES
+      contract name: "list_person_habits", description: "List the signed-in person's habit schedules and typed targets.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         scope = person(server_context).person_habits.includes(habit: :habit_metrics, person_habit_metrics: :habit_metric)
         paginated_response(scope, limit: limit, cursor: cursor,
@@ -429,7 +429,7 @@ module HearthMcp
 
     class ListHabitCheckIns < Base
       contract name: "list_habit_check_ins",
-        description: "List selected-person check-ins with boolean, number, duration, or time-of-day measurements and conditional units.",
+        description: "List the signed-in person's check-ins with boolean, number, duration, or time-of-day measurements and conditional units.",
         properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
         ids = person(server_context).person_habit_ids
@@ -440,7 +440,7 @@ module HearthMcp
     end
 
     class GetRecoveryDay < Base
-      contract name: "get_recovery_day", description: "Return the selected person's seven-day habit/recovery projection.", properties: { date: { type: "string", format: "date" } }
+      contract name: "get_recovery_day", description: "Return the signed-in person's seven-day habit/recovery projection.", properties: { date: { type: "string", format: "date" } }
       def self.call(date: nil, server_context:)
         target = date ? self.date(date) : Date.current
         day = RecoveryDay.new(household: household(server_context), person: person(server_context), date: target)

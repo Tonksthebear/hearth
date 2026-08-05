@@ -203,32 +203,32 @@ module HearthMcp
     }.freeze
 
     DEFINITIONS = {
-      "create_planned_meal" => [ "Plan one meal for the selected person.", PLAN_PROPERTIES, %w[planned_on recipe_id] ],
-      "update_planned_meal" => [ "Update one selected-person meal plan.", PLAN_PROPERTIES.merge(id: ID), %w[id] ],
+      "create_planned_meal" => [ "Plan one meal for the signed-in person.", PLAN_PROPERTIES, %w[planned_on recipe_id] ],
+      "update_planned_meal" => [ "Update one meal plan for the signed-in person.", PLAN_PROPERTIES.merge(id: ID), %w[id] ],
       "delete_planned_meal" => [ "Propose removing one unlinked meal plan.", { id: ID }, %w[id] ],
       "log_planned_meal" => [ "Log one explicit eligible planned meal.", { id: ID }, %w[id] ],
-      "create_meal" => [ "Log one complete selected-person meal aggregate.", MEAL_PROPERTIES, %w[eaten_on meal_items] ],
-      "update_meal" => [ "Update one complete selected-person meal aggregate.", MEAL_PROPERTIES.merge(id: ID), %w[id] ],
+      "create_meal" => [ "Log one complete meal aggregate for the signed-in person.", MEAL_PROPERTIES, %w[eaten_on meal_items] ],
+      "update_meal" => [ "Update one complete meal aggregate for the signed-in person.", MEAL_PROPERTIES.merge(id: ID), %w[id] ],
       "delete_meal" => [ "Propose unlogging one meal and its complete dependent graph.", { id: ID }, %w[id] ],
       "create_training_session" => [ "Create one in-progress training aggregate.", TRAINING_PROPERTIES, %w[snapshot_title performed_on blocks] ],
       "update_training_session" => [ "Update one training aggregate; completed sessions require confirmation.", TRAINING_PROPERTIES.merge(id: ID), %w[id] ],
       "complete_training_session" => [ "Complete one valid in-progress training aggregate.", { id: ID }, %w[id] ],
       "delete_training_session" => [ "Propose deleting one in-progress training aggregate.", { id: ID }, %w[id] ],
-      "update_weekly_dose_targets" => [ "Propose changing selected-person weekly dose targets.", {
+      "update_weekly_dose_targets" => [ "Propose changing the signed-in person's weekly dose targets.", {
         weekly_strength_sessions_target: { type: [ "integer", "null" ], minimum: 1 },
         weekly_structured_minutes_target: { type: [ "integer", "null" ], minimum: 1 },
         weekly_zone2_minutes_target: { type: [ "integer", "null" ], minimum: 1 },
         weekly_vigorous_minutes_target: { type: [ "integer", "null" ], minimum: 1 }
       }, [] ],
-      "upsert_person_habit" => [ "Propose assigning or configuring one selected-person habit.", {
+      "upsert_person_habit" => [ "Propose assigning or configuring one habit for the signed-in person.", {
         habit_id: ID, active: { type: "boolean" },
         sunday: { type: "boolean" }, monday: { type: "boolean" }, tuesday: { type: "boolean" },
         wednesday: { type: "boolean" }, thursday: { type: "boolean" }, friday: { type: "boolean" }, saturday: { type: "boolean" },
         person_habit_metrics_attributes: { type: "array", items: MEASURE_SCHEMA }
       }, %w[habit_id] ],
-      "create_habit_check_in" => [ "Create one selected-person habit check-in aggregate.", CHECK_IN_PROPERTIES, %w[person_habit_id checked_on measurements] ],
-      "update_habit_check_in" => [ "Update one selected-person habit check-in aggregate.", CHECK_IN_PROPERTIES.merge(id: ID), %w[id] ],
-      "delete_habit_check_in" => [ "Propose deleting one selected-person habit check-in aggregate.", { id: ID }, %w[id] ]
+      "create_habit_check_in" => [ "Create one habit check-in aggregate for the signed-in person.", CHECK_IN_PROPERTIES, %w[person_habit_id checked_on measurements] ],
+      "update_habit_check_in" => [ "Update one habit check-in aggregate for the signed-in person.", CHECK_IN_PROPERTIES.merge(id: ID), %w[id] ],
+      "delete_habit_check_in" => [ "Propose deleting one habit check-in aggregate for the signed-in person.", { id: ID }, %w[id] ]
     }.freeze
 
     ALL = DEFINITIONS.map do |name, (description, properties, required)|

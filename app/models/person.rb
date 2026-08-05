@@ -9,8 +9,9 @@ class Person < ApplicationRecord
   has_many :habit_check_ins, through: :person_habits
   has_many :agent_conversations, class_name: "Agent::Conversation", dependent: :restrict_with_exception
 
+  accepts_nested_attributes_for :user, update_only: true, reject_if: ->(attributes) { attributes["email_address"].blank? }
+
   validates :name, presence: true
-  validates_associated :user
   validates :weekly_structured_minutes_target,
     :weekly_strength_sessions_target,
     :weekly_zone2_minutes_target,

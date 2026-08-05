@@ -41,7 +41,6 @@ Rails.application.routes.draw do
       resource :completion, only: %i[ create destroy ], module: :shopping_list_item
     end
   end
-  resource :person_context, only: :update
   resources :habits, only: %i[ index new create edit update ]
   resources :person_habits, only: %i[ create edit update ]
   resource :recovery_day, only: :show

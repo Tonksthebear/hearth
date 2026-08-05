@@ -14,15 +14,19 @@ class TodayNavigationTest < ApplicationSystemTestCase
         click_button "Check off"
       end
       assert_current_path root_path, wait: 5
+      click_button "Completed"
+      assert_button "Hide"
       assert_selector "[data-activity-kind='habit_check_in']", text: "Water"
 
       click_link_and_wait_for_path "Meals", meal_week_path
       click_link_and_wait_for_path "Activities", activity_week_path
 
-      click_link_and_wait_for_path people(:one).name, person_path(people(:one)), match: :first
+      find("button[data-account-menu-trigger]", visible: :visible, match: :first).click
+      click_link_and_wait_for_path "Your profile", person_path(people(:one))
       assert_link "Open #{people(:one).name}'s meals"
 
       click_link_and_wait_for_path "Hearth", root_path
+      find("button[data-account-menu-trigger]", visible: :visible, match: :first).click
       click_link_and_wait_for_path "Household overview", household_week_path
       assert_selector "h1", text: "Household week"
     end
@@ -42,6 +46,7 @@ class TodayNavigationTest < ApplicationSystemTestCase
       assert_current_path meal_path(meal), wait: 5
 
       click_link_and_wait_for_path "Hearth", root_path
+      click_button "Completed"
       within "[data-activity-kind='meal']", text: meal.description do
         click_link meal.description
       end
@@ -55,10 +60,12 @@ class TodayNavigationTest < ApplicationSystemTestCase
       plan = planned_workouts(:planned_balanced)
 
       within "[data-activity-kind='workout']", text: workout_templates(:balanced).title do
+        click_button "Plan options"
         fill_in "Skip reason (optional)", with: "Not ready"
         click_button "Skip"
       end
       assert_current_path root_path, wait: 5
+      click_button "Completed"
       assert_selector "[data-activity-status='skipped']", text: "Not ready"
 
       within "[data-activity-status='skipped']", text: workout_templates(:balanced).title do
@@ -97,22 +104,19 @@ class TodayNavigationTest < ApplicationSystemTestCase
       sign_in_via_browser users(:one)
 
       assert_equal 390, page.evaluate_script("window.innerWidth")
-      assert_selector "#today-summary-heading", text: "Today at a glance"
-      assert_selector "[data-today-summary-fact]", count: 3
+      assert_selector "#today-details-heading", text: "Day details"
+      assert_selector "[data-today-section='up-next']"
       assert_no_text "Planned meal"
       assert_no_text "Simple habit"
       assert_no_text "Measured habit"
-      summary_card = find("[data-today-summary-fact='meals']")
-      attention_card = find("[data-today-summary-fact='attention'][data-tone='attention']")
-      light_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", summary_card)
-      refute_equal page.evaluate_script("getComputedStyle(arguments[0]).boxShadow", summary_card),
-        page.evaluate_script("getComputedStyle(arguments[0]).boxShadow", attention_card)
+      agenda = find("[data-today-section='up-next'] ul")
+      light_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", agenda)
 
       browser.execute_cdp(
         "Emulation.setEmulatedMedia",
         features: [ { name: "prefers-color-scheme", value: "dark" } ]
       )
-      dark_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", summary_card)
+      dark_background = page.evaluate_script("getComputedStyle(arguments[0]).backgroundColor", agenda)
       assert_not_equal light_background, dark_background
 
       within "[data-activity-kind='measured_habit']", text: habits(:sauna).name do

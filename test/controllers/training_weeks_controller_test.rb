@@ -22,9 +22,8 @@ class TrainingWeeksControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "switching person removes the previous person's training HTML" do
-    sign_in_as users(:one)
-    patch person_context_path, params: { person_id: people(:two).id }
+  test "signing in as another person removes the previous person's training HTML" do
+    sign_in_as users(:two)
 
     get training_week_path, params: { date: "2026-07-29" }
 

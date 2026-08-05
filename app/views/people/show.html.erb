@@ -4,7 +4,7 @@
   <div>
     <span class="flex size-14 items-center justify-center rounded-full bg-primary-100 text-xl font-semibold text-primary-700 dark:bg-primary-500/20 dark:text-primary-300"><%= @person.name.first.upcase %></span>
     <h1 class="mt-4 text-3xl font-semibold tracking-tight"><%= @person.name %></h1>
-    <p class="mt-2 text-gray-600 dark:text-gray-400">Household-visible summary. Operational changes use the selected person context.</p>
+    <p class="mt-2 text-gray-600 dark:text-gray-400">Household-visible summary.</p>
   </div>
   <%= link_to "Edit person", edit_person_path(@person), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
 </div>
@@ -15,8 +15,8 @@
     <p class="mt-2 text-sm text-gray-600 dark:text-gray-400"><%= pluralize(@person_overview.meal_week.planned_meals.size, "planned meal") %> and <%= pluralize(@person_overview.meal_week.meals.size, "meal") %> eaten this week.</p>
     <% if @person == @current_person %>
       <%= link_to "Open #{@person.name}'s meals", meal_week_path, class: "mt-4 inline-flex font-semibold text-primary-800 underline dark:text-primary-300" %>
-    <% else %>
-      <%= button_to "Switch to #{@person.name}'s meals", person_context_path, method: :patch, params: { person_id: @person.id, destination: :meals }, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]), form_class: "mt-4" %>
+    <% elsif @person.user.nil? %>
+      <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Add a login to let <%= @person.name %> manage their meals.</p>
     <% end %>
   </article>
   <article class="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50">
@@ -24,8 +24,8 @@
     <p class="mt-2 text-sm text-gray-600 dark:text-gray-400"><%= pluralize(@person_overview.training_week.in_progress_sessions.size, "workout in progress") %>, <%= pluralize(@person_overview.training_week.completed_sessions.size, "completed workout") %>, and <%= pluralize(@person_overview.recovery_day.actionable_entries.size, "scheduled habit") %>.</p>
     <% if @person == @current_person %>
       <%= link_to "Open #{@person.name}'s activities", activity_week_path, class: "mt-4 inline-flex font-semibold text-primary-800 underline dark:text-primary-300" %>
-    <% else %>
-      <%= button_to "Switch to #{@person.name}'s activities", person_context_path, method: :patch, params: { person_id: @person.id, destination: :activities }, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]), form_class: "mt-4" %>
+    <% elsif @person.user.nil? %>
+      <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Add a login to let <%= @person.name %> manage their activities.</p>
     <% end %>
   </article>
 </div>

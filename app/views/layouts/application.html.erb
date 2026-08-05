@@ -26,16 +26,9 @@
           <%= render "layouts/sidebar" %>
         <% end %>
 
-        <% sidebar.with_header(class: "border-b border-gray-200 bg-white shadow-xs dark:border-white/10 dark:bg-gray-900 dark:shadow-none lg:flex") do %>
-          <div class="flex flex-1 items-center justify-between gap-x-4">
-            <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-gray-900 dark:text-white" data-household-name><%= @household.name %></p>
-              <p class="truncate text-xs"><%= link_to @current_person.name, person_path(@current_person), class: "text-gray-500 underline hover:no-underline dark:text-gray-400" %></p>
-            </div>
-            <div class="flex items-center gap-2">
-              <%= render "layouts/person_menu" %>
-            </div>
-          </div>
+        <% sidebar.with_header(class: "border-b border-gray-950/10 bg-white dark:border-white/10 dark:bg-gray-900 lg:hidden") do %>
+          <%= link_to "Hearth", root_path,
+            class: "rounded-md text-base font-semibold text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:text-white dark:focus-visible:outline-primary-500" %>
         <% end %>
 
         <div class="py-8 sm:py-10">

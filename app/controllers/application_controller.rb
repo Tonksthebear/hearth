@@ -15,7 +15,6 @@ class ApplicationController < ActionController::Base
       establish_current_context
       @household = Current.household
       @current_person = Current.person
-      @household_people = Current.household.people.order(:name)
       @primary_navigation = [
         { label: "Today", path: root_path, icon_name: "home", active: primary_navigation_area == :today },
         { label: "Meals", path: meal_week_path, icon_name: "calendar-days", active: primary_navigation_area == :meals },

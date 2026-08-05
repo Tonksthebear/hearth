@@ -62,8 +62,9 @@ class ShoppingListsTest < ApplicationSystemTestCase
       assert_equal 1, lettuce.reload.shopping_list_item_sources.count
       assert_equal 1, ShoppingListItem.where(shopping_list: lettuce.shopping_list, generated_key: lettuce.generated_key).count
 
-      switch_person_via_browser people(:two)
-      click_link_and_wait_for_path "Shopping list", shopping_list_path(date: "2026-07-30")
+      sign_in_as_person_via_browser people(:two)
+      click_link_and_wait_for_path "Meals", meal_week_path
+      click_link_and_wait_for_path "Shopping", shopping_list_path
       assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']"
       assert_text(/Household-wide plan/i)
       assert_equal 390, page.evaluate_script("window.innerWidth")

@@ -64,11 +64,10 @@ class HouseholdWeeksControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "selected person emphasis changes without narrowing household plans" do
+  test "signed-in person emphasis changes without narrowing household plans" do
     travel_to Time.zone.local(2026, 7, 27, 12) do
       prepare_household_week_habits
-      sign_in_as users(:one)
-      patch person_context_path, params: { person_id: people(:two).id }
+      sign_in_as users(:two)
 
       get household_week_path
 

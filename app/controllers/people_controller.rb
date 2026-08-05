@@ -2,7 +2,7 @@ class PeopleController < ApplicationController
   before_action :set_person, only: %i[ show edit update ]
 
   def index
-    @people = Current.household.people.order(:name)
+    @people = Current.household.people.includes(:user).order(:name)
   end
 
   def show
@@ -11,6 +11,7 @@ class PeopleController < ApplicationController
 
   def new
     @person = Current.household.people.build
+    prepare_login_fields
   end
 
   def create
@@ -19,17 +20,20 @@ class PeopleController < ApplicationController
     if @person.save
       redirect_to people_path, notice: "#{@person.name} was added.", status: :see_other
     else
+      prepare_login_fields
       render :new, status: :unprocessable_entity
     end
   end
 
   def edit
+    prepare_login_fields
   end
 
   def update
     if @person.update(person_params)
       redirect_to people_path, notice: "#{@person.name} was updated.", status: :see_other
     else
+      prepare_login_fields
       render :edit, status: :unprocessable_entity
     end
   end
@@ -40,6 +44,12 @@ class PeopleController < ApplicationController
     end
 
     def person_params
-      params.expect(person: [ :name ])
+      permitted = [ :name ]
+      permitted << { user_attributes: [ :email_address, :password, :password_confirmation ] } unless @person&.user&.persisted?
+      params.expect(person: permitted)
+    end
+
+    def prepare_login_fields
+      @person.build_user unless @person.user
     end
 end

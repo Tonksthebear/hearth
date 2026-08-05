@@ -16,9 +16,8 @@ class HouseholdSetupAndAuthenticationTest < ApplicationSystemTestCase
 
     assert_selector "[data-household-name]", text: /Bear House/i
     assert_selector "h1", text: "Today"
-    assert_text "Tonks"
 
-    find_button("Open person menu").click
+    find("button[data-account-menu-trigger]", visible: :visible, match: :first).click
     accept_confirm("Sign out of Hearth?") { click_button "Sign out" }
     assert_selector "h1", text: "Sign in"
 

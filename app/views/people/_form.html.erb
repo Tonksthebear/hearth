@@ -8,6 +8,39 @@
     <%= form.text_field :name, required: true, autocomplete: "name", class: :text_field %>
   </div>
 
+  <fieldset class="rounded-xl border border-gray-200 p-5 dark:border-white/10">
+    <legend class="px-1 text-base font-semibold text-gray-900 dark:text-white">Login</legend>
+    <p class="mt-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">
+      <% if person.user&.persisted? %>
+        This account signs in directly as <%= person.name.presence || "this person" %>.
+      <% else %>
+        Optional. Add an account so this person can sign in and manage their own daily health data.
+      <% end %>
+    </p>
+
+    <%= form.fields_for :user do |user_form| %>
+      <% if user_form.object.persisted? %>
+        <p class="mt-4 text-base font-medium text-gray-900 sm:text-sm dark:text-white"><%= user_form.object.email_address %></p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Existing login details cannot be changed from household management.</p>
+      <% else %>
+        <div class="mt-4">
+          <%= user_form.label :email_address, "Email address", class: :label %>
+          <%= user_form.email_field :email_address, autocomplete: "email", class: :text_field %>
+        </div>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <%= user_form.label :password, "Password", class: :label %>
+            <%= user_form.password_field :password, autocomplete: "new-password", class: :text_field %>
+          </div>
+          <div>
+            <%= user_form.label :password_confirmation, "Confirm password", class: :label %>
+            <%= user_form.password_field :password_confirmation, autocomplete: "new-password", class: :text_field %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </fieldset>
+
   <div class="flex items-center gap-4">
     <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
     <%= link_to "Cancel", people_path, class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>

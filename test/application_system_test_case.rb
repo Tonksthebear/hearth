@@ -22,16 +22,15 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       click_button_and_wait_for_path "Sign in", root_path
     end
 
-    def switch_person_via_browser(person)
-      find_button("Open person menu").click
-      click_button_and_wait_for_path "Switch to #{person.name}", root_path
+    def sign_in_as_person_via_browser(person)
+      user = person.user or raise "#{person.name} does not have a login"
+      find_button("Open sidebar").click if page.has_button?("Open sidebar", visible: :visible, wait: 0)
+      find("button[data-account-menu-trigger]", visible: :visible, match: :first).click
+      accept_confirm("Sign out of Hearth?") { click_button "Sign out" }
+      fill_in_and_wait_for_value "Email address", user.email_address
+      fill_in_and_wait_for_value "Password", "password"
+      click_button_and_wait_for_path "Sign in", root_path
       assert_selector "h1", text: "Today", wait: 5
-    end
-
-    def ensure_person_via_browser(person)
-      return if find_button("Open person menu").has_text?(person.name)
-
-      switch_person_via_browser person
     end
 
     def visit_and_wait_for_path(path)

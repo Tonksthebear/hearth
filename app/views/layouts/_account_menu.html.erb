@@ -1,0 +1,36 @@
+<div data-account-menu>
+<%= render Elements::DropdownComponent.new(anchor: "top start", class: "w-full") do |menu| %>
+  <%= menu.button(data: { account_menu_trigger: true }, class: "relative flex w-full items-center gap-3 rounded-md p-2 text-left text-sm font-semibold text-primary-100 hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white dark:hover:bg-black/25") do %>
+    <%= icon "users", variant: :micro, class: "size-4 shrink-0 text-primary-200" %>
+    <span class="min-w-0 flex-1">
+      <span class="block truncate font-semibold text-white" data-household-name><%= @household.name %></span>
+      <span class="block truncate font-normal text-primary-200">Settings and account</span>
+    </span>
+    <%= icon "chevron-down", variant: :micro, class: "size-4 shrink-0 text-primary-200" %>
+  <% end %>
+
+  <%= menu.menu(class: "divide-y divide-gray-100 dark:divide-white/10") do %>
+    <%= menu.section do %>
+      <%= link_to "Your profile", person_path(@current_person), class: "flex items-center px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-white/5" %>
+      <%= link_to "Household overview", household_week_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Manage people", people_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Agent settings", agent_profiles_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+    <% end %>
+    <%= menu.section do %>
+      <%= link_to "Manage recipes", recipes_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Workout templates", workout_templates_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Exercises", exercises_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+      <%= link_to "Habits", habits_path, class: "flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5" %>
+    <% end %>
+    <%= menu.section do %>
+      <%= button_to session_path,
+            method: :delete,
+            form: { data: { turbo_confirm: "Sign out of Hearth?" } },
+            class: "flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-primary-600 dark:text-gray-300 dark:hover:bg-white/5" do %>
+        <%= icon "arrow-right-start-on-rectangle", variant: :micro, class: "mr-3 size-4 shrink-0 text-gray-400" %>
+        Sign out
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>
+</div>

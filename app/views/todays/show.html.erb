@@ -1,65 +1,120 @@
 <% content_for :title, "Today · Hearth" %>
 
-<div class="flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @today.person.name %></p>
-    <h1 class="mt-2 text-3xl font-semibold tracking-tight">Today</h1>
-    <p class="mt-2 text-gray-600 dark:text-gray-400"><%= @today.date.to_fs(:long) %> · Your household tracking plan, not medical advice.</p>
-  </div>
-  <div class="flex flex-wrap gap-2">
-    <% if @today.unchecked_shopping_count.positive? %>
-      <%= link_to "Shopping list (#{@today.unchecked_shopping_count})", shopping_list_path(date: @today.date),
-        data: { turbo_prefetch: false },
-        class: yass(btn: [ :base, { lg: :base }, { neutral: :solid } ]) %>
-    <% end %>
-    <%= link_to "Household overview", household_week_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
-  </div>
+<div>
+  <h1 class="text-balance text-3xl font-semibold tracking-tight">Today</h1>
+  <p class="mt-2 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400"><%= @today.date.to_fs(:long) %></p>
 </div>
 
-<section aria-labelledby="today-summary-heading" class="mt-10">
-  <div class="border-b border-gray-200 pb-5 dark:border-white/10">
-    <h2 id="today-summary-heading" class="text-base font-semibold text-gray-900 dark:text-white">Today at a glance</h2>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Progress against your explicit plans and logged details, not a health or readiness score.</p>
-  </div>
-  <% if @today.summary.empty? %>
-    <div class="rounded-lg bg-white px-4 py-8 text-center shadow-sm dark:bg-gray-800/75 dark:inset-ring dark:inset-ring-white/10">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">No plans or logs yet</h3>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Daily progress will appear here after you plan or record an item.</p>
-    </div>
-  <% else %>
-    <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
-      <% @today.summary.facts.each do |fact| %>
-        <div data-today-summary-fact="<%= fact.key %>" data-tone="<%= fact.tone %>" class="group/summary overflow-hidden rounded-lg bg-white px-4 py-5 shadow-sm data-[tone=attention]:ring-1 data-[tone=attention]:ring-amber-500/50 sm:p-6 dark:bg-gray-800/75 dark:inset-ring dark:inset-ring-white/10 dark:data-[tone=attention]:ring-amber-400/60">
-          <dt class="text-sm font-medium text-gray-500 dark:text-gray-400"><%= fact.title %></dt>
-          <dd class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 group-data-[tone=attention]/summary:text-amber-800 dark:text-white dark:group-data-[tone=attention]/summary:text-amber-300"><%= fact.value %></dd>
-          <dd class="mt-2 text-sm text-gray-500 dark:text-gray-400"><%= fact.description %></dd>
-        </div>
-      <% end %>
-    </dl>
-  <% end %>
-</section>
+<% sections = @today.sections.index_by(&:key) %>
+<% in_progress = sections.fetch(:in_progress) %>
+<% up_next = sections.fetch(:up_next) %>
+<% done = sections.fetch(:done) %>
+<% primary_in_progress_item = in_progress.items.first %>
+<% primary_up_next_item = @today.primary_up_next_item if in_progress.items.empty? %>
 
-<div class="mt-10">
-  <%= render "shared/nutrition_summary",
-    summary: @today.nutrition_summary,
-    id: "today-nutrition-heading",
-    title: "Known nutrition today",
-    description: "Concise context from logged meal snapshots; this is tracking information, not medical advice." %>
-</div>
-
-<div class="mt-10 space-y-10">
-  <% @today.sections.each do |section| %>
-    <section aria-labelledby="today-<%= section.key %>-heading">
+<div class="mt-8 space-y-8">
+  <% if in_progress.items.any? %>
+    <section aria-labelledby="today-in-progress-heading" data-today-section="in-progress">
       <div>
-        <h2 id="today-<%= section.key %>-heading" class="text-xl font-semibold"><%= section.title %></h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= section.description %></p>
+        <h2 id="today-in-progress-heading" class="text-balance text-xl font-semibold"><%= in_progress.title %></h2>
+        <p class="mt-1 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400"><%= in_progress.description %></p>
       </div>
-      <ul role="list" class="mt-4 divide-y divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xs dark:divide-white/10 dark:border-white/10 dark:bg-gray-800/50">
-        <%= render partial: "activities/item", collection: section.items, as: :item, locals: { return_to: "today", activity_date: @today.date, actionable: true } %>
-        <% if section.items.empty? %>
-          <li class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">Nothing here yet.</li>
+      <ul role="list" class="mt-4 divide-y divide-gray-950/5 overflow-hidden rounded-xl bg-white ring-1 ring-primary-600/20 shadow-xs dark:divide-white/10 dark:bg-gray-800/50 dark:ring-primary-400/30 dark:shadow-none">
+        <% in_progress.items.each do |item| %>
+          <%= render "activities/item", item:, return_to: "today", activity_date: @today.date, actionable: true,
+            today_execution: true, show_status: false, primary_action: item.equal?(primary_in_progress_item) %>
         <% end %>
       </ul>
     </section>
   <% end %>
+
+  <% if up_next.items.any? %>
+    <section aria-labelledby="today-up-next-heading" data-today-section="up-next">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 id="today-up-next-heading" class="text-balance text-xl font-semibold"><%= up_next.title %></h2>
+          <p class="mt-1 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400"><%= up_next.description %></p>
+        </div>
+        <p class="tabular-nums text-base/7 font-medium text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= pluralize(up_next.items.size, "item") %></p>
+      </div>
+      <ul role="list" class="mt-4 divide-y divide-gray-950/5 overflow-hidden rounded-xl bg-white ring-1 ring-gray-950/10 dark:divide-white/10 dark:bg-gray-800/50 dark:ring-white/10">
+        <% up_next.items.each do |item| %>
+          <%= render "activities/item", item:, return_to: "today", activity_date: @today.date, actionable: true,
+            today_execution: true, show_status: false,
+            primary_action: item.equal?(primary_up_next_item) %>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <% if in_progress.items.empty? && up_next.items.empty? && done.items.any? %>
+    <section aria-labelledby="today-all-done-heading" class="rounded-xl bg-success-50 p-6 ring-1 ring-success-600/15 dark:bg-success-500/10 dark:ring-success-400/20">
+      <h2 id="today-all-done-heading" class="text-balance font-semibold text-gray-900 dark:text-white">All done for today</h2>
+      <p class="mt-1 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">Everything planned for today has been completed or recorded.</p>
+    </section>
+  <% elsif in_progress.items.empty? && up_next.items.empty? && done.items.empty? %>
+    <section aria-labelledby="today-empty-heading" class="rounded-xl border border-dashed border-gray-950/15 p-8 text-center dark:border-white/15">
+      <h2 id="today-empty-heading" class="text-balance font-semibold text-gray-900 dark:text-white">Nothing planned today</h2>
+      <p class="mt-1 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">Plans and check-ins will appear here when they are scheduled or recorded.</p>
+    </section>
+  <% end %>
+
+  <% if done.items.any? %>
+    <section aria-labelledby="today-completed-heading" data-today-section="completed">
+      <%= render Elements::DisclosureComponent.new(id: "today-completed-items") do |disclosure| %>
+        <h2>
+          <%= disclosure.button(class: "flex w-full items-center justify-between gap-4 rounded-lg py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:focus-visible:outline-primary-500") do %>
+            <span class="flex items-baseline gap-2">
+              <span id="today-completed-heading" class="block text-xl font-semibold text-gray-900 dark:text-white"><%= done.title %></span>
+              <span class="block tabular-nums text-base font-medium text-gray-500 sm:text-sm dark:text-gray-400"><%= done.items.size %></span>
+            </span>
+            <span class="flex items-center gap-2 text-base/7 font-semibold text-primary-700 sm:text-sm/6 dark:text-primary-300">
+              <span class="in-aria-expanded:hidden">Show</span>
+              <span class="hidden in-aria-expanded:block">Hide</span>
+              <%= icon "chevron-down", variant: :micro, class: "size-4 shrink-0 transition-transform in-aria-expanded:rotate-180" %>
+            </span>
+          <% end %>
+        </h2>
+        <%= disclosure.panel do %>
+          <ul role="list" class="mt-3 divide-y divide-gray-950/5 overflow-hidden rounded-xl bg-white ring-1 ring-gray-950/10 dark:divide-white/10 dark:bg-gray-800/50 dark:ring-white/10">
+            <%= render partial: "activities/item", collection: done.items, as: :item,
+              locals: { return_to: "today", activity_date: @today.date, actionable: true, today_execution: true, show_status: true } %>
+          </ul>
+        <% end %>
+      <% end %>
+    </section>
+  <% end %>
 </div>
+
+<section aria-labelledby="today-details-heading" class="mt-10 border-t border-gray-950/10 pt-6 dark:border-white/10">
+  <%= render Elements::DisclosureComponent.new(id: "today-details") do |disclosure| %>
+    <h2>
+      <%= disclosure.button(class: "flex w-full items-start justify-between gap-4 rounded-lg py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:focus-visible:outline-primary-500") do %>
+        <span class="block">
+          <span id="today-details-heading" class="block text-xl font-semibold text-gray-900 dark:text-white">Day details</span>
+          <span class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">
+            <span>Nutrition <%= @today.nutrition_summary.status.humanize.downcase %></span>
+            <% if @today.unchecked_shopping_count.positive? %><span><%= pluralize(@today.unchecked_shopping_count, "shopping item") %></span><% end %>
+          </span>
+        </span>
+        <%= icon "chevron-down", variant: :micro, class: "mt-1 size-4 shrink-0 transition-transform in-aria-expanded:rotate-180" %>
+      <% end %>
+    </h2>
+    <%= disclosure.panel do %>
+      <div class="mt-5 space-y-6">
+        <% if @today.unchecked_shopping_count.positive? %>
+          <%= link_to "Open shopping list (#{@today.unchecked_shopping_count})", shopping_list_path(date: @today.date),
+            data: { turbo_prefetch: false },
+            class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+        <% end %>
+        <%= render "shared/nutrition_summary",
+          summary: @today.nutrition_summary,
+          id: "today-nutrition-heading",
+          title: "Nutrition",
+          description: "Known totals from logged meal snapshots; missing data is not counted as zero." %>
+      </div>
+    <% end %>
+  <% end %>
+</section>
+
+<p class="mt-8 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Hearth provides tracking and planning tools, not medical advice.</p>

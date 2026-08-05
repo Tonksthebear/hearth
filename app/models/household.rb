@@ -21,10 +21,6 @@ class Household < ApplicationRecord
   validates :name, presence: true
   validates :installation_key, inclusion: { in: [ 1 ] }, uniqueness: true
 
-  def person_for(person_id, fallback:)
-    people.find_by(id: person_id) || fallback
-  end
-
   def setup_error_messages
     [
       *setup_errors_for(self, except: :people),

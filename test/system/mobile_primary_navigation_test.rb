@@ -13,7 +13,7 @@ class MobilePrimaryNavigationTest < ApplicationSystemTestCase
     sign_in_via_browser users(:one)
     find_button("Open sidebar").click
 
-    within "nav[aria-label='Household and person context']" do
+    within "nav[aria-label='Primary']" do
       assert_selector "a", count: 4, visible: :visible
       assert_link "Today"
       assert_link "Meals"

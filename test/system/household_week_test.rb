@@ -37,6 +37,7 @@ class HouseholdWeekTest < ApplicationSystemTestCase
       fill_in_and_wait_for_value "Food or meal", "Week-view lunch"
       click_button_and_wait_for_text "Log meal", "Week-view lunch was logged for #{people(:one).name}."
       click_link_and_wait_for_path "Hearth", root_path
+      click_button "Completed"
       assert_text "Week-view lunch"
       visit_and_wait_for_path household_week_path
 

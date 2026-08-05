@@ -101,9 +101,8 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_url
   end
 
-  test "sign out clears the selected person context before another user signs in" do
+  test "sign out binds the next session to its owner's person" do
     sign_in_as users(:two)
-    patch person_context_path, params: { person_id: people(:without_login).id }
     delete session_path
 
     post session_path, params: {
@@ -113,13 +112,11 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_select "h1", "Today"
-    assert_select "p", people(:one).name
-    assert_select "p", text: people(:without_login).name, count: 0
+    assert_select "[data-activity-kind]", text: /Sam workout/, count: 0
   end
 
-  test "new authentication clears selected person context without an explicit sign out" do
+  test "new authentication binds the replacement session to its owner's person" do
     sign_in_as users(:two)
-    patch person_context_path, params: { person_id: people(:without_login).id }
 
     post session_path, params: {
       email_address: users(:one).email_address,
@@ -128,7 +125,6 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_select "h1", "Today"
-    assert_select "p", people(:one).name
-    assert_select "p", text: people(:without_login).name, count: 0
+    assert_select "[data-activity-kind]", text: /Sam workout/, count: 0
   end
 end

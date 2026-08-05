@@ -31,8 +31,7 @@ module Authentication
 
     def establish_current_context
       Current.household = Current.user.person.household
-      Current.person = Current.household.person_for(session[:person_id], fallback: Current.user.person)
-      session[:person_id] = Current.person.id if session[:person_id] != Current.person.id
+      Current.person = Current.user.person
     end
 
     def request_authentication
@@ -49,7 +48,6 @@ module Authentication
     end
 
     def start_new_session_for(user)
-      session.delete(:person_id)
       user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip).tap do |session|
         Current.session = session
         cookies.signed.permanent[:session_id] = { value: session.id, httponly: true, same_site: :lax }
@@ -59,6 +57,5 @@ module Authentication
     def terminate_session
       Current.session.destroy
       cookies.delete(:session_id)
-      session.delete(:person_id)
     end
 end

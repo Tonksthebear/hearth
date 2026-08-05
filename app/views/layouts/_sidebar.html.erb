@@ -8,22 +8,15 @@
     <% end %>
   </div>
 
-  <nav class="flex flex-1 flex-col" aria-label="Household and person context">
-    <ul role="list" class="flex flex-1 flex-col gap-y-7">
-      <li>
-        <ul role="list" class="-mx-2 space-y-1">
-          <% @primary_navigation.each do |item| %>
-            <%= render "layouts/sidebar_link", **item %>
-          <% end %>
-        </ul>
-      </li>
-
-      <li class="mt-auto">
-        <div class="rounded-lg bg-primary-800/50 p-3 text-primary-100 dark:bg-black/20">
-          <p class="truncate text-xs font-semibold uppercase tracking-wide">Household</p>
-          <p class="mt-1 truncate text-sm font-semibold text-white" data-household-name><%= @household.name %></p>
-        </div>
-      </li>
+  <nav class="flex-1" aria-label="Primary">
+    <ul role="list" class="-mx-2 space-y-1">
+      <% @primary_navigation.each do |item| %>
+        <%= render "layouts/sidebar_link", **item %>
+      <% end %>
     </ul>
   </nav>
+
+  <div class="mt-auto">
+    <%= render "layouts/account_menu" %>
+  </div>
 </div>

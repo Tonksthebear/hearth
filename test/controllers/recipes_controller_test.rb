@@ -153,19 +153,6 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     assert_select ".bg-primary-50", text: /About provenance/, count: 0
   end
 
-  test "person context does not change the shared catalog" do
-    sign_in_as users(:one)
-
-    patch person_context_path, params: { person_id: people(:two).id }
-    assert_redirected_to root_path
-
-    get recipes_path
-
-    assert_response :success
-    assert_select "h2", text: recipes(:porridge).title
-    assert_select "[aria-current='true']", text: people(:two).name
-  end
-
   test "creates and updates a recipe through the household association" do
     sign_in_as users(:one)
     recipe = nil

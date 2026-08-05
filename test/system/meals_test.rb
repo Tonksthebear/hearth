@@ -132,7 +132,7 @@ class MealsTest < ApplicationSystemTestCase
         assert_no_button "Log as eaten"
       end
 
-      switch_person_via_browser people(:two)
+      sign_in_as_person_via_browser people(:two)
       visit_and_wait_for_path meal_week_path(date: plan.planned_on)
       within "li", text: plan.recipe.title, match: :first do
         click_button "Log as eaten"
@@ -161,7 +161,7 @@ class MealsTest < ApplicationSystemTestCase
       assert_text "Dinner with friends"
       assert_selector "li", text: recipes(:alex_only).title
 
-      switch_person_via_browser people(:two)
+      sign_in_as_person_via_browser people(:two)
       visit_and_wait_for_path meal_week_path
 
       assert_no_text "Dinner with friends"
@@ -209,7 +209,7 @@ class MealsTest < ApplicationSystemTestCase
   private
     def sign_in_and_open_meals(user)
       sign_in_via_browser user
-      within "nav[aria-label='Household and person context']" do
+      within "nav[aria-label='Primary']" do
         click_link_and_wait_for_path "Meals", meal_week_path
       end
       assert_selector "h1", text: "Meals"
