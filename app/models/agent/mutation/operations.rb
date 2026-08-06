@@ -120,6 +120,7 @@ module Agent::Mutation::Operations
           recipe_id: arguments.fetch("recipe_id"),
           person_id: context.person.id
         )
+        record.recipe_scale = arguments["recipe_scale"] if arguments.key?("recipe_scale")
         record.save!
         record
       end
@@ -128,7 +129,8 @@ module Agent::Mutation::Operations
         record = context.person.planned_meals.find(arguments.fetch("id"))
         record.update!(
           planned_on: arguments.key?("planned_on") ? date(arguments["planned_on"]) : record.planned_on,
-          recipe: arguments.key?("recipe_id") ? context.household.recipes.find(arguments["recipe_id"]) : record.recipe
+          recipe: arguments.key?("recipe_id") ? context.household.recipes.find(arguments["recipe_id"]) : record.recipe,
+          recipe_scale: arguments.key?("recipe_scale") ? arguments["recipe_scale"] : record.recipe_scale
         )
         record
       end
@@ -333,6 +335,11 @@ module Agent::Mutation::Operations
         return record if record.is_a?(Hash)
         return {} unless record
         case record
+        when PlannedMeal
+          record.as_json.except("created_at", "updated_at").merge(
+            "active_ingredient_decisions" => record.planned_meal_ingredients.active.count,
+            "superseded_ingredient_decisions" => record.planned_meal_ingredients.superseded.count
+          )
         when Meal
           record.as_json.except("created_at", "updated_at").merge(
             "meal_items" => record.meal_items.map do |item|

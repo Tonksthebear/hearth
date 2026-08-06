@@ -22,6 +22,12 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     assert_response :see_other
     assert ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
     assert ShoppingListItemSource.exists?(planned_meal: planned_meal)
+
+    requirements = planned_meal.planned_meal_ingredients.active.to_a
+    assert_equal recipes(:porridge).recipe_ingredients.map(&:id), requirements.map(&:source_recipe_ingredient_id)
+    assert_equal [ Rational(1), Rational(1, 2) ], requirements.map(&:quantity)
+    assert_equal [ true ], requirements.map(&:untouched?).uniq
+    assert_equal 1, planned_meal.recipe_scale
   end
 
   test "invalid scoped ids render the complete week without creating a shared plan" do

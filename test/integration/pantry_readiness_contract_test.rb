@@ -24,6 +24,8 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     free_text_explicit_missing
     compatible_unitless_count
     mixed_unresolved_precedes_deficit
+    full_yield_scaled_requirement
+    resolved_decision_supersession
     cold_switch_first_reconcile
     pantry_observation_transitions
     pantry_exact_adjustment
@@ -74,6 +76,10 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     assert_enum_usage("readiness_state", readiness.keys)
     assert_enum_usage("ingredient_decision", decisions.keys)
     assert_enum_usage("pantry_state", pantry_states.keys)
+
+    assert_equal decisions.keys, PlannedMealIngredient.decisions.keys
+    assert_equal %w[ unknown on_hand missing ], PlannedMealIngredient.replacement_decisions.keys
+    assert_equal pantry_states.keys, PantryItem.states.keys
   end
 
   test "scenarios pin the cross-ticket acceptance outcomes" do
@@ -139,6 +145,24 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     mixed = scenario("mixed_unresolved_precedes_deficit").fetch("expected")
     assert_equal "needs_ingredient_check", mixed.dig("meal", "readiness_state")
     assert_equal({ "ingredient" => "quinoa", "ingredient_decision" => "missing" }, mixed.fetch("known_deficits").sole)
+
+    scaled = scenario("full_yield_scaled_requirement")
+    assert_equal 2, scaled.dig("inputs", "planned_meal", "recipe_scale")
+    assert_equal "1", scaled.dig("inputs", "planned_meal", "recipe_line", "display_amount")
+    assert_equal({ "ingredient" => "beans", "quantity" => 2, "unit" => "can", "display_amount" => "1" },
+      scaled.dig("expected", "requirement"))
+    assert_equal "beans", scaled.dig("expected", "recipe_requirement_unchanged")
+    assert_equal "ready_to_cook", scaled.dig("expected", "meal", "readiness_state")
+
+    supersession = scenario("resolved_decision_supersession").fetch("expected")
+    assert_equal "needs_ingredient_check", supersession.dig("meal", "readiness_state")
+    assert_equal [ "unknown" ], supersession.fetch("active_requirements").pluck("ingredient_decision").uniq
+    assert_equal({ "ingredient" => "carrots", "quantity" => 2, "unit" => "cup", "supersession_reason" => "requirement_changed" },
+      supersession.fetch("superseded_requirements").sole)
+    assert_equal false, supersession.fetch("superseded_participate_in_readiness")
+    assert_empty supersession.fetch("discarded_untouched_requirements")
+    assert_empty PlannedMealIngredient::SUPERSESSION_REASONS &
+      fixture_vocabulary("ingredient_decisions").keys
 
     cutover = scenario("cold_switch_first_reconcile").fetch("expected")
     assert_equal [ "untouched_open" ], cutover.fetch("removed_row_ids")

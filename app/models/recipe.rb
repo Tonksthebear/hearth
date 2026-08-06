@@ -25,6 +25,10 @@ class Recipe < ApplicationRecord
   has_many :planned_meals, dependent: :restrict_with_exception
   has_many :meal_items, dependent: :restrict_with_exception
   has_many :recipe_feedbacks, through: :meal_items
+  has_many :planned_meal_ingredients,
+    foreign_key: :source_recipe_id,
+    inverse_of: :source_recipe,
+    dependent: nil
   has_many :recipe_ingredients, -> { order(:position) }, dependent: :destroy
   has_many :recipe_instructions, -> { order(:position) }, dependent: :destroy
   has_many :ingredients, through: :recipe_ingredients

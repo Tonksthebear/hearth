@@ -220,6 +220,44 @@ scenarios:
       known_deficits:
         - { ingredient: quinoa, ingredient_decision: missing }
 
+  - id: full_yield_scaled_requirement
+    description: A plan scale multiplies the full recipe yield without rewriting the authored amount.
+    inputs:
+      planned_meal:
+        id: double_batch_chili
+        recipe_scale: 2
+        recipe_line: { ingredient: beans, display_amount: "1", quantity: 1, unit: can }
+        requirement: { ingredient: beans, ingredient_decision: unknown }
+      pantry: { ingredient: beans, quantity: 2, unit: can }
+    actions:
+      - { type: decide, ingredient: beans, ingredient_decision: on_hand }
+    expected:
+      meal: { id: double_batch_chili, readiness_state: ready_to_cook }
+      requirement: { ingredient: beans, quantity: 2, unit: can, display_amount: "1" }
+      recipe_requirement_unchanged: beans
+      generated_shopping_rows: []
+
+  - id: resolved_decision_supersession
+    description: A changed requirement retires resolved decisions as provenance and reopens the check.
+    inputs:
+      planned_meal:
+        id: weeknight_soup
+        requirements:
+          - { ingredient: carrots, quantity: 2, unit: cup, ingredient_decision: on_hand }
+          - { ingredient: broth, quantity: 1, unit: cup, ingredient_decision: unknown }
+    actions:
+      - { type: change_requirement, ingredient: carrots, quantity: 4, unit: cup }
+    expected:
+      meal: { id: weeknight_soup, readiness_state: needs_ingredient_check }
+      active_requirements:
+        - { ingredient: carrots, quantity: 4, unit: cup, ingredient_decision: unknown }
+        - { ingredient: broth, quantity: 1, unit: cup, ingredient_decision: unknown }
+      superseded_requirements:
+        - { ingredient: carrots, quantity: 2, unit: cup, supersession_reason: requirement_changed }
+      discarded_untouched_requirements: []
+      superseded_participate_in_readiness: false
+      generated_shopping_rows: []
+
   - id: cold_switch_first_reconcile
     description: First deficit-only reconciliation removes stale generated rows without inferring pantry stock.
     inputs:
