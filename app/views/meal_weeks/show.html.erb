@@ -93,6 +93,7 @@
                         <p class="text-sm text-gray-600 dark:text-gray-400"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
                       </div>
                       <div class="flex flex-col items-end gap-2">
+                        <%= link_to "Review ingredients", planned_meal_ingredient_review_path(planned_meal), class: "text-sm font-semibold text-primary-800 underline hover:no-underline dark:text-primary-300" %>
                         <% if (meal = @meal_week.converted_meal_for(planned_meal)) %>
                           <%= link_to "View logged meal", meal, class: "text-sm font-semibold text-primary-800 underline dark:text-primary-300" %>
                         <% elsif planned_meal.convertible_by?(@meal_week.person) %>

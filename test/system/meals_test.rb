@@ -11,6 +11,10 @@ class MealsTest < ApplicationSystemTestCase
 
       click_button_and_wait_for_text "Add to plan", "#{recipes(:porridge).title} was added to the plan."
 
+      # Planning now hands the household straight to the new plan's ingredient
+      # check, so the week is confirmed on the way back.
+      assert_selector "h1", text: recipes(:porridge).title
+      click_link_and_wait_for_path "Back to the week", meal_week_path(date: WEEK_START)
       assert_selector "li", text: /#{Regexp.escape(recipes(:porridge).title)}\s+Whole household/
     end
   end
@@ -23,6 +27,8 @@ class MealsTest < ApplicationSystemTestCase
 
       click_button_and_wait_for_text "Add to plan", "#{recipes(:porridge).title} was added to the plan."
 
+      assert_selector "h1", text: recipes(:porridge).title
+      click_link_and_wait_for_path "Back to the week", meal_week_path(date: WEEK_START)
       assert_selector "li", text: /#{Regexp.escape(recipes(:porridge).title)}\s+#{Regexp.escape(people(:one).name)}/
     end
   end

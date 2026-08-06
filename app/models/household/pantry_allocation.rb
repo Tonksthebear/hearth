@@ -7,6 +7,14 @@
 # never consumes stock or writes an ingredient decision. Do not memoize one on
 # Household — a stale engine would silently break both guarantees.
 class Household::PantryAllocation
+  # The contract's canonical user-facing labels, pinned by
+  # PantryReadinessContractTest.
+  STATE_LABELS = {
+    needs_ingredient_check: "Needs ingredient check",
+    shopping_needed: "Shopping needed",
+    ready_to_cook: "Ready to cook"
+  }.freeze
+
   # What one active requirement asked for and what the household's confirmed
   # evidence could actually cover. Quantities are exact Rationals in the
   # requirement's own unit; the pantry row keeps its own.
@@ -41,6 +49,11 @@ class Household::PantryAllocation
     end
   end
 
+  # What one queued plan asked of a single ingredient, kept in the order stock was
+  # handed out. Recorded during the same pass rather than derived afterwards, so
+  # the explanation a household reads is exactly the allocation that happened.
+  Contribution = Data.define(:planned_meal, :reservation)
+
   # The canonical readiness projection for one queued meal: unresolved first,
   # then a confirmed deficit, then ready.
   Readiness = Data.define(:planned_meal, :state, :reservations) do
@@ -49,6 +62,8 @@ class Household::PantryAllocation
     def shopping_needed? = state == :shopping_needed
 
     def ready_to_cook? = state == :ready_to_cook
+
+    def label = STATE_LABELS.fetch(state)
   end
 
   attr_reader :household
@@ -59,6 +74,7 @@ class Household::PantryAllocation
     # fresh engine always sees current evidence with no invalidation step.
     @pantry_items = PantryItem.where(household: household).index_by(&:ingredient_id)
     @reserved = Hash.new(Rational(0))
+    @contributions = {}
     @readiness = build_readiness
   end
 
@@ -86,6 +102,21 @@ class Household::PantryAllocation
     @reserved[ingredient.id]
   end
 
+  # Every queued plan competing for one ingredient, in allocation order, so a
+  # deficit can be explained by the earlier meal that won the stock. Requirements
+  # that demanded nothing — not needed, or unmeasurable — never competed and are
+  # left out rather than shown reserving zero.
+  def contributions_for(ingredient)
+    @contributions[ingredient.id] || []
+  end
+
+  # The household's current evidence row for an ingredient, or nil when it is
+  # untracked. Answered from the index this engine already built, so a caller
+  # rendering many requirements adds no query per row.
+  def pantry_item_for(ingredient)
+    @pantry_items[ingredient.id]
+  end
+
   def remaining_for(ingredient)
     available = available_for(ingredient)
     available - reserved_for(ingredient) if available
@@ -94,16 +125,28 @@ class Household::PantryAllocation
   private
     def build_readiness
       queued_plans.to_h do |plan|
-        reservations = active_requirements(plan).map { |requirement| reserve(requirement) }.freeze
+        reservations = active_requirements(plan).map { |requirement| record(plan, reserve(requirement)) }.freeze
         [ plan.id, Readiness.new(planned_meal: plan, state: state_for(reservations), reservations: reservations) ]
       end.freeze
+    end
+
+    # Contributions accumulate in the same order stock was handed out, because
+    # that order is the whole explanation for who went short.
+    def record(plan, reservation)
+      if reservation.measurable? && !reservation.requirement.not_needed?
+        (@contributions[reservation.ingredient.id] ||= []) << Contribution.new(planned_meal: plan, reservation: reservation)
+      end
+      reservation
     end
 
     def queued_plans
       household.planned_meals
         .allocatable
         .in_allocation_order
-        .preload(planned_meal_ingredients: [ :ingredient, :replacement_ingredient ])
+        # The recipe comes along because a queued plan is explained to the
+        # household by name; loading it per contributing plan would make any
+        # surface that lists them grow its query count with the queue.
+        .preload(:recipe, planned_meal_ingredients: [ :ingredient, :replacement_ingredient ])
         .to_a
     end
 
@@ -120,10 +163,7 @@ class Household::PantryAllocation
       substituted = requirement.substituted?
       ingredient = substituted ? requirement.replacement_ingredient : requirement.ingredient
       decision = requirement.effective_decision
-      measurement = Ingredient::Measurement.new(
-        quantity: substituted ? requirement.replacement_quantity : requirement.quantity,
-        unit: substituted ? requirement.replacement_unit : requirement.unit
-      )
+      measurement = substituted ? requirement.replacement_measurement : requirement.measurement
 
       # not_needed resolves the requirement without pantry allocation or shopping
       # work, so it demands nothing: it draws no stock and is never short.

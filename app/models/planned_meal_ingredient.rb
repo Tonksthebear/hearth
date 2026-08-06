@@ -7,6 +7,16 @@ class PlannedMealIngredient < ApplicationRecord
     source_recipe_id ingredient_id display_name display_quantity unit
     quantity_numerator quantity_denominator position
   ].freeze
+  # The contract's canonical user-facing labels. They are vocabulary rather than
+  # copy — "Check ingredient" is what an unresolved decision is called — so they
+  # live with the enum they name and PantryReadinessContractTest pins them.
+  DECISION_LABELS = {
+    "unknown" => "Check ingredient",
+    "on_hand" => "On hand",
+    "missing" => "Missing",
+    "substituted" => "Substituted",
+    "not_needed" => "Not needed"
+  }.freeze
 
   belongs_to :planned_meal, inverse_of: :planned_meal_ingredients
   belongs_to :source_recipe, class_name: "Recipe", optional: true, inverse_of: :planned_meal_ingredients
@@ -32,6 +42,13 @@ class PlannedMealIngredient < ApplicationRecord
   scope :active, -> { where(superseded_at: nil) }
   scope :superseded, -> { where.not(superseded_at: nil) }
   scope :ordered, -> { order(:position, :id) }
+  # The requirements a person may answer: a current row of a plan their own
+  # household shares with them. Household ownership and person visibility are one
+  # question, so every review endpoint asks it in one place rather than
+  # reassembling the join and risking a surface that scopes only half of it.
+  scope :reviewable_by, ->(household, person) {
+    active.joins(:planned_meal).merge(household.planned_meals.visible_to(person))
+  }
 
   validates :display_name, presence: true
   validates :position, numericality: { only_integer: true, greater_than: 0 }
@@ -47,6 +64,17 @@ class PlannedMealIngredient < ApplicationRecord
 
   def replacement_quantity
     exact_quantity(replacement_quantity_numerator, replacement_quantity_denominator)
+  end
+
+  # The scaled amount this requirement actually asks the household for, and the
+  # replacement's once a substitution redirected it. Unit semantics always travel
+  # as a Measurement so nothing compares stored unit strings directly.
+  def measurement
+    Ingredient::Measurement.new(quantity: quantity, unit: unit)
+  end
+
+  def replacement_measurement
+    Ingredient::Measurement.new(quantity: replacement_quantity, unit: replacement_unit)
   end
 
   def active?
@@ -109,6 +137,43 @@ class PlannedMealIngredient < ApplicationRecord
     update!(replacement_decision: decision, decided_at: at)
   end
 
+  # Deciding "on hand" is itself a pantry confirmation: the contract defines the
+  # decision as evidence the household confirmed, so recording the decision alone
+  # would leave the household's own assertion contradicted by the very next
+  # allocation pass. The evidence is ensured rather than drawn — it rises to what
+  # this requirement needs and never falls — so readiness still consumes nothing.
+  def confirm_on_hand!(by:, at: Time.current)
+    transaction do
+      ensure_pantry_evidence(ingredient, measurement, by: by, at: at)
+      decide!(:on_hand, at: at)
+    end
+    self
+  end
+
+  # The replacement is the ingredient allocation actually draws on once a
+  # requirement is substituted, so its "on hand" carries the same evidence.
+  def confirm_replacement_on_hand!(by:, at: Time.current)
+    transaction do
+      ensure_pantry_evidence(replacement_ingredient, replacement_measurement, by: by, at: at)
+      decide_replacement!(:on_hand, at: at)
+    end
+    self
+  end
+
+  # Whether the replacement's own decision is the one still open. Both the
+  # rendered controls and the endpoint ask this same question of the record.
+  def replacement_resolvable?
+    active? && substituted? && replacement_ingredient.present?
+  end
+
+  def decision_label
+    DECISION_LABELS.fetch(decision)
+  end
+
+  def replacement_decision_label
+    DECISION_LABELS.fetch(replacement_decision) if replacement_decision
+  end
+
   def supersede!(reason, at: Time.current)
     update!(superseded_at: at, superseded_reason: reason)
   end
@@ -146,6 +211,23 @@ class PlannedMealIngredient < ApplicationRecord
   end
 
   private
+    # Two requirements carry no amount to confirm: a free-text one such as "salt to
+    # taste", which stays source-specific and faithful rather than being coerced to
+    # a number, and — inside ensure_at_least! — a confirmed row in an incompatible
+    # family. Both record the decision and write nothing, because inventing or
+    # overwriting a household observation is worse than an unexplained row.
+    def ensure_pantry_evidence(ingredient, measurement, by:, at:)
+      return unless measurement.known?
+
+      PantryItem.for(household: planned_meal.household, ingredient: ingredient).ensure_at_least!(
+        quantity: measurement.quantity,
+        unit: measurement.normalized_label,
+        source: PantryItem::READINESS_REVIEW_SOURCE,
+        confirmed_by: by,
+        confirmed_at: at
+      )
+    end
+
     def exact_quantity(numerator, denominator)
       return unless numerator && denominator&.positive?
 

@@ -34,6 +34,15 @@ Rails.application.routes.draw do
   resource :meal_week, only: :show
   resources :planned_meals, only: %i[ create destroy ] do
     resource :meal, only: :create, module: :planned_meal
+    resource :ingredient_review, only: :show, module: :planned_meal
+    resource :on_hand_confirmation, only: :create, module: :planned_meal
+  end
+  resources :planned_meal_ingredients, only: [] do
+    scope module: :planned_meal_ingredient do
+      resource :decision, only: :update
+      resource :replacement_decision, only: :update
+      resource :substitution, only: %i[ new create ]
+    end
   end
   resources :meals, only: %i[ new create show edit update destroy ]
   resource :shopping_list, only: :show do

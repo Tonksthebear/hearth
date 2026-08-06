@@ -4,6 +4,16 @@ class PantryItem < ApplicationRecord
   # alias, so it round-trips through the blank unit the PORO reads as generic count.
   GENERIC_COUNT_UNIT = Ingredient::Measurement::GENERIC_COUNT.normalized_label
   PURCHASE_SOURCE = "purchase".freeze
+  READINESS_REVIEW_SOURCE = "readiness_review".freeze
+  # The contract's canonical user-facing labels, pinned by
+  # PantryReadinessContractTest. "Not tracked" and "Running low" carry meaning the
+  # machine values do not, so they are vocabulary rather than view copy.
+  STATE_LABELS = {
+    "confirmed" => "Confirmed",
+    "low" => "Running low",
+    "out" => "Out",
+    "unknown" => "Not tracked"
+  }.freeze
 
   belongs_to :household
   belongs_to :ingredient
@@ -45,6 +55,10 @@ class PantryItem < ApplicationRecord
     Ingredient::Measurement.new(quantity: quantity, unit: measurement_unit(unit))
   end
 
+  def state_label
+    STATE_LABELS.fetch(state)
+  end
+
   # Exact quantity later allocation may draw on. An out row supplies zero; low and
   # unknown stay unresolved and supply nothing.
   def available_quantity
@@ -69,6 +83,63 @@ class PantryItem < ApplicationRecord
       confirmed_by: confirmed_by,
       confirmed_at: confirmed_at
     )
+  end
+
+  # Raises confirmed inventory to at least this amount and never lowers it. A row
+  # that already holds enough keeps its exact quantity and only refreshes
+  # provenance, so repeated assertions of the same shelf converge instead of
+  # compounding the way a delta would. Confirming is not consuming: nothing here
+  # subtracts stock or writes the consumption ledger.
+  #
+  # Returns nil, having written nothing, when a confirmed row asserts an
+  # incompatible measurement family. That row is a human observation Hearth cannot
+  # reconcile without inventing a conversion, so it is preserved rather than
+  # overwritten and the caller explains it instead.
+  def ensure_at_least!(quantity:, unit: nil, source:, confirmed_by:, confirmed_at: Time.current)
+    requested = Ingredient::Measurement.new(quantity: quantity, unit: measurement_unit(unit))
+
+    unless requested.known? && requested.quantity.positive?
+      errors.add(:base, "Ensured pantry inventory needs an exact positive amount in a recognized unit.")
+      raise ActiveRecord::RecordInvalid, self
+    end
+
+    if persisted?
+      with_lock do
+        # confirm! replaces rather than merges, so the target has to come from the
+        # row this transaction reloaded. Reusing an in-memory quantity would write
+        # the never-decrease rule straight back out over another writer's amount.
+        target = ensured_target(requested)
+        next if target.nil?
+
+        confirm!(quantity: target.first, unit: target.last, source: source, confirmed_by: confirmed_by, confirmed_at: confirmed_at)
+      end
+    else
+      begin
+        write_observation!(
+          state: :confirmed,
+          quantity: requested.quantity,
+          unit: requested.normalized_label,
+          source: source,
+          confirmed_by: confirmed_by,
+          confirmed_at: confirmed_at
+        )
+      rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+        # Another writer created the row first. BEGIN IMMEDIATE serializes the two
+        # transactions, so the loser usually reads the winner during its own
+        # uniqueness validation and fails there rather than at the index; the index
+        # is still the backstop when the transactions do overlap.
+        #
+        # Either way the target is recomputed against what the winner actually
+        # committed. observe!'s blind rescue instead applies this caller's own
+        # amount to the winning row, which can lower a larger concurrent assertion.
+        # Anything else that made this row invalid raises again on re-entry.
+        winner = household.pantry_items.find_by(ingredient_id: ingredient_id) or raise
+
+        winner.ensure_at_least!(
+          quantity: quantity, unit: unit, source: source, confirmed_by: confirmed_by, confirmed_at: confirmed_at
+        )
+      end
+    end
   end
 
   # Applies a signed exact change to confirmed inventory. Ingredient::Measurement
@@ -158,17 +229,14 @@ class PantryItem < ApplicationRecord
 
   protected
     def observe!(state:, source:, confirmed_by:, confirmed_at:, quantity: nil, unit: nil)
-      assign_attributes(
+      write_observation!(
         state: state,
-        quantity_numerator: quantity&.numerator,
-        quantity_denominator: quantity&.denominator,
-        unit: unit,
-        confirmation_source: source,
+        source: source,
         confirmed_by: confirmed_by,
-        confirmed_at: confirmed_at
+        confirmed_at: confirmed_at,
+        quantity: quantity,
+        unit: unit
       )
-      save!
-      self
     rescue ActiveRecord::RecordNotUnique
       raise if persisted?
 
@@ -184,7 +252,35 @@ class PantryItem < ApplicationRecord
       )
     end
 
+    # The write itself, with no opinion about a lost create race. A command whose
+    # invariant depends on the winner's committed amount handles that race for
+    # itself rather than inheriting observe!'s replace-the-winner behavior.
+    def write_observation!(state:, source:, confirmed_by:, confirmed_at:, quantity: nil, unit: nil)
+      assign_attributes(
+        state: state,
+        quantity_numerator: quantity&.numerator,
+        quantity_denominator: quantity&.denominator,
+        unit: unit,
+        confirmation_source: source,
+        confirmed_by: confirmed_by,
+        confirmed_at: confirmed_at
+      )
+      save!
+      self
+    end
+
   private
+    # The amount and unit a confirmation must land on, read from the reloaded row.
+    # Weak evidence carries no amount to preserve, so it is re-established at the
+    # requested amount rather than adjusted; confirmed evidence keeps its own unit
+    # and only ever grows. nil means the row asserts an incompatible family.
+    def ensured_target(requested)
+      return [ requested.quantity, requested.normalized_label ] unless confirmed?
+
+      converted = requested.convert_to(measurement_unit(unit))
+      [ [ quantity, converted ].max, unit ] if converted
+    end
+
     def measurement_unit(value)
       value.to_s.squish.casecmp?(GENERIC_COUNT_UNIT) ? nil : value
     end

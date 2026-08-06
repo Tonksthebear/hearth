@@ -1,0 +1,49 @@
+<% content_for :title, "Substitute an ingredient · Hearth" %>
+<%= render "layouts/meals_navigation" %>
+
+<section aria-labelledby="substitution-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Ingredient check</p>
+  <h1 id="substitution-heading" class="mt-2 text-3xl font-semibold tracking-tight">Substitute <%= @requirement.display_name %></h1>
+  <p class="mt-2 text-gray-600 dark:text-gray-400">
+    This redirects <%= @planned_meal.recipe.title %>'s requirement at what you are actually cooking with. The recipe
+    itself is unchanged, and the replacement still has to be answered before the meal can be ready.
+  </p>
+
+  <%= form_with url: planned_meal_ingredient_substitution_path(@requirement), scope: :substitution, class: "mt-6" do |form| %>
+    <% if @requirement.errors.any? %>
+      <%= render "layouts/alert", id: "substitution-errors", title: "Please correct the following:", messages: @requirement.errors.full_messages %>
+    <% end %>
+
+    <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
+      <div class="sm:col-span-3">
+        <%= form.label :name, "Replacement ingredient", class: :label %>
+        <div class="mt-2">
+          <%# The tag helper rather than the form builder: this form has no model
+              object, and the builder reads errors off one. %>
+          <%= elements_autocomplete_tag "substitution[name]", @ingredient_name_options,
+            id: "substitution_name",
+            value: @substitution[:name],
+            create: true,
+            create_text: 'Add "{value}"',
+            placeholder: "Choose or add an ingredient",
+            required: true %>
+        </div>
+      </div>
+      <div class="sm:col-span-1">
+        <%= form.label :quantity, "Amount", class: :label %>
+        <div class="mt-2"><%= form.text_field :quantity, value: @substitution[:quantity], class: :text_field %></div>
+      </div>
+      <div class="sm:col-span-2">
+        <%= form.label :unit, class: :label %>
+        <div class="mt-2"><%= form.text_field :unit, value: @substitution[:unit], placeholder: "cups, g, cans", class: :text_field %></div>
+      </div>
+    </div>
+
+    <div class="mt-6 flex items-center gap-4">
+      <%= form.submit "Save substitution", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+      <%= link_to "Cancel", planned_meal_ingredient_review_path(@planned_meal),
+        data: { turbo_prefetch: false },
+        class: "text-sm font-semibold text-gray-900 underline dark:text-white" %>
+    </div>
+  <% end %>
+</section>

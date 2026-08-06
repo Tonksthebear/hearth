@@ -77,6 +77,29 @@ class PlannedMeal < ApplicationRecord
     meals.find_by!(person:)
   end
 
+  # The ingredient review answers for a plan that is still queued for allocation.
+  # Cooking removes the plan from that queue and draws its stock, so afterwards
+  # there is no projection left to review and the page renders a terminal state
+  # rather than an error. Matches the allocatable scope exactly.
+  def ingredient_review_open?
+    meals.empty?
+  end
+
+  # Whether the fast path still has anything to decide.
+  def ingredients_awaiting_review?
+    ingredient_review_open? && planned_meal_ingredients.active.unknown.exists?
+  end
+
+  # One tap for the common case: everything still undecided is on the shelf. Rows
+  # the household already decided missing, substituted, or not needed are explicit
+  # choices, and a bulk convenience never silently reverses one.
+  def mark_remaining_ingredients_on_hand!(by:, at: Time.current)
+    transaction do
+      planned_meal_ingredients.active.unknown.ordered.each { |requirement| requirement.confirm_on_hand!(by: by, at: at) }
+    end
+    self
+  end
+
   # Undo for the cooking event: once the last Meal is gone the plan re-enters the
   # allocation queue, so every draw it still holds is settled. Replay credits
   # nothing further because the ledger, not inference, is the guard.
