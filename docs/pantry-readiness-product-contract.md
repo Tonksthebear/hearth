@@ -28,6 +28,19 @@ Ingredient decisions are plan-specific. They do not rewrite a recipe, silently a
 
 A substitution never chains. The replacement of a substituted requirement resolves to `unknown`, `on_hand`, or `missing` only; it can never itself be substituted or marked not needed.
 
+## Canonical pantry states
+
+| Machine value | User-facing label | Meaning |
+| --- | --- | --- |
+| `confirmed` | Confirmed | The household asserted an exact positive amount in a recognized unit. This is the only state that carries an amount, and it is the only allocatable evidence. |
+| `low` | Running low | The household knows the ingredient is short without measuring it. It carries no amount, is never allocatable, and leaves the requirement unresolved. |
+| `out` | Out | The household asserted there is none. It carries no amount and semantically supplies zero, which resolves the requirement as a deficit. |
+| `unknown` | Not tracked | The household has no current pantry evidence, either because it never tracked the ingredient or because it explicitly cleared prior evidence. It carries no amount and is never allocatable. |
+
+A pantry state describes what the household knows about its shelves. It is a different vocabulary from the planned-meal `unknown` ingredient decision above: `unknown` pantry evidence is household-wide and says nothing was observed, while an `unknown` ingredient decision is plan-specific and says one meal's requirement is unresolved. Neither implies the other.
+
+Not tracking an ingredient at all is equivalent to `unknown`; the household is never backfilled with `unknown` rows for its whole ingredient catalog.
+
 ## Planned-meal requirement snapshots
 
 A planned meal carries a positive recipe scale. A scale of `1` means one full recipe yield, not one serving; consumed portions remain a logging concept. The scale multiplies each measurable requirement exactly and never rewrites the recipe's authored amount.
@@ -45,9 +58,11 @@ Supersession reasons are lifecycle bookkeeping — a recipe swap, a scale change
 
 ## Pantry confirmation
 
-Pantry confirmation is an explicit household assertion. It identifies the canonical ingredient, a quantity or faithful display amount, a compatible unit when the amount is measurable, the time confirmed, and provenance such as a pantry check or purchase confirmation. These are product concepts, not a database schema prescribed by this ticket.
+Pantry confirmation is an explicit household assertion. It identifies the canonical ingredient, a pantry state, the time confirmed, provenance such as a pantry check or purchase confirmation, and the household person who confirmed it. Measurable knowledge is recorded as `confirmed` with an exact positive amount and a compatible recognized unit; knowledge that cannot be measured is recorded as `low`, `out`, or `unknown` rather than as a faithful display string. Every explicit observation refreshes the time, provenance, and confirming person. These are product concepts, not a database schema prescribed by this ticket.
 
 Recipe presence, a prior generated shopping row, inferred stock, checking off a shopping item, and logging a meal are not pantry confirmation. Completing shopping work is checklist state only. A separate confirmation action adds the purchased amount to pantry evidence, after which allocation may change meal readiness.
+
+Adjusting confirmed inventory is exact and signed. It applies only to a `confirmed` amount in a compatible recognized unit, stays `confirmed` while the result is positive, becomes `out` at exactly zero, and is rejected when it would take inventory below zero. `low`, `out`, and `unknown` are re-established through confirmation rather than adjusted. Hearth does not consume pantry evidence automatically.
 
 ## Allocation, dates, and priority
 
@@ -93,4 +108,6 @@ Surviving user-managed and completed rows therefore render without meal attribut
 
 Planned-meal requirement snapshots and their decisions are persisted runtime state. `PlannedMeal` reconciles them on commit — ahead of shopping reconciliation — for the web plan form, the Agent planned-meal mutations, and recipe authoring and import. Decision commands exist on the model and still await the ingredient review UI.
 
-Readiness derivation, pantry evidence, allocation, priority, deficits, and purchase confirmation remain scaffold-only. Today `ShoppingList#reconcile!` is reached by `ShoppingListsController#show` and `PlannedMeal` after-commit callbacks, while Meals, Today, and MCP projections consume an existing list without reconciling it. The follow-up cold-switch ticket must wire the deficit contract through those production seams and prove the actual user/runtime path.
+Pantry evidence is persisted as `PantryItem` with model-level confirmation and adjustment commands, but no user-reachable entry point creates or reads it yet.
+
+Readiness derivation, allocation, priority, deficits, and purchase confirmation remain scaffold-only. Today `ShoppingList#reconcile!` is reached by `ShoppingListsController#show` and `PlannedMeal` after-commit callbacks, while Meals, Today, and MCP projections consume an existing list without reconciling it. The follow-up cold-switch ticket must wire the deficit contract through those production seams and prove the actual user/runtime path.

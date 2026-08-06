@@ -1,5 +1,6 @@
 class Ingredient < ApplicationRecord
   belongs_to :household
+  has_one :pantry_item, dependent: :destroy
   has_many :recipe_ingredients, dependent: :restrict_with_exception
   has_many :meal_items, dependent: :restrict_with_exception
   has_many :planned_meal_ingredients, dependent: :restrict_with_exception, inverse_of: :ingredient

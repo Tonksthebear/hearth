@@ -18,6 +18,15 @@ vocabulary:
       label: Substituted
     - value: not_needed
       label: Not needed
+  pantry_states:
+    - value: confirmed
+      label: Confirmed
+    - value: low
+      label: Running low
+    - value: out
+      label: Out
+    - value: unknown
+      label: Not tracked
 scenarios:
   - id: shared_dated_demand
     description: Shared pantry evidence is allocated once across dated household demand.
@@ -270,3 +279,42 @@ scenarios:
       generated_shopping_rows: []
       pantry_confirmation_created: false
       temporary_empty_generated_state_allowed: true
+
+  - id: pantry_observation_transitions
+    description: Explicit household observations move one pantry row between states and always refresh provenance.
+    inputs:
+      untracked_ingredient: { ingredient: cocoa, pantry_state: unknown, tracked: false }
+      pantry: { ingredient: rice, tracked: false }
+      confirmed_by: alex
+    actions:
+      - { type: confirm_pantry, ingredient: rice, quantity: 4, unit: cup, provenance: pantry_check, confirmed_at: "2026-08-09T18:00:00Z" }
+      - { type: mark_pantry_low, ingredient: rice, provenance: pantry_check, confirmed_at: "2026-08-10T18:00:00Z" }
+      - { type: mark_pantry_out, ingredient: rice, provenance: pantry_check, confirmed_at: "2026-08-11T18:00:00Z" }
+      - { type: clear_pantry, ingredient: rice, provenance: pantry_check, confirmed_at: "2026-08-12T18:00:00Z" }
+      - { type: clear_pantry, ingredient: cocoa, provenance: pantry_check, confirmed_at: "2026-08-12T18:00:00Z" }
+    expected:
+      after_confirm: { pantry_state: confirmed, quantity: 4, unit: cup, available_quantity: 4, confirmed_at: "2026-08-09T18:00:00Z" }
+      after_mark_low: { pantry_state: low, quantity: null, unit: null, available_quantity: null, confirmed_at: "2026-08-10T18:00:00Z" }
+      after_mark_out: { pantry_state: out, quantity: null, unit: null, available_quantity: 0, confirmed_at: "2026-08-11T18:00:00Z" }
+      after_clear: { pantry_state: unknown, quantity: null, unit: null, available_quantity: null, confirmed_at: "2026-08-12T18:00:00Z" }
+      pantry_rows: 1
+      untracked_clear_created_rows: 0
+
+  - id: pantry_exact_adjustment
+    description: Signed exact adjustments stay confirmed above zero, become out at zero, and never take inventory below zero.
+    inputs:
+      pantry: { ingredient: rice, pantry_state: confirmed, quantity: 4, unit: cup }
+      confirmed_by: alex
+    actions:
+      - { type: adjust_pantry, ingredient: rice, delta: -2, unit: cup, provenance: pantry_check, confirmed_at: "2026-08-09T18:00:00Z" }
+      - { type: adjust_pantry, ingredient: rice, delta: -16, unit: tbsp, provenance: pantry_check, confirmed_at: "2026-08-10T18:00:00Z" }
+      - { type: adjust_pantry, ingredient: rice, delta: -8, unit: cup, provenance: pantry_check, confirmed_at: "2026-08-11T18:00:00Z" }
+      - { type: adjust_pantry, ingredient: rice, delta: -1, unit: cup, provenance: pantry_check, confirmed_at: "2026-08-12T18:00:00Z" }
+    expected:
+      after_same_unit_adjustment: { pantry_state: confirmed, quantity: 2, unit: cup }
+      after_compatible_unit_adjustment: { pantry_state: confirmed, quantity: 1, unit: cup }
+      rejected_adjustments:
+        - { delta: -8, unit: cup, reason: below_zero, pantry_state: confirmed, quantity: 1, unit_after: cup }
+      after_zeroing_adjustment: { pantry_state: out, quantity: null, unit: null, available_quantity: 0 }
+      pantry_rows: 1
+      automatic_consumption: false
