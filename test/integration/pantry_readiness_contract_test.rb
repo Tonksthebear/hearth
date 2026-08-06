@@ -6,7 +6,7 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
   DOCUMENT_PATH = Rails.root.join("docs/pantry-readiness-product-contract.md")
 
   TOP_LEVEL_KEYS = %w[contract_version scenarios vocabulary].freeze
-  VOCABULARY_KEYS = %w[ingredient_decisions readiness_states].freeze
+  VOCABULARY_KEYS = %w[ingredient_decisions pantry_states readiness_states].freeze
   VOCABULARY_ENTRY_KEYS = %w[label value].freeze
   SCENARIO_KEYS = %w[actions description expected id inputs].freeze
   REQUIRED_SCENARIO_IDS = %w[
@@ -25,6 +25,8 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     compatible_unitless_count
     mixed_unresolved_precedes_deficit
     cold_switch_first_reconcile
+    pantry_observation_transitions
+    pantry_exact_adjustment
   ].freeze
 
   test "acceptance scenarios have a closed stable shape" do
@@ -60,14 +62,18 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
   test "the normative document and scenarios use the same canonical vocabulary" do
     readiness = documented_vocabulary("Canonical readiness states")
     decisions = documented_vocabulary("Canonical ingredient decisions")
+    pantry_states = documented_vocabulary("Canonical pantry states")
 
     assert_not_empty readiness
     assert_not_empty decisions
+    assert_not_empty pantry_states
     assert_equal readiness, fixture_vocabulary("readiness_states")
     assert_equal decisions, fixture_vocabulary("ingredient_decisions")
+    assert_equal pantry_states, fixture_vocabulary("pantry_states")
 
     assert_enum_usage("readiness_state", readiness.keys)
     assert_enum_usage("ingredient_decision", decisions.keys)
+    assert_enum_usage("pantry_state", pantry_states.keys)
   end
 
   test "scenarios pin the cross-ticket acceptance outcomes" do
@@ -142,6 +148,31 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     assert_empty cutover.fetch("generated_shopping_rows")
     assert_equal false, cutover.fetch("pantry_confirmation_created")
     assert_equal true, cutover.fetch("temporary_empty_generated_state_allowed")
+
+    observations = scenario("pantry_observation_transitions").fetch("expected")
+    assert_equal 4, observations.dig("after_confirm", "available_quantity")
+    assert_equal "2026-08-09T18:00:00Z", observations.dig("after_confirm", "confirmed_at")
+    assert_nil observations.dig("after_mark_low", "available_quantity")
+    assert_equal 0, observations.dig("after_mark_out", "available_quantity")
+    assert_nil observations.dig("after_clear", "available_quantity")
+    assert_equal %w[confirmed low out unknown],
+      %w[after_confirm after_mark_low after_mark_out after_clear].map { |key| observations.dig(key, "pantry_state") }
+    assert_equal %w[2026-08-09T18:00:00Z 2026-08-10T18:00:00Z 2026-08-11T18:00:00Z 2026-08-12T18:00:00Z],
+      %w[after_confirm after_mark_low after_mark_out after_clear].map { |key| observations.dig(key, "confirmed_at") }
+    assert_equal 1, observations.fetch("pantry_rows")
+    assert_equal 0, observations.fetch("untracked_clear_created_rows")
+
+    adjustment = scenario("pantry_exact_adjustment").fetch("expected")
+    assert_equal({ "pantry_state" => "confirmed", "quantity" => 2, "unit" => "cup" }, adjustment.fetch("after_same_unit_adjustment"))
+    assert_equal({ "pantry_state" => "confirmed", "quantity" => 1, "unit" => "cup" }, adjustment.fetch("after_compatible_unit_adjustment"))
+    rejected = adjustment.fetch("rejected_adjustments").sole
+    assert_equal "below_zero", rejected.fetch("reason")
+    assert_equal [ "confirmed", 1, "cup" ], rejected.values_at("pantry_state", "quantity", "unit_after")
+    assert_equal "out", adjustment.dig("after_zeroing_adjustment", "pantry_state")
+    assert_equal 0, adjustment.dig("after_zeroing_adjustment", "available_quantity")
+    assert_nil adjustment.dig("after_zeroing_adjustment", "quantity")
+    assert_equal 1, adjustment.fetch("pantry_rows")
+    assert_equal false, adjustment.fetch("automatic_consumption")
   end
 
   private

@@ -91,6 +91,7 @@ module ActiveSupport
         HabitCheckIn.delete_all
         PersonHabitMetric.delete_all
         PersonHabit.delete_all
+        PantryItem.delete_all
         Person.delete_all
         HabitMetric.delete_all
         Habit.delete_all

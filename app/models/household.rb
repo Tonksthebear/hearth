@@ -1,4 +1,7 @@
 class Household < ApplicationRecord
+  # Declared before :people so pantry rows are destroyed before their confirmers,
+  # which Person restricts.
+  has_many :pantry_items, dependent: :destroy
   has_many :people, dependent: :destroy
   has_many :users, through: :people
   has_many :planned_meals, dependent: :destroy
