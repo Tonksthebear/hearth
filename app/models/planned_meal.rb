@@ -4,6 +4,10 @@ class PlannedMeal < ApplicationRecord
   belongs_to :recipe
   has_many :meals, dependent: :restrict_with_exception
   has_many :shopping_list_item_sources, dependent: :destroy
+  # Declared ahead of the requirements it references: dependent teardown runs in
+  # declaration order, and the consumption ledger restricts deleting a
+  # requirement that drew stock.
+  has_many :pantry_consumptions, dependent: :destroy, inverse_of: :planned_meal
   has_many :planned_meal_ingredients, -> { ordered }, dependent: :destroy, inverse_of: :planned_meal
 
   # Snapshots must be current before anything downstream reads this plan's
@@ -51,15 +55,35 @@ class PlannedMeal < ApplicationRecord
         raise ActiveRecord::RecordInvalid, self
       end
 
-      meals.create!(
+      # The first conversion is the household's cooking event, so the stock this
+      # plan was holding is drawn exactly once. Exactly-once is carried by the
+      # allocatable queue itself — a plan with any Meal has already left it and
+      # reserves nothing — and this check is the cheap short-circuit that skips
+      # building a projection already known to be empty for this plan.
+      # Reservations are read before the Meal that removes it from the queue.
+      reservations = meals.exists? ? [] : Household::PantryAllocation.new(household).reservations_for(self)
+
+      meal = meals.create!(
         household: household,
         person: person,
         eaten_on: planned_on,
         meal_items_attributes: [ { source_kind: :recipe, recipe: recipe } ]
       )
+      reservations.each { |reservation| draw_from_pantry(reservation, person: person) }
+      meal
     end
   rescue ActiveRecord::RecordNotUnique
     meals.find_by!(person:)
+  end
+
+  # Undo for the cooking event: once the last Meal is gone the plan re-enters the
+  # allocation queue, so every draw it still holds is settled. Replay credits
+  # nothing further because the ledger, not inference, is the guard.
+  def release_pantry_consumptions!(person:, at: Time.current)
+    with_lock do
+      pantry_consumptions.active.each { |consumption| consumption.release!(person: person, at: at) } unless meals.exists?
+    end
+    self
   end
 
   # Moves this plan ahead of another one in allocation order without touching
@@ -123,6 +147,43 @@ class PlannedMeal < ApplicationRecord
   end
 
   private
+    # Draws one requirement's reservation out of the pantry and records what it
+    # actually got. Nothing here may block logging: a row that is no longer
+    # confirmed, no longer compatible, or already emptier than the projection
+    # believed is skipped rather than raised, and the amount is always clamped to
+    # what the reloaded row currently holds. A rejected adjustment is retried once
+    # against a freshly read row, then abandoned.
+    def draw_from_pantry(reservation, person:, at: Time.current)
+      wanted = reservation.reserved_quantity
+      return if wanted.nil? || !wanted.positive?
+
+      2.times do
+        # The projection's copy is a snapshot; the row this transaction reads is
+        # what the draw has to be computed from.
+        pantry = PantryItem.find_by(household_id: household_id, ingredient_id: reservation.ingredient.id)
+        return unless pantry&.confirmed?
+        return unless reservation.measurement.compatible_with?(pantry.measurement)
+
+        unit = pantry.unit
+        drawn = [ wanted * reservation.measurement.factor / pantry.measurement.factor, pantry.quantity ].min
+        return unless drawn.positive?
+
+        begin
+          pantry.adjust!(delta: -drawn, unit: unit, source: PantryConsumption::CONSUMPTION_SOURCE, confirmed_by: person, confirmed_at: at)
+        rescue ActiveRecord::RecordInvalid
+          next
+        end
+
+        return pantry_consumptions.create!(
+          planned_meal_ingredient: reservation.requirement,
+          ingredient_id: reservation.ingredient.id,
+          quantity_numerator: drawn.numerator,
+          quantity_denominator: drawn.denominator,
+          unit: unit
+        )
+      end
+    end
+
     def reconcile_ingredient_snapshots
       reconcile_ingredient_snapshots!(reason: supersession_reason_for_changes)
     end

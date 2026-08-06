@@ -16,6 +16,9 @@ class Meal < ApplicationRecord
   validate :contains_an_item
 
   before_validation :normalize_positions
+  # Runs inside the destroy transaction so the credit and the disappearance of
+  # the cooking event commit together.
+  after_destroy :release_planned_meal_reservations
 
   class << self
     def build_for(household:, person:, attributes: {})
@@ -64,6 +67,10 @@ class Meal < ApplicationRecord
   end
 
   private
+    def release_planned_meal_reservations
+      planned_meal&.release_pantry_consumptions!(person: person)
+    end
+
     def active_items
       meal_items.reject(&:marked_for_destruction?)
     end

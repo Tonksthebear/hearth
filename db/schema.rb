@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_050000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -749,6 +749,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
     t.check_constraint "display_order > 0", name: "nutrients_positive_display_order"
   end
 
+  create_table "pantry_consumptions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "ingredient_id", null: false
+    t.integer "planned_meal_id", null: false
+    t.integer "planned_meal_ingredient_id", null: false
+    t.integer "quantity_denominator", null: false
+    t.integer "quantity_numerator", null: false
+    t.datetime "released_at"
+    t.string "released_reason"
+    t.string "unit", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ingredient_id"], name: "index_pantry_consumptions_on_ingredient_id"
+    t.index ["planned_meal_id"], name: "index_pantry_consumptions_on_planned_meal_id"
+    t.index ["planned_meal_ingredient_id"], name: "index_pantry_consumptions_on_active_requirement", unique: true, where: "released_at IS NULL"
+    t.index ["planned_meal_ingredient_id"], name: "index_pantry_consumptions_on_planned_meal_ingredient_id"
+    t.check_constraint "(released_at IS NULL AND released_reason IS NULL) OR (released_at IS NOT NULL AND released_reason IS NOT NULL)", name: "pantry_consumptions_release_pair"
+    t.check_constraint "quantity_denominator > 0", name: "pantry_consumptions_positive_quantity_denominator"
+    t.check_constraint "quantity_numerator > 0", name: "pantry_consumptions_positive_quantity_numerator"
+    t.check_constraint "released_reason IS NULL OR released_reason IN ('credited', 'evidence_weakened', 'evidence_depleted', 'evidence_cleared', 'evidence_absent', 'unit_incompatible')", name: "pantry_consumptions_released_reason"
+  end
+
   create_table "pantry_items", force: :cascade do |t|
     t.string "confirmation_source", null: false
     t.datetime "confirmed_at", null: false
@@ -1307,6 +1328,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
   add_foreign_key "meals", "households"
   add_foreign_key "meals", "people"
   add_foreign_key "meals", "planned_meals"
+  add_foreign_key "pantry_consumptions", "ingredients"
+  add_foreign_key "pantry_consumptions", "planned_meal_ingredients", on_delete: :restrict
+  add_foreign_key "pantry_consumptions", "planned_meals", on_delete: :cascade
   add_foreign_key "pantry_items", "households"
   add_foreign_key "pantry_items", "ingredients"
   add_foreign_key "pantry_items", "people", column: "confirmed_by_id"
