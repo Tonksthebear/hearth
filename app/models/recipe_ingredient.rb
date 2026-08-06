@@ -37,30 +37,15 @@ class RecipeIngredient < ApplicationRecord
     end
 
     def parse_display_quantity
-      parsed = parse_quantity(display_quantity)
-      self.quantity_numerator = parsed&.numerator
-      self.quantity_denominator = parsed&.denominator
+      measurement = Ingredient::Measurement.new(quantity: display_quantity, unit: unit)
+      self.quantity_numerator = measurement.quantity&.numerator
+      self.quantity_denominator = measurement.quantity&.denominator
     end
 
     def persist_ingredient
       return unless will_save_change_to_display_name? || ingredient_id.nil?
 
       self.ingredient = Ingredient.resolve!(household: recipe.household, name: display_name)
-    end
-
-    def parse_quantity(value)
-      value = value.to_s.strip
-      return if value.blank?
-
-      if (match = value.match(/\A(\d+)\s+(\d+)\/(\d+)\z/))
-        Rational(match[1].to_i, 1) + Rational(match[2].to_i, match[3].to_i)
-      elsif value.match?(/\A\d+(?:\.\d+)?\z/)
-        value.to_r
-      elsif (match = value.match(/\A(\d+)\/(\d+)\z/))
-        Rational(match[1].to_i, match[2].to_i)
-      end
-    rescue ZeroDivisionError
-      nil
     end
 
     def ingredient_belongs_to_household
