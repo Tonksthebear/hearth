@@ -8,6 +8,8 @@ The current alpha includes household setup and sign-in, multiple people, recipes
 
 Primary navigation stays intentionally small: **Today**, **Meals**, and **Activities**. Shopping lives under Meals rather than becoming another top-level destination.
 
+The normative [pantry readiness product contract](docs/pantry-readiness-product-contract.md) defines meal readiness, ingredient decisions, household shopping visibility, and the future deficit-only shopping cutover.
+
 Today is the selected person's operating view. Its at-a-glance summary reports planned and eaten meals, workout and recovery progress, and concrete exceptions such as a skipped workout or incomplete nutrition details. “No exceptions” means only that the explicit plan and currently logged details contain no attention condition; it is not a readiness, health, or medical score. An empty day remains neutral.
 
 Due meals, workouts, and simple habits can be recorded directly from Today. A measured habit requires a value, so its single **Record details** activation opens and focuses the exact recording unit on Recovery instead of duplicating a measurement form on Today. Weekly planning and corrections remain in Meals and Activities.

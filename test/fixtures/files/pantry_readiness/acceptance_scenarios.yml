@@ -1,0 +1,233 @@
+contract_version: pantry_readiness/v1
+vocabulary:
+  readiness_states:
+    - value: needs_ingredient_check
+      label: Needs ingredient check
+    - value: shopping_needed
+      label: Shopping needed
+    - value: ready_to_cook
+      label: Ready to cook
+  ingredient_decisions:
+    - value: unknown
+      label: Check ingredient
+    - value: on_hand
+      label: On hand
+    - value: missing
+      label: Missing
+    - value: substituted
+      label: Substituted
+    - value: not_needed
+      label: Not needed
+scenarios:
+  - id: shared_dated_demand
+    description: Shared pantry evidence is allocated once across dated household demand.
+    inputs:
+      pantry: { ingredient: rice, quantity: 4, unit: cup }
+      planned_meals:
+        - { id: monday_rice, planned_on: "2026-08-10", scope: household, requirement: { ingredient: rice, quantity: 2, unit: cup } }
+        - { id: thursday_rice, planned_on: "2026-08-13", scope: household, requirement: { ingredient: rice, quantity: 2, unit: cup } }
+    actions: []
+    expected:
+      meals:
+        - { id: monday_rice, readiness_state: ready_to_cook, allocated_quantity: 2 }
+        - { id: thursday_rice, readiness_state: ready_to_cook, allocated_quantity: 2 }
+      generated_shopping_rows: []
+
+  - id: unknown_stock
+    description: Unknown stock stays unresolved and does not create shopping work.
+    inputs:
+      planned_meal: { id: soup, requirement: { ingredient: broth, ingredient_decision: unknown } }
+    actions: []
+    expected:
+      meal: { id: soup, readiness_state: needs_ingredient_check }
+      generated_shopping_rows: []
+
+  - id: partial_stock_prioritizes_earlier_meal
+    description: Earlier dated demand wins when compatible confirmed stock is insufficient.
+    inputs:
+      pantry: { ingredient: beans, quantity: 3, unit: can }
+      planned_meals:
+        - { id: monday_chili, planned_on: "2026-08-10", requirement: { ingredient: beans, quantity: 2, unit: can, ingredient_decision: on_hand } }
+        - { id: friday_chili, planned_on: "2026-08-14", requirement: { ingredient: beans, quantity: 2, unit: can, ingredient_decision: missing } }
+    actions: []
+    expected:
+      meals:
+        - { id: monday_chili, readiness_state: ready_to_cook, allocated_quantity: 2 }
+        - { id: friday_chili, readiness_state: shopping_needed, allocated_quantity: 1, deficit_quantity: 1 }
+      generated_shopping_rows:
+        - { ingredient: beans, quantity: 1, unit: can }
+
+  - id: substitution
+    description: A substitution redirects one plan requirement without changing the recipe.
+    inputs:
+      planned_meal:
+        id: pasta
+        requirement: { ingredient: parmesan, ingredient_decision: substituted, replacement: nutritional_yeast }
+      pantry: { ingredient: nutritional_yeast, quantity: 1, unit: cup }
+    actions:
+      - { type: resolve_replacement, ingredient: nutritional_yeast, ingredient_decision: on_hand }
+    expected:
+      meal: { id: pasta, readiness_state: ready_to_cook }
+      recipe_requirement_unchanged: parmesan
+      generated_shopping_rows: []
+
+  - id: manual_item_independence
+    description: Manual household intent neither satisfies nor creates a generated deficit.
+    inputs:
+      planned_meal: { id: tacos, requirement: { ingredient: limes, ingredient_decision: unknown } }
+      manual_shopping_rows:
+        - { id: party_napkins, name: Party napkins, completed: false }
+    actions:
+      - { type: complete_manual_item, id: party_napkins }
+    expected:
+      meal: { id: tacos, readiness_state: needs_ingredient_check }
+      generated_shopping_rows: []
+      manual_rows:
+        - { id: party_napkins, completed: true }
+      pantry_confirmation_created: false
+
+  - id: rescheduling_reallocates_once
+    description: Moving a meal releases its prior reservation and deterministically reallocates demand.
+    inputs:
+      pantry: { ingredient: tofu, quantity: 1, unit: block }
+      planned_meals:
+        - { id: tuesday_stir_fry, planned_on: "2026-08-11", requirement: { ingredient: tofu, quantity: 1, unit: block, ingredient_decision: on_hand } }
+        - { id: thursday_curry, planned_on: "2026-08-13", requirement: { ingredient: tofu, quantity: 1, unit: block, ingredient_decision: missing } }
+    actions:
+      - { type: reschedule, id: tuesday_stir_fry, planned_on: "2026-08-15" }
+    expected:
+      meals:
+        - { id: thursday_curry, readiness_state: ready_to_cook, allocated_quantity: 1 }
+        - { id: tuesday_stir_fry, readiness_state: shopping_needed, allocated_quantity: 0, deficit_quantity: 1 }
+      total_allocated_quantity: 1
+      generated_shopping_rows:
+        - { ingredient: tofu, quantity: 1, unit: block }
+
+  - id: explicit_priority_override
+    description: Household priority can override date ordering without changing dates.
+    inputs:
+      pantry: { ingredient: chicken, quantity: 1, unit: package }
+      planned_meals:
+        - { id: monday_salad, planned_on: "2026-08-10", requirement: { ingredient: chicken, quantity: 1, unit: package, ingredient_decision: missing } }
+        - { id: friday_roast, planned_on: "2026-08-14", requirement: { ingredient: chicken, quantity: 1, unit: package, ingredient_decision: on_hand } }
+    actions:
+      - { type: prioritize, id: friday_roast, before: monday_salad }
+    expected:
+      meals:
+        - { id: friday_roast, readiness_state: ready_to_cook, allocated_quantity: 1 }
+        - { id: monday_salad, readiness_state: shopping_needed, deficit_quantity: 1 }
+      planned_dates_unchanged: true
+      total_allocated_quantity: 1
+      generated_shopping_rows:
+        - { ingredient: chicken, quantity: 1, unit: package }
+
+  - id: person_and_household_visibility
+    description: Personal readiness is scoped while household shopping includes every plan once.
+    inputs:
+      selected_person: alex
+      planned_meals:
+        - { id: shared_breakfast, scope: household, requirement: { ingredient: oats, ingredient_decision: not_needed } }
+        - { id: alex_lunch, scope: alex, requirement: { ingredient: bread, ingredient_decision: missing } }
+        - { id: sam_dinner, scope: sam, requirement: { ingredient: lentils, ingredient_decision: missing } }
+    actions: []
+    expected:
+      selected_person_meals:
+        - { id: shared_breakfast, readiness_state: ready_to_cook }
+        - { id: alex_lunch, readiness_state: shopping_needed }
+      excluded_selected_person_meal_ids: [sam_dinner]
+      household_shopping_source_ids: [alex_lunch, sam_dinner]
+      duplicated_source_ids: []
+
+  - id: non_blocking_logging
+    description: Readiness never gates observed meal logging.
+    inputs:
+      planned_meals:
+        - { id: unresolved_meal, readiness_state: needs_ingredient_check }
+        - { id: deficit_meal, readiness_state: shopping_needed }
+        - { id: ready_meal, readiness_state: ready_to_cook }
+    actions:
+      - { type: log_meal, id: unresolved_meal }
+      - { type: log_meal, id: deficit_meal }
+      - { type: log_meal, id: ready_meal }
+    expected:
+      logged_meal_ids: [unresolved_meal, deficit_meal, ready_meal]
+      ingredient_decisions_changed: false
+      pantry_confirmation_created: false
+
+  - id: purchase_confirmation
+    description: Checklist completion is not stock evidence; explicit purchase confirmation is.
+    inputs:
+      planned_meal: { id: curry, requirement: { ingredient: coconut_milk, ingredient_decision: missing } }
+      generated_shopping_rows:
+        - { id: coconut_milk_row, ingredient: coconut_milk, quantity: 2, unit: can, completed: false }
+    actions:
+      - { type: complete_shopping_item, id: coconut_milk_row }
+      - { type: confirm_purchase, id: coconut_milk_row, quantity: 2, unit: can, provenance: purchase, confirmed_at: "2026-08-09T18:00:00Z" }
+    expected:
+      after_completion: { readiness_state: shopping_needed, pantry_confirmed_quantity: 0 }
+      after_confirmation: { readiness_state: ready_to_cook, pantry_confirmed_quantity: 2 }
+
+  - id: free_text_unknown
+    description: Salt to taste remains faithful and unresolved without shopping work.
+    inputs:
+      planned_meal: { id: tomato_soup, requirement: { ingredient: salt, display_amount: to taste, ingredient_decision: unknown } }
+    actions: []
+    expected:
+      meal: { id: tomato_soup, readiness_state: needs_ingredient_check }
+      generated_shopping_rows: []
+
+  - id: free_text_explicit_missing
+    description: Explicitly missing salt to taste creates one faithful source-specific deficit.
+    inputs:
+      planned_meal: { id: tomato_soup, requirement: { ingredient: salt, display_amount: to taste, ingredient_decision: unknown } }
+    actions:
+      - { type: decide, ingredient: salt, ingredient_decision: missing }
+    expected:
+      meal: { id: tomato_soup, readiness_state: shopping_needed }
+      generated_shopping_rows:
+        - { ingredient: salt, display_amount: to taste, aggregation: source_specific }
+
+  - id: compatible_unitless_count
+    description: Numeric unitless demand allocates only when classified as a compatible count.
+    inputs:
+      pantry: { ingredient: avocado, quantity: 2, measurement: count }
+      planned_meal: { id: avocado_toast, requirement: { ingredient: avocado, quantity: 2, measurement: count, ingredient_decision: on_hand } }
+    actions: []
+    expected:
+      meal: { id: avocado_toast, readiness_state: ready_to_cook }
+      generated_shopping_rows: []
+
+  - id: mixed_unresolved_precedes_deficit
+    description: An unresolved requirement remains the primary state even beside a confirmed deficit.
+    inputs:
+      planned_meal:
+        id: grain_bowl
+        requirements:
+          - { ingredient: quinoa, ingredient_decision: missing }
+          - { ingredient: dressing, ingredient_decision: unknown }
+    actions: []
+    expected:
+      meal: { id: grain_bowl, readiness_state: needs_ingredient_check }
+      known_deficits:
+        - { ingredient: quinoa, ingredient_decision: missing }
+
+  - id: cold_switch_first_reconcile
+    description: First deficit-only reconciliation removes stale generated rows without inferring pantry stock.
+    inputs:
+      planned_meals:
+        - { id: monday_pasta, requirement: { ingredient: tomatoes, ingredient_decision: unknown } }
+      existing_shopping_rows:
+        - { id: untouched_open, origin: legacy_generated, completed: false, user_managed: false }
+        - { id: edited_open, origin: legacy_generated, completed: false, user_managed: true }
+        - { id: completed_row, origin: legacy_generated, completed: true, user_managed: false }
+        - { id: manual_row, origin: manual, completed: false, user_managed: true }
+    actions:
+      - { type: reconcile_with_confirmed_deficits }
+    expected:
+      meal: { id: monday_pasta, readiness_state: needs_ingredient_check }
+      removed_row_ids: [untouched_open]
+      surviving_open_row_ids: [edited_open, manual_row]
+      surviving_non_open_row_ids: [completed_row]
+      generated_shopping_rows: []
+      pantry_confirmation_created: false
+      temporary_empty_generated_state_allowed: true
