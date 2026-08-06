@@ -13,6 +13,29 @@ class PantryItemTest < ActiveSupport::TestCase
     assert_nil item.available_quantity
   end
 
+  test "an untracked ingredient is not attached to the household association" do
+    household = households(:home)
+    household.pantry_items.load
+    tracked = household.pantry_items.map(&:id)
+
+    item = PantryItem.for(household: household, ingredient: ingredients(:carrots))
+
+    assert_equal household, item.household
+    assert household.save, household.errors.full_messages.to_sentence
+    assert_equal tracked, household.pantry_items.map(&:id)
+  end
+
+  test "a tracked ingredient returns its persisted row without duplicating it" do
+    household = households(:home)
+    household.pantry_items.load
+    tracked = household.pantry_items.map(&:id)
+
+    item = PantryItem.for(household: household, ingredient: ingredients(:rolled_oats))
+
+    assert_equal pantry_items(:confirmed_oats), item
+    assert_equal tracked, household.pantry_items.map(&:id)
+  end
+
   test "confirmation stores a reduced exact amount under the canonical unit" do
     item = nil
 

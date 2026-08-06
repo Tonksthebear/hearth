@@ -25,10 +25,12 @@ class PantryItem < ApplicationRecord
   class << self
     # The household's current pantry row for a canonical ingredient. An untracked
     # ingredient returns an unsaved unknown row, because absence is functionally
-    # unknown and the catalog is not backfilled with unknown rows.
+    # unknown and the catalog is not backfilled with unknown rows. That row stays
+    # detached from household.pantry_items: it cannot be valid until a command
+    # supplies provenance, so autosaving it with the household would fail.
     def for(household:, ingredient:)
       household.pantry_items.find_by(ingredient: ingredient) ||
-        household.pantry_items.build(ingredient: ingredient, state: :unknown)
+        new(household: household, ingredient: ingredient, state: :unknown)
     end
   end
 
