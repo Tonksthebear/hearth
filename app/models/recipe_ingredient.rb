@@ -3,10 +3,18 @@ class RecipeIngredient < ApplicationRecord
   belongs_to :ingredient
   has_many :recipe_instruction_ingredients, dependent: :destroy
   has_many :recipe_instructions, through: :recipe_instruction_ingredients
+  has_many :planned_meal_ingredients,
+    foreign_key: :source_recipe_ingredient_id,
+    inverse_of: :source_recipe_ingredient,
+    dependent: nil
 
   before_validation :resolve_ingredient
   before_validation :parse_display_quantity
   before_save :persist_ingredient
+  # Active plan requirements must let go of this source before the database
+  # nullifies their provenance; only inactive history may outlive it.
+  before_destroy :release_planned_requirements
+  after_commit :reconcile_planned_meals
 
   validates :display_name, presence: true
   validates :position,
@@ -30,6 +38,14 @@ class RecipeIngredient < ApplicationRecord
   end
 
   private
+    def release_planned_requirements
+      planned_meal_ingredients.active.each { |requirement| requirement.discard_or_supersede!("source_removed") }
+    end
+
+    def reconcile_planned_meals
+      PlannedMeal.where(recipe_id: recipe_id).find_each(&:reconcile_ingredient_snapshots!)
+    end
+
     def resolve_ingredient
       return if display_name.blank? || !recipe&.household
 

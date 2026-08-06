@@ -576,6 +576,65 @@ class RecipeTest < ActiveSupport::TestCase
     end
   end
 
+  test "a presentation-only line edit keeps the plan requirement and its decision" do
+    decided = planned_meal_ingredients(:sam_salad_lettuce)
+
+    recipe_ingredients(:salad_lettuce).update!(display_name: "  lettuce  ", unit: "Heads")
+
+    assert_equal [ decided.id ], planned_meals(:sam_target_week).planned_meal_ingredients.active.ids
+    assert_predicate decided.reload, :on_hand?
+    assert_equal "  lettuce  ", decided.display_name
+    assert_equal "Heads", decided.unit
+  end
+
+  test "a semantic line edit supersedes the resolved decision and issues a fresh unknown" do
+    decided = planned_meal_ingredients(:sam_salad_lettuce)
+
+    recipe_ingredients(:salad_lettuce).update!(display_quantity: "2")
+
+    assert_equal "requirement_changed", decided.reload.superseded_reason
+    fresh = planned_meals(:sam_target_week).planned_meal_ingredients.active.sole
+    assert_equal Rational(2), fresh.quantity
+    assert_predicate fresh, :untouched?
+  end
+
+  test "positional import reuse supersedes every repointed requirement exactly once" do
+    plan = planned_meals(:sam_target_week)
+    plan.planned_meal_ingredients.active.sole.decide!(:on_hand)
+    recipes(:salad).update!(import_key: "salad-import")
+
+    Recipe.import!(household: households(:home), attributes: {
+      import_key: "salad-import",
+      title: "Garden Salad",
+      source_name: "Family Notebook",
+      provenance_status: "adapted",
+      recipe_ingredients_attributes: [
+        { name: "Croutons", amount: "1", unit: "cup" },
+        { name: "Lettuce", amount: "1", unit: "head" }
+      ]
+    })
+
+    active = plan.planned_meal_ingredients.active.to_a
+    assert_equal %w[ Croutons Lettuce ], active.map(&:display_name)
+    assert_equal [ true ], active.map(&:untouched?).uniq
+    assert_equal active.map(&:source_recipe_ingredient_id), active.map(&:source_recipe_ingredient_id).uniq
+    assert_equal [ "requirement_changed" ], plan.planned_meal_ingredients.superseded.map(&:superseded_reason)
+    assert_equal 1, plan.planned_meal_ingredients.superseded.count
+  end
+
+  test "destroying a line releases active requirements before provenance is nullified" do
+    plan = planned_meals(:sam_target_week)
+    resolved = plan.planned_meal_ingredients.active.sole
+    untouched = planned_meal_ingredients(:shared_salad_lettuce)
+
+    recipe_ingredients(:salad_lettuce).destroy!
+
+    assert_equal "source_removed", resolved.reload.superseded_reason
+    assert_nil resolved.source_recipe_ingredient_id
+    assert_not PlannedMealIngredient.exists?(untouched.id)
+    assert_empty PlannedMealIngredient.active.where(source_recipe_ingredient_id: nil)
+  end
+
   private
     def cover_upload
       Rack::Test::UploadedFile.new(file_fixture("recipes/cover.png"), "image/png")

@@ -162,6 +162,39 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     assert PlannedMeal.exists?(plan.id)
   end
 
+  test "planned meal scale is person scoped and previews the decision history a delete would destroy" do
+    created = Agent::Mutation::Operations.execute!(
+      operation: "create_planned_meal",
+      arguments: { planned_on: "2026-08-05", recipe_id: recipes(:salad).id, recipe_scale: 2 },
+      proposal: @grant
+    )
+    plan = PlannedMeal.find(created.dig(:result, "id"))
+    assert_equal 2, plan.recipe_scale
+    assert_equal [ Rational(2) ], plan.planned_meal_ingredients.active.map(&:quantity)
+
+    Agent::Mutation::Operations.execute!(
+      operation: "update_planned_meal",
+      arguments: { id: plan.id, recipe_scale: "0.5" },
+      proposal: @grant
+    )
+    assert_equal 0.5, plan.reload.recipe_scale
+    assert_equal [ Rational(1, 2) ], plan.planned_meal_ingredients.active.map(&:quantity)
+
+    plan.planned_meal_ingredients.active.sole.decide!(:missing)
+    plan.update!(recipe: recipes(:observed_soup))
+    preview = Agent::Mutation::Operations.preview(
+      operation: "delete_planned_meal", arguments: { "id" => plan.id }, context: @grant
+    )
+    assert_equal 1, preview.dig("before", "active_ingredient_decisions")
+    assert_equal 1, preview.dig("before", "superseded_ingredient_decisions")
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      Agent::Mutation::Operations.execute!(
+        operation: "update_planned_meal", arguments: { id: plan.id, recipe_scale: 0 }, proposal: @grant
+      )
+    end
+  end
+
   test "planned meal logging uses the controlled UTC date boundary and a stable future error" do
     travel_to Time.zone.local(2026, 7, 31, 12) do
       plan = PlannedMeal.create!(

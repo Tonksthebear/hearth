@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_020000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -802,18 +802,62 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
     t.check_constraint "position > 0", name: "person_habits_positive_position"
   end
 
+  create_table "planned_meal_ingredients", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "decided_at"
+    t.string "decision", default: "unknown", null: false
+    t.string "display_name", null: false
+    t.text "display_quantity"
+    t.integer "ingredient_id", null: false
+    t.integer "planned_meal_id", null: false
+    t.integer "position", null: false
+    t.integer "quantity_denominator"
+    t.integer "quantity_numerator"
+    t.string "replacement_decision"
+    t.string "replacement_display_name"
+    t.text "replacement_display_quantity"
+    t.integer "replacement_ingredient_id"
+    t.integer "replacement_quantity_denominator"
+    t.integer "replacement_quantity_numerator"
+    t.string "replacement_unit"
+    t.integer "source_recipe_id"
+    t.integer "source_recipe_ingredient_id"
+    t.datetime "superseded_at"
+    t.string "superseded_reason"
+    t.string "unit"
+    t.datetime "updated_at", null: false
+    t.index ["ingredient_id"], name: "index_planned_meal_ingredients_on_ingredient_id"
+    t.index ["planned_meal_id", "position"], name: "index_planned_meal_ingredients_on_planned_meal_id_and_position"
+    t.index ["planned_meal_id", "source_recipe_ingredient_id"], name: "index_planned_meal_ingredients_on_active_source", unique: true, where: "superseded_at IS NULL"
+    t.index ["planned_meal_id"], name: "index_planned_meal_ingredients_on_planned_meal_id"
+    t.index ["replacement_ingredient_id"], name: "index_planned_meal_ingredients_on_replacement_ingredient_id"
+    t.index ["source_recipe_id"], name: "index_planned_meal_ingredients_on_source_recipe_id"
+    t.index ["source_recipe_ingredient_id"], name: "index_planned_meal_ingredients_on_source_recipe_ingredient_id"
+    t.check_constraint "(quantity_numerator IS NULL AND quantity_denominator IS NULL) OR (quantity_numerator IS NOT NULL AND quantity_denominator IS NOT NULL)", name: "planned_meal_ingredients_quantity_pair"
+    t.check_constraint "(replacement_quantity_numerator IS NULL AND replacement_quantity_denominator IS NULL) OR (replacement_quantity_numerator IS NOT NULL AND replacement_quantity_denominator IS NOT NULL)", name: "planned_meal_ingredients_replacement_quantity_pair"
+    t.check_constraint "(superseded_at IS NULL AND superseded_reason IS NULL) OR (superseded_at IS NOT NULL AND superseded_reason IS NOT NULL)", name: "planned_meal_ingredients_supersession_pair"
+    t.check_constraint "decision IN ('unknown', 'on_hand', 'missing', 'substituted', 'not_needed')", name: "planned_meal_ingredients_decision"
+    t.check_constraint "position > 0", name: "planned_meal_ingredients_positive_position"
+    t.check_constraint "quantity_denominator IS NULL OR quantity_denominator > 0", name: "planned_meal_ingredients_positive_quantity_denominator"
+    t.check_constraint "replacement_decision IS NULL OR replacement_decision IN ('unknown', 'on_hand', 'missing')", name: "planned_meal_ingredients_replacement_decision"
+    t.check_constraint "replacement_quantity_denominator IS NULL OR replacement_quantity_denominator > 0", name: "planned_meal_ingredients_positive_replacement_quantity_denominator"
+    t.check_constraint "superseded_at IS NOT NULL OR (source_recipe_id IS NOT NULL AND source_recipe_ingredient_id IS NOT NULL)", name: "planned_meal_ingredients_active_source_present"
+  end
+
   create_table "planned_meals", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "household_id", null: false
     t.integer "person_id"
     t.date "planned_on", null: false
     t.integer "recipe_id", null: false
+    t.decimal "recipe_scale", precision: 10, scale: 3, default: "1.0", null: false
     t.datetime "updated_at", null: false
     t.index ["household_id", "planned_on"], name: "index_planned_meals_on_household_id_and_planned_on"
     t.index ["household_id"], name: "index_planned_meals_on_household_id"
     t.index ["person_id", "planned_on"], name: "index_planned_meals_on_person_id_and_planned_on"
     t.index ["person_id"], name: "index_planned_meals_on_person_id"
     t.index ["recipe_id"], name: "index_planned_meals_on_recipe_id"
+    t.check_constraint "recipe_scale > 0", name: "planned_meals_positive_recipe_scale"
   end
 
   create_table "planned_workouts", force: :cascade do |t|
@@ -1242,6 +1286,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
   add_foreign_key "person_habit_metrics", "person_habits"
   add_foreign_key "person_habits", "habits"
   add_foreign_key "person_habits", "people"
+  add_foreign_key "planned_meal_ingredients", "ingredients"
+  add_foreign_key "planned_meal_ingredients", "ingredients", column: "replacement_ingredient_id"
+  add_foreign_key "planned_meal_ingredients", "planned_meals", on_delete: :cascade
+  add_foreign_key "planned_meal_ingredients", "recipe_ingredients", column: "source_recipe_ingredient_id", on_delete: :nullify
+  add_foreign_key "planned_meal_ingredients", "recipes", column: "source_recipe_id", on_delete: :nullify
   add_foreign_key "planned_meals", "households"
   add_foreign_key "planned_meals", "people"
   add_foreign_key "planned_meals", "recipes"

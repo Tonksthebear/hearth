@@ -4,13 +4,18 @@ class PlannedMeal < ApplicationRecord
   belongs_to :recipe
   has_many :meals, dependent: :restrict_with_exception
   has_many :shopping_list_item_sources, dependent: :destroy
+  has_many :planned_meal_ingredients, -> { ordered }, dependent: :destroy, inverse_of: :planned_meal
 
+  # Snapshots must be current before anything downstream reads this plan's
+  # requirements, so this callback is declared ahead of shopping reconciliation.
+  after_commit :reconcile_ingredient_snapshots, on: %i[ create update ]
   after_commit :reconcile_shopping_lists, on: %i[ create update destroy ]
 
   scope :during, ->(date_range) { where(planned_on: date_range) }
   scope :visible_to, ->(person) { where(person_id: [ nil, person.id ]) }
 
   validates :planned_on, presence: true
+  validates :recipe_scale, numericality: { greater_than: 0 }
   validate :person_belongs_to_household
   validate :recipe_belongs_to_household
   validate :references_are_available
@@ -45,6 +50,23 @@ class PlannedMeal < ApplicationRecord
     meals.find_by!(person:)
   end
 
+  # Brings this plan's own ingredient requirements back in line with its recipe
+  # and scale. Obsolete requirements leave the active set before fresh ones
+  # arrive, because positional recipe edits can repoint several source rows at
+  # once and one source may stay active only once per plan.
+  def reconcile_ingredient_snapshots!(reason: "requirement_changed")
+    transaction do
+      # Lock the row without reloading self: the shopping callback that runs
+      # after this one still needs our previous_changes.
+      self.class.lock.find(id)
+
+      requirements = current_requirements
+      retained = retire_obsolete_requirements(requirements, reason)
+      apply_requirements(requirements, retained)
+    end
+    self
+  end
+
   class << self
     def build_for(household:, planned_on:, recipe_id:, person_id: nil)
       new(
@@ -58,6 +80,76 @@ class PlannedMeal < ApplicationRecord
   end
 
   private
+    def reconcile_ingredient_snapshots
+      reconcile_ingredient_snapshots!(reason: supersession_reason_for_changes)
+    end
+
+    def supersession_reason_for_changes
+      return "recipe_changed" if previous_changes.key?("recipe_id")
+      return "recipe_scale_changed" if previous_changes.key?("recipe_scale")
+
+      "requirement_changed"
+    end
+
+    def current_requirements
+      return [] unless recipe
+
+      scale = recipe_scale.to_r
+      recipe.recipe_ingredients.reorder(:position, :id).map do |recipe_ingredient|
+        required = recipe_ingredient.quantity
+        quantity = required * scale if required
+        {
+          source_recipe_id: recipe_ingredient.recipe_id,
+          source_recipe_ingredient_id: recipe_ingredient.id,
+          ingredient_id: recipe_ingredient.ingredient_id,
+          display_name: recipe_ingredient.display_name,
+          display_quantity: recipe_ingredient.display_quantity,
+          unit: recipe_ingredient.unit,
+          quantity_numerator: quantity&.numerator,
+          quantity_denominator: quantity&.denominator,
+          position: recipe_ingredient.position
+        }
+      end
+    end
+
+    def retire_obsolete_requirements(requirements, reason)
+      wanted = requirements.index_by { |requirement| requirement[:source_recipe_ingredient_id] }
+
+      planned_meal_ingredients.active.to_a.each_with_object({}) do |row, retained|
+        requirement = wanted[row.source_recipe_ingredient_id]
+        if requirement && requirement_fingerprint(requirement) == row.requirement_fingerprint
+          retained[row.source_recipe_ingredient_id] = row
+        else
+          row.discard_or_supersede!(reason)
+        end
+      end
+    end
+
+    def apply_requirements(requirements, retained)
+      requirements.each do |requirement|
+        row = retained[requirement[:source_recipe_ingredient_id]]
+        if row
+          row.update!(requirement.slice(*PlannedMealIngredient::PRESENTATION_ATTRIBUTES))
+        else
+          planned_meal_ingredients.create!(requirement)
+        end
+      end
+    end
+
+    def requirement_fingerprint(requirement)
+      PlannedMealIngredient.requirement_fingerprint(
+        ingredient_id: requirement[:ingredient_id],
+        display_quantity: requirement[:display_quantity],
+        unit: requirement[:unit],
+        quantity: exact_quantity(requirement)
+      )
+    end
+
+    def exact_quantity(requirement)
+      numerator, denominator = requirement.values_at(:quantity_numerator, :quantity_denominator)
+      Rational(numerator, denominator) if numerator && denominator&.positive?
+    end
+
     def reconcile_shopping_lists
       affected_periods.each do |household_id, week_start, create_if_missing|
         household = Household.find_by(id: household_id)

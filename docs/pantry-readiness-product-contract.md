@@ -26,6 +26,23 @@ The primary state is determined in that order: unresolved first, then confirmed 
 
 Ingredient decisions are plan-specific. They do not rewrite a recipe, silently apply to another meal, or constitute general clinical guidance.
 
+A substitution never chains. The replacement of a substituted requirement resolves to `unknown`, `on_hand`, or `missing` only; it can never itself be substituted or marked not needed.
+
+## Planned-meal requirement snapshots
+
+A planned meal carries a positive recipe scale. A scale of `1` means one full recipe yield, not one serving; consumed portions remain a logging concept. The scale multiplies each measurable requirement exactly and never rewrites the recipe's authored amount.
+
+Each planned meal owns its requirements as snapshots rather than reading recipe lines live. A snapshot keeps the canonical ingredient, the authored name, amount, and unit exactly as written, the scaled required quantity when it is measurable, and the recipe provenance it came from. Readiness, allocation, and shopping consider active snapshots only.
+
+Reconciliation runs whenever the plan's recipe, scale, or a referenced recipe line changes:
+
+- a presentational recipe edit that does not change requirement identity, required quantity, or unit keeps the requirement and its decision;
+- an obsolete requirement that was never resolved simply disappears;
+- an obsolete requirement that the household already resolved becomes superseded provenance with a timestamp and a reason, is immutable from then on, and no longer participates in readiness;
+- current requirements reappear as fresh `unknown` snapshots.
+
+Supersession reasons are lifecycle bookkeeping — a recipe swap, a scale change, a changed requirement, or a removed source line. They are not readiness states or ingredient decisions and carry no household meaning of their own. Deleting a planned meal deletes its decision history with it.
+
 ## Pantry confirmation
 
 Pantry confirmation is an explicit household assertion. It identifies the canonical ingredient, a quantity or faithful display amount, a compatible unit when the amount is measurable, the time confirmed, and provenance such as a pantry check or purchase confirmation. These are product concepts, not a database schema prescribed by this ticket.
@@ -74,4 +91,6 @@ Surviving user-managed and completed rows therefore render without meal attribut
 
 ## Runtime ownership and follow-up proof
 
-This ticket is intentionally scaffold-only and changes no runtime path. Today `ShoppingList#reconcile!` is reached by `ShoppingListsController#show` and `PlannedMeal` after-commit callbacks, while Meals, Today, and MCP projections consume an existing list without reconciling it. The follow-up cold-switch ticket must wire this contract through those production seams and prove the actual user/runtime path.
+Planned-meal requirement snapshots and their decisions are persisted runtime state. `PlannedMeal` reconciles them on commit — ahead of shopping reconciliation — for the web plan form, the Agent planned-meal mutations, and recipe authoring and import. Decision commands exist on the model and still await the ingredient review UI.
+
+Readiness derivation, pantry evidence, allocation, priority, deficits, and purchase confirmation remain scaffold-only. Today `ShoppingList#reconcile!` is reached by `ShoppingListsController#show` and `PlannedMeal` after-commit callbacks, while Meals, Today, and MCP projections consume an existing list without reconciling it. The follow-up cold-switch ticket must wire the deficit contract through those production seams and prove the actual user/runtime path.
