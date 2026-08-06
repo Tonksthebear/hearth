@@ -10,20 +10,16 @@ class PlannedMealIngredient::DecisionsController < ApplicationController
     decision = params.expect(:decision)
     raise ActiveRecord::RecordNotFound unless DECISIONS.include?(decision)
 
-    # "On hand" also writes the pantry evidence the decision asserts; the other
-    # two record a decision and nothing else.
-    if decision == "on_hand"
-      @requirement.confirm_on_hand!(by: Current.person)
-    else
-      @requirement.decide!(decision)
-    end
+    @requirement.answer!(decision, by: Current.person)
 
     redirect_to planned_meal_ingredient_review_path(@requirement.planned_meal), status: :see_other
   end
 
   private
+    # Ownership and visibility only. Whether the review is still open is decided
+    # inside answer!, under the plan's lock, because checking it here would leave
+    # a gap in which cooking could commit and the write would still land.
     def set_requirement
       @requirement = PlannedMealIngredient.reviewable_by(Current.household, Current.person).find(params[:planned_meal_ingredient_id])
-      raise ActiveRecord::RecordNotFound unless @requirement.planned_meal.ingredient_review_open?
     end
 end

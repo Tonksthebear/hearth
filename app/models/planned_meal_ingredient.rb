@@ -118,44 +118,52 @@ class PlannedMealIngredient < ApplicationRecord
     decide!(:unknown, at: at)
   end
 
+  # Choosing a replacement is a review answer like any other, so it is refused
+  # once the plan has been cooked and its decisions became history.
   def substitute!(ingredient:, display_quantity: nil, unit: nil, display_name: nil, at: Time.current)
     measurement = Ingredient::Measurement.new(quantity: display_quantity, unit: unit)
-    update!(
-      decision: :substituted,
-      decided_at: at,
-      replacement_ingredient: ingredient,
-      replacement_display_name: display_name.presence || ingredient&.name,
-      replacement_display_quantity: display_quantity,
-      replacement_unit: unit,
-      replacement_quantity_numerator: measurement.quantity&.numerator,
-      replacement_quantity_denominator: measurement.quantity&.denominator,
-      replacement_decision: :unknown
-    )
+    planned_meal.with_open_review do
+      update!(
+        decision: :substituted,
+        decided_at: at,
+        replacement_ingredient: ingredient,
+        replacement_display_name: display_name.presence || ingredient&.name,
+        replacement_display_quantity: display_quantity,
+        replacement_unit: unit,
+        replacement_quantity_numerator: measurement.quantity&.numerator,
+        replacement_quantity_denominator: measurement.quantity&.denominator,
+        replacement_decision: :unknown
+      )
+    end
   end
 
   def decide_replacement!(decision, at: Time.current)
     update!(replacement_decision: decision, decided_at: at)
   end
 
+  # The household answering this requirement in the review, and the only path the
+  # review's row actions take.
+  #
   # Deciding "on hand" is itself a pantry confirmation: the contract defines the
   # decision as evidence the household confirmed, so recording the decision alone
   # would leave the household's own assertion contradicted by the very next
   # allocation pass. The evidence is ensured rather than drawn — it rises to what
   # this requirement needs and never falls — so readiness still consumes nothing.
-  def confirm_on_hand!(by:, at: Time.current)
-    transaction do
-      ensure_pantry_evidence(ingredient, measurement, by: by, at: at)
-      decide!(:on_hand, at: at)
+  # The other decisions record a decision and write no evidence.
+  def answer!(decision, by:, at: Time.current)
+    planned_meal.with_open_review do
+      ensure_pantry_evidence(ingredient, measurement, by: by, at: at) if decision.to_s == "on_hand"
+      decide!(decision, at: at)
     end
     self
   end
 
   # The replacement is the ingredient allocation actually draws on once a
-  # requirement is substituted, so its "on hand" carries the same evidence.
-  def confirm_replacement_on_hand!(by:, at: Time.current)
-    transaction do
-      ensure_pantry_evidence(replacement_ingredient, replacement_measurement, by: by, at: at)
-      decide_replacement!(:on_hand, at: at)
+  # requirement is substituted, so its answer carries the same evidence.
+  def answer_replacement!(decision, by:, at: Time.current)
+    planned_meal.with_open_review do
+      ensure_pantry_evidence(replacement_ingredient, replacement_measurement, by: by, at: at) if decision.to_s == "on_hand"
+      decide_replacement!(decision, at: at)
     end
     self
   end

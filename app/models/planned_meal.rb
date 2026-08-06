@@ -90,12 +90,29 @@ class PlannedMeal < ApplicationRecord
     ingredient_review_open? && planned_meal_ingredients.active.unknown.exists?
   end
 
+  # Runs a review command inside this plan's own lock, rechecking the lifecycle
+  # from the row the transaction reloaded. convert_for! takes the same lock before
+  # it draws stock, so the two serialize and whichever starts second sees what the
+  # other committed.
+  #
+  # Asking ingredient_review_open? anywhere outside this boundary is check-then-
+  # act: cooking can commit in the gap, and the write would then rewrite a
+  # decision the contract keeps as history — or, for an "on hand", confirm pantry
+  # evidence for stock this plan has already drawn.
+  def with_open_review
+    with_lock do
+      raise ActiveRecord::RecordNotFound, "The ingredient review for planned meal #{id} is closed" unless ingredient_review_open?
+
+      yield
+    end
+  end
+
   # One tap for the common case: everything still undecided is on the shelf. Rows
   # the household already decided missing, substituted, or not needed are explicit
   # choices, and a bulk convenience never silently reverses one.
   def mark_remaining_ingredients_on_hand!(by:, at: Time.current)
-    transaction do
-      planned_meal_ingredients.active.unknown.ordered.each { |requirement| requirement.confirm_on_hand!(by: by, at: at) }
+    with_open_review do
+      planned_meal_ingredients.active.unknown.ordered.each { |requirement| requirement.answer!(:on_hand, by: by, at: at) }
     end
     self
   end

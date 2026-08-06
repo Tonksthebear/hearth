@@ -4,10 +4,14 @@ require "test_helper"
 # connections and inspected after both contenders have committed.
 #
 # Rails 8.1's SQLite adapter opens transactions with BEGIN IMMEDIATE, so two
-# writers serialize at transaction start. That is why the ablations here target
-# recompute-from-reloaded-state and winner re-entry rather than with_lock: a
-# with_lock-only ablation is EXPECTED to stay green under BEGIN IMMEDIATE and
-# would say nothing about whether the invariant holds.
+# writers serialize at transaction start. That makes with_lock redundant only for
+# an invariant resting on a predicate re-read inside the transaction. It is NOT
+# redundant here: ensure_at_least! is entered on an instance loaded before the
+# race, and with_lock's reload is what refreshes it, so the target is recomputed
+# from the winner's committed amount rather than a stale copy. The measured
+# ablations agree — replacing with_lock with a plain transaction goes red, as do
+# removing the never-decrease rule, hoisting the target computation above the
+# reload, and dropping winner re-entry.
 class PantryItemConcurrencyTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
 
@@ -71,6 +75,56 @@ class PantryItemConcurrencyTest < ActiveSupport::TestCase
     end
   end
 
+  # The review answer and the cooking event contend for the same plan, not just
+  # the same pantry row. Whichever loses must leave nothing behind: a decision
+  # written after the draw would rewrite history, and its evidence would confirm
+  # stock this plan has already taken off the shelf.
+  # The review answer and the cooking event contend for the same plan, not just
+  # the same pantry row. Fixture chosen so both orders converge on ONE committed
+  # state — pantry 4 cup, requirement 3 cup:
+  #
+  #   answer then cook: max(4, 3) = 4, cook draws 3 -> 1 cup
+  #   cook then answer: cook draws 3 -> 1 cup, the answer is refused -> 1 cup
+  #
+  # A late answer that slipped past the guard would top the row back up to
+  # max(1, 3) = 3 cup, confirming stock the plan had already taken off the shelf.
+  #
+  # SCOPE OF THIS ORACLE, measured rather than assumed: instrumenting the race
+  # eight times landed the answer first 8/8, so this test exercises the
+  # answer-then-cook order and proves the committed state stays coherent under
+  # contention — one draw, one ledger row, one meal. It does NOT reach the
+  # refusal path and stays green when the lifecycle guard is ablated. The
+  # load-bearing oracles for the guard are the deterministic model tests in
+  # PlannedMealIngredientOnHandTest ("a requirement cooked between the
+  # eligibility check and the write is refused" and "every review command is
+  # refused once the plan has been cooked"), both of which go red without it.
+  test "answering a requirement races cooking and the committed state stays coherent" do
+    prepare_plan(required: "3")
+    pantry_row.confirm!(quantity: 4, unit: "cup", source: "pantry_check", confirmed_by: people(:without_login))
+    requirement = @plan.planned_meal_ingredients.active.sole
+
+    race(
+      ->(person, _) { PlannedMeal.find(@plan.id).convert_for!(person, today: COOKED_ON) },
+      ->(person, _) do
+        PlannedMealIngredient.find(requirement.id).answer!(:on_hand, by: person)
+      rescue ActiveRecord::RecordNotFound
+        nil # Cooking won, so the answer is refused rather than applied late.
+      end
+    )
+
+    committed do
+      assert_equal [ "confirmed", Rational(1), "cup" ], pantry
+      assert_equal [ Rational(3) ], ledger.map(&:quantity)
+      assert_equal 1, Meal.where(planned_meal_id: @plan.id).count
+      # The decision is on_hand only when the answer actually won; a refused
+      # answer leaves the requirement untouched, decided_at included.
+      answered = PlannedMealIngredient.find(requirement.id)
+      assert_includes %w[ unknown on_hand ], answered.decision
+      assert_nil answered.decided_at if answered.unknown?
+      assert_not_nil answered.decided_at if answered.on_hand?
+    end
+  end
+
   test "confirming before cooking leaves the same committed state as cooking first" do
     prepare_plan
     pantry_row.confirm!(quantity: 4, unit: "cup", source: "pantry_check", confirmed_by: people(:without_login))
@@ -96,11 +150,11 @@ class PantryItemConcurrencyTest < ActiveSupport::TestCase
   end
 
   private
-    def prepare_plan
+    def prepare_plan(required: "2")
       @recipe = @household.recipes.create!(
         title: "Contended flour plan", source_name: "Concurrency fixture", provenance_status: :observed
       )
-      @recipe.recipe_ingredients.create!(display_name: "Contended flour", display_quantity: "2", unit: "cup", position: 1)
+      @recipe.recipe_ingredients.create!(display_name: "Contended flour", display_quantity: required, unit: "cup", position: 1)
       @plan = PlannedMeal.create!(household: @household, recipe: @recipe, planned_on: COOKED_ON)
     end
 

@@ -33,6 +33,9 @@ class PlannedMealIngredient::SubstitutionsController < ApplicationController
   end
 
   private
+    # #new renders a form and has no command to enforce the lifecycle for it, so
+    # the predicate is asked here. #create does not rely on this: substitute!
+    # rechecks it under the plan's lock, so cooking cannot commit in the gap.
     def set_requirement
       @requirement = PlannedMealIngredient.reviewable_by(Current.household, Current.person).find(params[:planned_meal_ingredient_id])
       @planned_meal = @requirement.planned_meal
