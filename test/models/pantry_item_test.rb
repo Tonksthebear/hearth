@@ -307,6 +307,29 @@ class PantryItemTest < ActiveSupport::TestCase
     end
   end
 
+  test "a confirmed row assigned directly must carry a recognized canonical unit" do
+    [ "pinch", "cups", "COUNT", "" ].each do |unit|
+      item = confirmed_row(unit: unit)
+
+      assert_not item.valid?, "#{unit.inspect} should not be a storable confirmed unit"
+      assert_includes item.errors[:unit], "must be a recognized canonical unit"
+      assert_raises ActiveRecord::RecordInvalid do
+        item.save!
+      end
+    end
+  end
+
+  test "a confirmed row assigned directly accepts every canonical unit label" do
+    labels = Ingredient::Measurement::UNITS.each_value.map(&:normalized_label) + [ PantryItem::GENERIC_COUNT_UNIT ]
+
+    labels.each do |unit|
+      item = confirmed_row(unit: unit)
+
+      assert_predicate item, :valid?, "#{unit.inspect} is a canonical label and should be storable: #{item.errors.full_messages}"
+      assert_equal unit, item.measurement.normalized_label
+    end
+  end
+
   test "the model rejects an unknown state before the database sees it" do
     item = pantry_items(:low_blueberries)
     item.state = "stocked"
@@ -423,6 +446,20 @@ class PantryItemTest < ActiveSupport::TestCase
   private
     def pantry_item_for(ingredient)
       PantryItem.for(household: households(:home), ingredient: ingredients(ingredient))
+    end
+
+    def confirmed_row(unit:)
+      PantryItem.new(
+        household: households(:home),
+        ingredient: ingredients(:carrots),
+        confirmed_by: people(:without_login),
+        state: :confirmed,
+        quantity_numerator: 1,
+        quantity_denominator: 1,
+        unit: unit,
+        confirmation_source: "pantry_check",
+        confirmed_at: Time.current
+      )
     end
 
     def observation_snapshot(item)

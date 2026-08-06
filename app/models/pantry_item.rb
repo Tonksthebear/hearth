@@ -167,6 +167,13 @@ class PantryItem < ApplicationRecord
       value.to_s.squish.casecmp?(GENERIC_COUNT_UNIT) ? nil : value
     end
 
+    # The canonical label the stored unit must already be, or nil when the stored
+    # unit is not a recognized measurement at all. The database can only require a
+    # unit to be present, so recognition lives here.
+    def canonical_unit_label
+      Ingredient::Measurement.new(quantity: 1, unit: measurement_unit(unit)).normalized_label
+    end
+
     def ingredient_belongs_to_household
       return if ingredient.blank? || ingredient.household_id == household_id
 
@@ -184,7 +191,7 @@ class PantryItem < ApplicationRecord
 
       if confirmed?
         errors.add(:quantity, "must be an exact positive amount") unless quantity&.positive?
-        errors.add(:unit, "must be a recognized unit") if unit.blank?
+        errors.add(:unit, "must be a recognized canonical unit") unless unit.present? && unit == canonical_unit_label
       elsif quantity_numerator.present? || quantity_denominator.present? || unit.present?
         errors.add(:quantity, "belongs only to confirmed pantry inventory")
       end
