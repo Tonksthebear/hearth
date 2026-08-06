@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_010000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -749,6 +749,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
     t.check_constraint "display_order > 0", name: "nutrients_positive_display_order"
   end
 
+  create_table "pantry_items", force: :cascade do |t|
+    t.string "confirmation_source", null: false
+    t.datetime "confirmed_at", null: false
+    t.integer "confirmed_by_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "household_id", null: false
+    t.integer "ingredient_id", null: false
+    t.integer "quantity_denominator"
+    t.integer "quantity_numerator"
+    t.string "state", null: false
+    t.string "unit"
+    t.datetime "updated_at", null: false
+    t.index ["confirmed_by_id"], name: "index_pantry_items_on_confirmed_by_id"
+    t.index ["household_id", "ingredient_id"], name: "index_pantry_items_on_household_id_and_ingredient_id", unique: true
+    t.index ["household_id"], name: "index_pantry_items_on_household_id"
+    t.index ["ingredient_id"], name: "index_pantry_items_on_ingredient_id"
+    t.check_constraint "(quantity_numerator IS NULL AND quantity_denominator IS NULL) OR (quantity_numerator IS NOT NULL AND quantity_denominator IS NOT NULL)", name: "pantry_items_quantity_pair"
+    t.check_constraint "quantity_denominator IS NULL OR quantity_denominator > 0", name: "pantry_items_positive_quantity_denominator"
+    t.check_constraint "state <> 'confirmed' OR (quantity_numerator IS NOT NULL AND quantity_numerator > 0 AND unit IS NOT NULL)", name: "pantry_items_confirmed_amount"
+    t.check_constraint "state = 'confirmed' OR (quantity_numerator IS NULL AND quantity_denominator IS NULL AND unit IS NULL)", name: "pantry_items_qualitative_amount"
+    t.check_constraint "state IN ('confirmed', 'low', 'out', 'unknown')", name: "pantry_items_state"
+  end
+
   create_table "people", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "household_id", null: false
@@ -1237,6 +1260,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_020000) do
   add_foreign_key "meals", "households"
   add_foreign_key "meals", "people"
   add_foreign_key "meals", "planned_meals"
+  add_foreign_key "pantry_items", "households"
+  add_foreign_key "pantry_items", "ingredients"
+  add_foreign_key "pantry_items", "people", column: "confirmed_by_id"
   add_foreign_key "people", "households"
   add_foreign_key "person_habit_metrics", "habit_metrics"
   add_foreign_key "person_habit_metrics", "person_habits"

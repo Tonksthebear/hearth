@@ -26,11 +26,26 @@ The primary state is determined in that order: unresolved first, then confirmed 
 
 Ingredient decisions are plan-specific. They do not rewrite a recipe, silently apply to another meal, or constitute general clinical guidance.
 
+## Canonical pantry states
+
+| Machine value | User-facing label | Meaning |
+| --- | --- | --- |
+| `confirmed` | Confirmed | The household asserted an exact positive amount in a recognized unit. This is the only state that carries an amount, and it is the only allocatable evidence. |
+| `low` | Running low | The household knows the ingredient is short without measuring it. It carries no amount, is never allocatable, and leaves the requirement unresolved. |
+| `out` | Out | The household asserted there is none. It carries no amount and semantically supplies zero, which resolves the requirement as a deficit. |
+| `unknown` | Not tracked | The household has no current pantry evidence, either because it never tracked the ingredient or because it explicitly cleared prior evidence. It carries no amount and is never allocatable. |
+
+A pantry state describes what the household knows about its shelves. It is a different vocabulary from the planned-meal `unknown` ingredient decision above: `unknown` pantry evidence is household-wide and says nothing was observed, while an `unknown` ingredient decision is plan-specific and says one meal's requirement is unresolved. Neither implies the other.
+
+Not tracking an ingredient at all is equivalent to `unknown`; the household is never backfilled with `unknown` rows for its whole ingredient catalog.
+
 ## Pantry confirmation
 
-Pantry confirmation is an explicit household assertion. It identifies the canonical ingredient, a quantity or faithful display amount, a compatible unit when the amount is measurable, the time confirmed, and provenance such as a pantry check or purchase confirmation. These are product concepts, not a database schema prescribed by this ticket.
+Pantry confirmation is an explicit household assertion. It identifies the canonical ingredient, a pantry state, the time confirmed, provenance such as a pantry check or purchase confirmation, and the household person who confirmed it. Measurable knowledge is recorded as `confirmed` with an exact positive amount and a compatible recognized unit; knowledge that cannot be measured is recorded as `low`, `out`, or `unknown` rather than as a faithful display string. Every explicit observation refreshes the time, provenance, and confirming person. These are product concepts, not a database schema prescribed by this ticket.
 
 Recipe presence, a prior generated shopping row, inferred stock, checking off a shopping item, and logging a meal are not pantry confirmation. Completing shopping work is checklist state only. A separate confirmation action adds the purchased amount to pantry evidence, after which allocation may change meal readiness.
+
+Adjusting confirmed inventory is exact and signed. It applies only to a `confirmed` amount in a compatible recognized unit, stays `confirmed` while the result is positive, becomes `out` at exactly zero, and is rejected when it would take inventory below zero. `low`, `out`, and `unknown` are re-established through confirmation rather than adjusted. Hearth does not consume pantry evidence automatically.
 
 ## Allocation, dates, and priority
 

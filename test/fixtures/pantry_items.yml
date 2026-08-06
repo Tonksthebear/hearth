@@ -1,0 +1,30 @@
+# Confirmers are people(:without_login), who is otherwise deletable, so the
+# restriction Person places on confirmed pantry rows stays reachable. people(:one)
+# keeps PlannedMealTest's destroy path and people(:two) is already held by the
+# agent session and conversation fixtures.
+confirmed_oats:
+  household: home
+  ingredient: rolled_oats
+  confirmed_by: without_login
+  state: confirmed
+  quantity_numerator: 4
+  quantity_denominator: 1
+  unit: cup
+  confirmation_source: pantry_check
+  confirmed_at: 2026-07-27 09:00:00
+
+low_blueberries:
+  household: home
+  ingredient: blueberries
+  confirmed_by: without_login
+  state: low
+  confirmation_source: pantry_check
+  confirmed_at: 2026-07-27 09:05:00
+
+out_lettuce:
+  household: home
+  ingredient: lettuce
+  confirmed_by: without_login
+  state: out
+  confirmation_source: pantry_check
+  confirmed_at: 2026-07-27 09:10:00
