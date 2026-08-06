@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -868,6 +868,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_020000) do
   end
 
   create_table "planned_meals", force: :cascade do |t|
+    t.integer "allocation_priority"
     t.datetime "created_at", null: false
     t.integer "household_id", null: false
     t.integer "person_id"
@@ -875,11 +876,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_020000) do
     t.integer "recipe_id", null: false
     t.decimal "recipe_scale", precision: 10, scale: 3, default: "1.0", null: false
     t.datetime "updated_at", null: false
+    t.index ["household_id", "allocation_priority"], name: "index_planned_meals_on_household_id_and_allocation_priority"
     t.index ["household_id", "planned_on"], name: "index_planned_meals_on_household_id_and_planned_on"
     t.index ["household_id"], name: "index_planned_meals_on_household_id"
     t.index ["person_id", "planned_on"], name: "index_planned_meals_on_person_id_and_planned_on"
     t.index ["person_id"], name: "index_planned_meals_on_person_id"
     t.index ["recipe_id"], name: "index_planned_meals_on_recipe_id"
+    t.check_constraint "allocation_priority IS NULL OR allocation_priority > 0", name: "planned_meals_positive_allocation_priority"
     t.check_constraint "recipe_scale > 0", name: "planned_meals_positive_recipe_scale"
   end
 

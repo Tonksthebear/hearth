@@ -201,4 +201,83 @@ class PlannedMealTest < ActiveSupport::TestCase
       plan.destroy!
     end
   end
+
+  test "the allocation queue keeps uncooked household plans and drops cooked ones" do
+    cooked = planned_meals(:shared_target_week)
+    cooked.convert_for!(people(:one), today: Date.new(2026, 7, 31))
+
+    queue = PlannedMeal.allocatable
+
+    assert_not_includes queue, cooked
+    assert_includes queue, planned_meals(:sam_target_week)
+    # Another person's plan still competes for household stock, and a past plan
+    # that was never cooked stays queued until the household resolves it.
+    assert_includes queue, planned_meals(:alex_target_week)
+  end
+
+  test "a shared plan leaves the queue on its first conversion and later eaters never requeue it" do
+    plan = planned_meals(:shared_target_week)
+
+    plan.convert_for!(people(:one), today: Date.new(2026, 7, 31))
+    assert_not_includes PlannedMeal.allocatable, plan
+
+    plan.convert_for!(people(:two), today: Date.new(2026, 7, 31))
+
+    assert_not_includes PlannedMeal.allocatable, plan
+    assert_equal 2, plan.meals.reload.count
+  end
+
+  test "allocation order breaks a shared date on planned-meal id rather than creation time" do
+    first = create_plan(planned_on: Date.new(2026, 8, 10))
+    second = create_plan(planned_on: Date.new(2026, 8, 10))
+    first.update_column(:created_at, second.created_at + 1.day)
+
+    assert_equal [ first, second ], ordered(first, second)
+    assert_equal [ second, first ], PlannedMeal.where(id: [ first.id, second.id ]).order(:planned_on, :created_at).to_a
+  end
+
+  test "priority moves a plan ahead of the date order and clearing it restores that order" do
+    early = planned_meals(:shared_target_week)
+    middle = planned_meals(:alex_target_week)
+    late = planned_meals(:sam_target_week)
+
+    late.prioritize_before!(early)
+
+    assert_equal [ late, early, middle ], ordered(early, middle, late)
+    assert_equal 1, late.allocation_priority
+
+    middle.prioritize_before!(late)
+
+    assert_equal [ middle, late, early ], ordered(early, middle, late)
+    assert_equal [ 1, 2 ], [ middle.allocation_priority, late.reload.allocation_priority ]
+    assert_equal [ Date.new(2026, 7, 27), Date.new(2026, 7, 28), Date.new(2026, 7, 29) ],
+      [ early.reload.planned_on, middle.planned_on, late.planned_on ]
+
+    middle.clear_allocation_priority!
+
+    assert_equal [ late, early, middle ], ordered(early, middle, late)
+    assert_nil middle.allocation_priority
+  end
+
+  test "a plan cannot carry a non-positive allocation priority" do
+    plan = planned_meals(:shared_target_week)
+
+    assert_raises(ActiveRecord::StatementInvalid) { plan.update_column(:allocation_priority, 0) }
+    assert plan.update(allocation_priority: 1)
+  end
+
+  test "a plan cannot be prioritized against another household's plan" do
+    stranger = PlannedMeal.new(household: Household.new(name: "Other"))
+
+    assert_raises(ArgumentError) { planned_meals(:shared_target_week).prioritize_before!(stranger) }
+  end
+
+  private
+    def create_plan(planned_on:)
+      PlannedMeal.create!(household: households(:home), recipe: recipes(:porridge), planned_on: planned_on)
+    end
+
+    def ordered(*plans)
+      PlannedMeal.where(id: plans.map(&:id)).in_allocation_order.to_a
+    end
 end

@@ -13,6 +13,18 @@ class PlannedMeal < ApplicationRecord
 
   scope :during, ->(date_range) { where(planned_on: date_range) }
   scope :visible_to, ->(person) { where(person_id: [ nil, person.id ]) }
+  # The allocation queue. A plan participates while it has no Meal rows at all:
+  # the first conversion is the household's cooking event, and the extra Meal rows
+  # a shared plan accumulates are per-person nutrition records rather than second
+  # cooking events. Household-scoped on purpose — visible_to is display-only, and
+  # filtering by person here would reserve a shared plan's stock once per eater.
+  scope :allocatable, -> { where.missing(:meals) }
+  # Contract order: an explicit household override first, then ascending date,
+  # then stable planned-meal identity. Unprioritized plans sort last among
+  # overrides rather than first, which is SQLite's default for NULL.
+  scope :in_allocation_order, -> {
+    order(arel_table[:allocation_priority].asc.nulls_last, :planned_on, :id)
+  }
 
   validates :planned_on, presence: true
   validates :recipe_scale, numericality: { greater_than: 0 }
@@ -48,6 +60,37 @@ class PlannedMeal < ApplicationRecord
     end
   rescue ActiveRecord::RecordNotUnique
     meals.find_by!(person:)
+  end
+
+  # Moves this plan ahead of another one in allocation order without touching
+  # either date. Priorities only ever grow, so the positive check constraint holds
+  # and no plan needs a second pass to make room.
+  def prioritize_before!(other)
+    raise ArgumentError, "A planned meal can only be prioritized within its own household" unless other.household_id == household_id
+
+    transaction do
+      # SQLite drops FOR UPDATE, so the ordering is recomputed from the row this
+      # transaction reloaded rather than from a possibly stale in-memory copy.
+      target = self.class.lock.find(other.id).allocation_priority
+
+      if target
+        household.planned_meals
+          .where(allocation_priority: target..)
+          .where.not(id: id)
+          .update_all("allocation_priority = allocation_priority + 1")
+        update!(allocation_priority: target)
+      else
+        update!(allocation_priority: household.planned_meals.maximum(:allocation_priority).to_i + 1)
+      end
+    end
+    self
+  end
+
+  # Restores date-plus-stable-identity ordering. Gaps left in the remaining
+  # priorities are harmless: allocation orders by value, not by adjacency.
+  def clear_allocation_priority!
+    update!(allocation_priority: nil)
+    self
   end
 
   # Brings this plan's own ingredient requirements back in line with its recipe
