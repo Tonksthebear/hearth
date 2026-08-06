@@ -20,7 +20,7 @@ The primary state is determined in that order: unresolved first, then confirmed 
 | --- | --- | --- |
 | `unknown` | Check ingredient | The default: the household has not resolved this planned-meal requirement. It produces no shopping work. |
 | `on_hand` | On hand | The household explicitly confirmed pantry evidence that can be allocated to the requirement. |
-| `missing` | Missing | The household explicitly confirmed a deficit, allowing generated shopping work for that deficit. |
+| `missing` | Missing | The household explicitly confirmed that, at the time of the decision, this requirement has a deficit with no pantry evidence behind it. |
 | `substituted` | Substituted | This planned-meal requirement points to a replacement; the replacement must itself be resolved before the meal can be ready. The recipe catalog is unchanged. |
 | `not_needed` | Not needed | The household resolved this requirement for this planned meal without pantry allocation or shopping work. |
 
@@ -35,6 +35,8 @@ Recipe presence, a prior generated shopping row, inferred stock, checking off a 
 ## Allocation, dates, and priority
 
 Confirmed compatible pantry evidence is allocated across active planned meals in ascending `planned_on` order, then by stable planned-meal identity. This makes the default deterministic: when two meals need the same limited ingredient, the earlier meal wins.
+
+Allocation draws from household-level confirmed pantry evidence independently of any single requirement's decision. A requirement decided `missing` may still receive a partial allocation when compatible evidence is available, leaving only its shortfall as the confirmed deficit. Generated shopping work follows that remaining allocation deficit rather than the `missing` decision alone, so a requirement decided `on_hand` that loses its allocation to an earlier or explicitly prioritized meal also produces a generated deficit row.
 
 The household may explicitly prioritize a planned meal ahead of that default. The override affects allocation order only; it does not change the meal date or recipe. Rescheduling or changing priority releases the old allocation and recomputes the affected demand once. The same pantry amount is never reserved twice. Removing an override restores date-plus-stable-identity ordering.
 
@@ -61,13 +63,14 @@ The later shopping-deficit implementation must replace today's all-planned-ingre
 On the first reconciliation after that switch:
 
 - untouched, open legacy-generated rows disappear as stale;
-- user-managed rows survive as household shopping intent;
-- completed rows survive as non-open tombstones;
+- user-managed rows survive as household shopping intent, keeping their name, quantity, and household state but losing planned-meal provenance;
+- completed rows survive as non-open tombstones, keeping their name, quantity, and completion state but losing planned-meal provenance;
 - manual rows remain independent household intent;
 - affected planned meals may return to `needs_ingredient_check`; and
 - the open generated shopping list may temporarily become mostly or entirely empty while the household reviews unknown requirements.
 
 A surviving legacy, user-managed, manual, or completed row does not imply pantry confirmation. The cutover does not backfill confirmation from shopping history.
+Surviving user-managed and completed rows therefore render without meal attribution until a current requirement re-associates them.
 
 ## Runtime ownership and follow-up proof
 

@@ -228,6 +228,7 @@ scenarios:
       removed_row_ids: [untouched_open]
       surviving_open_row_ids: [edited_open, manual_row]
       surviving_non_open_row_ids: [completed_row]
+      surviving_rows_retain_provenance: false
       generated_shopping_rows: []
       pantry_confirmation_created: false
       temporary_empty_generated_state_allowed: true

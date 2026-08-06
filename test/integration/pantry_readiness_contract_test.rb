@@ -71,6 +71,12 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
   end
 
   test "scenarios pin the cross-ticket acceptance outcomes" do
+    shared_meals = scenario("shared_dated_demand").dig("expected", "meals")
+    assert_equal %w[monday_rice thursday_rice], shared_meals.pluck("id")
+    assert_equal [ 2, 2 ], shared_meals.pluck("allocated_quantity")
+    assert_equal [ "ready_to_cook" ], shared_meals.pluck("readiness_state").uniq
+    assert_empty scenario("shared_dated_demand").dig("expected", "generated_shopping_rows")
+
     assert_equal "needs_ingredient_check", scenario("unknown_stock").dig("expected", "meal", "readiness_state")
     assert_empty scenario("unknown_stock").dig("expected", "generated_shopping_rows")
 
@@ -78,6 +84,11 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     assert_equal({ "readiness_state" => "ready_to_cook", "allocated_quantity" => 2 }, partial_meals.fetch("monday_chili").except("id"))
     assert_equal 1, partial_meals.fetch("friday_chili").fetch("deficit_quantity")
     assert_equal "shopping_needed", partial_meals.fetch("friday_chili").fetch("readiness_state")
+
+    substitution = scenario("substitution").fetch("expected")
+    assert_equal "ready_to_cook", substitution.dig("meal", "readiness_state")
+    assert_equal "parmesan", substitution.fetch("recipe_requirement_unchanged")
+    assert_empty substitution.fetch("generated_shopping_rows")
 
     manual = scenario("manual_item_independence").fetch("expected")
     assert_equal "needs_ingredient_check", manual.dig("meal", "readiness_state")
@@ -115,10 +126,19 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     assert_equal "shopping_needed", free_text_missing.dig("meal", "readiness_state")
     assert_equal({ "ingredient" => "salt", "display_amount" => "to taste", "aggregation" => "source_specific" }, free_text_missing.fetch("generated_shopping_rows").sole)
 
+    unitless_count = scenario("compatible_unitless_count").fetch("expected")
+    assert_equal "ready_to_cook", unitless_count.dig("meal", "readiness_state")
+    assert_empty unitless_count.fetch("generated_shopping_rows")
+
+    mixed = scenario("mixed_unresolved_precedes_deficit").fetch("expected")
+    assert_equal "needs_ingredient_check", mixed.dig("meal", "readiness_state")
+    assert_equal({ "ingredient" => "quinoa", "ingredient_decision" => "missing" }, mixed.fetch("known_deficits").sole)
+
     cutover = scenario("cold_switch_first_reconcile").fetch("expected")
     assert_equal [ "untouched_open" ], cutover.fetch("removed_row_ids")
     assert_equal %w[edited_open manual_row], cutover.fetch("surviving_open_row_ids")
     assert_equal [ "completed_row" ], cutover.fetch("surviving_non_open_row_ids")
+    assert_equal false, cutover.fetch("surviving_rows_retain_provenance")
     assert_empty cutover.fetch("generated_shopping_rows")
     assert_equal false, cutover.fetch("pantry_confirmation_created")
     assert_equal true, cutover.fetch("temporary_empty_generated_state_allowed")
