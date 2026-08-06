@@ -187,8 +187,11 @@ class MealsTest < ApplicationSystemTestCase
       click_link_and_wait_for_path "Meals", meal_week_path
       click_link_and_wait_for_path "Shopping list", shopping_list_path(date: "2026-07-27")
 
-      assert_text "Carrots"
-      assert_text "Lettuce"
+      # Only confirmed allocation deficits reach the list: the salad plans are
+      # short against an `out` pantry row, while the soup's substituted carrots
+      # requirement is still unresolved.
+      assert_text "2 head Lettuce"
+      assert_no_text "Carrots"
       assert_no_text "Dinner with friends"
     end
   end

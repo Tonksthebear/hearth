@@ -308,11 +308,12 @@ module HearthMcp
           user_managed: item.user_managed?,
           sources: item.shopping_list_item_sources.map do |source|
             {
-              planned_meal_id: source.planned_meal_id,
+              planned_meal_id: source.planned_meal.id,
               planned_on: source.planned_meal.planned_on.iso8601,
               recipe_id: source.planned_meal.recipe_id,
               recipe_title: source.planned_meal.recipe.title,
-              recipe_ingredient_id: source.recipe_ingredient_id
+              planned_meal_ingredient_id: source.planned_meal_ingredient_id,
+              confirmation_state: source.confirmation_state
             }
           end
         }

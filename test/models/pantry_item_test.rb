@@ -466,6 +466,65 @@ class PantryItemTest < ActiveSupport::TestCase
     assert_equal before, neighbouring_snapshot
   end
 
+  test "a purchase adds to compatible confirmed inventory" do
+    item = pantry_items(:confirmed_oats).record_purchase!(
+      quantity: "16",
+      unit: "tbsp",
+      confirmed_by: people(:without_login),
+      confirmed_at: SECOND_OBSERVATION
+    )
+
+    item.reload
+    assert_predicate item, :confirmed?
+    assert_equal Rational(5), item.quantity
+    assert_equal "cup", item.unit
+    assert_equal PantryItem::PURCHASE_SOURCE, item.confirmation_source
+    assert_equal people(:without_login), item.confirmed_by
+    assert_equal SECOND_OBSERVATION, item.confirmed_at
+  end
+
+  test "a purchase re-establishes low out unknown and untracked rows through confirmation" do
+    low = pantry_items(:low_blueberries).record_purchase!(quantity: "2", unit: "cup", confirmed_by: people(:without_login))
+    assert_equal [ "confirmed", Rational(2), "cup" ], [ low.reload.state, low.quantity, low.unit ]
+
+    out = pantry_items(:out_lettuce).record_purchase!(quantity: "1", unit: "head", confirmed_by: people(:without_login))
+    assert_equal [ "confirmed", Rational(1), "head" ], [ out.reload.state, out.quantity, out.unit ]
+
+    cleared = pantry_items(:confirmed_oats)
+    cleared.clear!(source: "pantry_check", confirmed_by: people(:without_login))
+    cleared.record_purchase!(quantity: "1", unit: "cup", confirmed_by: people(:without_login))
+    assert_equal [ "confirmed", Rational(1) ], [ cleared.reload.state, cleared.quantity ]
+
+    assert_difference "PantryItem.count", 1 do
+      untracked = pantry_item_for(:carrots).record_purchase!(quantity: "2", confirmed_by: people(:without_login))
+      assert_equal [ "confirmed", Rational(2), PantryItem::GENERIC_COUNT_UNIT ], [ untracked.reload.state, untracked.quantity, untracked.unit ]
+    end
+  end
+
+  test "a purchase in an incompatible unit is rejected without mutating confirmed inventory" do
+    item = pantry_items(:confirmed_oats)
+    before = observation_snapshot(item)
+
+    assert_raises ActiveRecord::RecordInvalid do
+      item.record_purchase!(quantity: "2", unit: "g", confirmed_by: people(:without_login))
+    end
+
+    assert_equal before, observation_snapshot(item.reload)
+  end
+
+  test "a purchase needs an exact positive recognized amount" do
+    [ [ "0", "cup" ], [ "-1", "cup" ], [ "some", "cup" ], [ "2", "pinch" ], [ nil, "cup" ] ].each do |quantity, unit|
+      item = pantry_items(:confirmed_oats)
+      before = observation_snapshot(item)
+
+      assert_raises ActiveRecord::RecordInvalid, "#{quantity.inspect} #{unit.inspect} should not record a purchase" do
+        item.record_purchase!(quantity: quantity, unit: unit, confirmed_by: people(:without_login))
+      end
+
+      assert_equal before, observation_snapshot(item.reload)
+    end
+  end
+
   private
     def pantry_item_for(ingredient)
       PantryItem.for(household: households(:home), ingredient: ingredients(ingredient))

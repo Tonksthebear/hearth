@@ -3,11 +3,12 @@ class PlannedMeal < ApplicationRecord
   belongs_to :person, optional: true
   belongs_to :recipe
   has_many :meals, dependent: :restrict_with_exception
-  has_many :shopping_list_item_sources, dependent: :destroy
   # Declared ahead of the requirements it references: dependent teardown runs in
   # declaration order, and the consumption ledger restricts deleting a
   # requirement that drew stock.
   has_many :pantry_consumptions, dependent: :destroy, inverse_of: :planned_meal
+  # Shopping provenance hangs off the requirement snapshots, so it cascades with
+  # them rather than needing its own association here.
   has_many :planned_meal_ingredients, -> { ordered }, dependent: :destroy, inverse_of: :planned_meal
 
   # Snapshots must be current before anything downstream reads this plan's

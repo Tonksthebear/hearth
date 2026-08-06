@@ -136,16 +136,15 @@ class PlannedMealTest < ActiveSupport::TestCase
     plan = planned_meals(:sam_target_week)
     decided = planned_meal_ingredients(:sam_salad_lettuce)
     departed_week = ShoppingList.for(household: households(:home), date: plan.planned_on)
-    assert ShoppingListItemSource.exists?(planned_meal: plan)
+    sources = ShoppingListItemSource.where(planned_meal_ingredient: plan.planned_meal_ingredients)
+    assert sources.exists?
 
     plan.update!(planned_on: Date.new(2026, 8, 4))
 
     assert_equal [ decided.id ], plan.planned_meal_ingredients.active.ids
     assert_predicate decided.reload, :on_hand?
-    assert_empty ShoppingListItemSource.joins(:shopping_list_item)
-      .where(planned_meal: plan, shopping_list_items: { shopping_list_id: departed_week.id })
-    assert_equal Date.new(2026, 8, 3),
-      ShoppingListItemSource.where(planned_meal: plan).sole.shopping_list_item.shopping_list.week_start
+    assert_empty sources.joins(:shopping_list_item).where(shopping_list_items: { shopping_list_id: departed_week.id })
+    assert_equal Date.new(2026, 8, 3), sources.sole.shopping_list_item.shopping_list.week_start
   end
 
   test "changing the recipe supersedes resolved decisions and issues fresh unknown requirements" do

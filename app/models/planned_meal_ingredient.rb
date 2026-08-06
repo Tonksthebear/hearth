@@ -53,6 +53,13 @@ class PlannedMealIngredient < ApplicationRecord
     superseded_at.nil?
   end
 
+  # The decision that actually has to resolve. A substitution redirects the
+  # requirement at the replacement the household chose, so the replacement's
+  # decision is the one allocation and shopping both answer to.
+  def effective_decision
+    substituted? ? replacement_decision : decision
+  end
+
   # An untouched unknown row carries no household work, so an obsolete one is
   # discarded rather than kept as provenance.
   def untouched?

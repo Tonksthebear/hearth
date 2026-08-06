@@ -199,7 +199,118 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     assert_equal false, adjustment.fetch("automatic_consumption")
   end
 
+  test "unknown stock and manual intent produce no generated shopping work at runtime" do
+    limes = recipe_for(title: "Tacos", ingredients: [ { display_quantity: "2", unit: "count", display_name: "Limes" } ])
+    tacos = plan_for(recipe: limes, planned_on: WEEK_START)
+    manual = ShoppingList.for(household: household, date: WEEK_START).items.create!(name: "Party napkins", user_managed_at: Time.current)
+
+    assert_equal :needs_ingredient_check, readiness_of(tacos)
+    assert_empty generated_rows(WEEK_START)
+
+    manual.complete!
+
+    assert_equal :needs_ingredient_check, readiness_of(tacos)
+    assert_empty generated_rows(WEEK_START)
+    assert manual.reload.completed?
+    assert_empty household.pantry_items
+  end
+
+  test "partial stock prioritizes the earlier meal and generates only the remaining deficit" do
+    confirm_pantry("Beans", quantity: "3", unit: "can")
+    chili = recipe_for(title: "Chili", ingredients: [ { display_quantity: "2", unit: "can", display_name: "Beans" } ])
+    monday = plan_for(recipe: chili, planned_on: WEEK_START, decision: :on_hand)
+    friday = plan_for(recipe: chili, planned_on: WEEK_START + 4.days, decision: :missing)
+
+    assert_equal :ready_to_cook, readiness_of(monday)
+    assert_equal :shopping_needed, readiness_of(friday)
+    assert_equal [ [ "Beans", "1", "can" ] ], generated_rows(WEEK_START).map { |item| item.values_at(:name, :quantity, :unit) }
+    assert_equal [ friday.id ], generated_rows(WEEK_START).sole.planned_meals.ids
+  end
+
+  test "explicitly missing free text shops faithfully and stays source specific" do
+    soup = recipe_for(title: "Tomato soup", ingredients: [ { display_quantity: "to taste", unit: nil, display_name: "Salt" } ])
+    tomato_soup = plan_for(recipe: soup, planned_on: WEEK_START)
+
+    assert_equal :needs_ingredient_check, readiness_of(tomato_soup)
+    assert_empty generated_rows(WEEK_START)
+
+    tomato_soup.planned_meal_ingredients.active.sole.decide!(:missing)
+
+    assert_equal :shopping_needed, readiness_of(tomato_soup)
+    row = generated_rows(WEEK_START).sole
+    assert_equal [ "Salt", "to taste", nil ], row.values_at(:name, :quantity, :unit)
+    assert_equal [ "deficit_source", tomato_soup.planned_meal_ingredients.active.sole.id ].to_json, row.generated_key
+  end
+
+  test "completion is not stock evidence while an explicit purchase confirmation is" do
+    curry = recipe_for(title: "Curry", ingredients: [ { display_quantity: "2", unit: "can", display_name: "Coconut milk" } ])
+    plan = plan_for(recipe: curry, planned_on: WEEK_START, decision: :missing)
+    row = generated_rows(WEEK_START).sole
+    assert_equal [ "Coconut milk", "2", "can" ], row.values_at(:name, :quantity, :unit)
+
+    row.complete!
+
+    assert_equal :shopping_needed, readiness_of(plan)
+    assert_equal 0, pantry_confirmed_quantity("Coconut milk")
+
+    PantryItem.for(household: household, ingredient: row.ingredient)
+      .record_purchase!(quantity: "2", unit: "can", confirmed_by: household.people.first, confirmed_at: Time.utc(2026, 8, 9, 18))
+
+    assert_equal :ready_to_cook, readiness_of(plan)
+    assert_equal 2, pantry_confirmed_quantity("Coconut milk")
+    # The deficit is gone; the checked-off row survives only as a tombstone that
+    # no longer carries provenance.
+    assert_empty generated_rows(WEEK_START).where(completed_at: nil)
+    assert row.reload.completed?
+    assert_empty row.shopping_list_item_sources
+  end
+
   private
+    WEEK_START = Date.new(2026, 8, 10)
+
+    # The pinned scenarios describe a household in isolation, so the fixture
+    # household's own plans, lists, and evidence are cleared first.
+    def household
+      @household ||= households(:home).tap do |home|
+        home.planned_meals.destroy_all
+        home.shopping_lists.destroy_all
+        home.pantry_items.destroy_all
+      end
+    end
+
+    def recipe_for(title:, ingredients:)
+      household.recipes.create!(
+        title: title,
+        source_name: "Contract",
+        provenance_status: :observed,
+        recipe_ingredients_attributes: ingredients.map.with_index(1) { |attributes, position| attributes.merge(position:) }
+      )
+    end
+
+    def plan_for(recipe:, planned_on:, decision: nil)
+      plan = household.planned_meals.create!(recipe: recipe, planned_on: planned_on)
+      plan.planned_meal_ingredients.active.each { |requirement| requirement.decide!(decision) } if decision
+      plan
+    end
+
+    def confirm_pantry(name, quantity:, unit:)
+      PantryItem.for(household: household, ingredient: Ingredient.resolve!(household: household, name: name))
+        .confirm!(quantity: quantity, unit: unit, source: "pantry_check", confirmed_by: household.people.first)
+    end
+
+    def pantry_confirmed_quantity(name)
+      item = PantryItem.for(household: household, ingredient: Ingredient.resolve!(household: household, name: name))
+      item.confirmed? ? item.quantity : 0
+    end
+
+    def readiness_of(plan)
+      Household::PantryAllocation.new(household).readiness_for(plan)&.state
+    end
+
+    def generated_rows(date)
+      ShoppingList.for(household: household, date: date).items.where.not(generated_key: nil)
+    end
+
     def contract
       @contract ||= YAML.safe_load(CONTRACT_PATH.read, permitted_classes: [], permitted_symbols: [], aliases: false)
     end
