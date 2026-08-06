@@ -3,6 +3,7 @@ class PantryItem < ApplicationRecord
   # label is the only one the measurement PORO does not also accept as an authored
   # alias, so it round-trips through the blank unit the PORO reads as generic count.
   GENERIC_COUNT_UNIT = Ingredient::Measurement::GENERIC_COUNT.normalized_label
+  PURCHASE_SOURCE = "purchase".freeze
 
   belongs_to :household
   belongs_to :ingredient
@@ -117,6 +118,25 @@ class PantryItem < ApplicationRecord
           confirmed_at: confirmed_at
         )
       end
+    end
+  end
+
+  # What the household actually brought home. Confirmed inventory in a compatible
+  # unit grows by the purchased amount, while low, out, unknown, and untracked
+  # rows are re-established through confirmation rather than adjusted. Buying
+  # something you had none of is the common case, so it must not raise.
+  def record_purchase!(quantity:, unit: nil, confirmed_by:, confirmed_at: Time.current)
+    purchased = Ingredient::Measurement.new(quantity: quantity, unit: measurement_unit(unit))
+
+    unless purchased.known? && purchased.quantity.positive?
+      errors.add(:base, "A purchase needs an exact positive amount in a recognized unit.")
+      raise ActiveRecord::RecordInvalid, self
+    end
+
+    if persisted? && confirmed?
+      adjust!(delta: purchased.quantity, unit: unit, source: PURCHASE_SOURCE, confirmed_by: confirmed_by, confirmed_at: confirmed_at)
+    else
+      confirm!(quantity: quantity, unit: unit, source: PURCHASE_SOURCE, confirmed_by: confirmed_by, confirmed_at: confirmed_at)
     end
   end
 

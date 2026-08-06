@@ -7,8 +7,9 @@
       <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Household-wide plan</p>
       <h1 id="shopping-list-heading" class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Shopping list</h1>
       <p class="mt-2 text-gray-600 dark:text-gray-400">
-        Ingredients planned for <%= @shopping_list.week_start.to_fs(:long) %>–<%= @shopping_list.end_date.to_fs(:long) %>.
-        Eaten meals do not change this list.
+        Confirmed shortfalls for <%= @shopping_list.week_start.to_fs(:long) %>–<%= @shopping_list.end_date.to_fs(:long) %>,
+        after your pantry evidence was allocated across the household's meals.
+        Checking an item off is checklist state only — it never claims pantry inventory.
       </p>
     </div>
     <%= link_to "Back to meals", meal_week_path(date: @meal_week), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
@@ -43,6 +44,11 @@
                   <% end %>
                 </div>
                 <div class="flex items-center gap-3">
+                  <% if item.confirmable_into_pantry? %>
+                    <%= link_to "Confirm purchase", new_shopping_list_item_pantry_confirmation_path(item),
+                      data: { turbo_prefetch: false },
+                      class: yass(btn: [ :base, { md: :base }, { primary: :outline } ]) %>
+                  <% end %>
                   <%= link_to "Edit", edit_shopping_list_item_path(item, date: @shopping_list.week_start),
                     data: { turbo_prefetch: false },
                     class: "font-semibold text-primary-700 underline hover:no-underline dark:text-primary-300" %>
@@ -72,7 +78,11 @@
                             <% item.shopping_list_item_sources.each do |source| %>
                               <li>
                                 <%= source.planned_meal.planned_on.to_fs(:long) %> ·
-                                <%= link_to source.planned_meal.recipe.title, source.planned_meal.recipe, class: "underline" %>
+                                <%= link_to source.planned_meal.recipe.title, source.planned_meal.recipe, class: "underline" %> ·
+                                <span data-confirmation-state="<%= source.confirmation_state %>"><%= source.confirmation_label %></span>
+                                <% if source.substituted? %>
+                                  · Substituted → <%= source.replacement_display_name %>
+                                <% end %>
                               </li>
                             <% end %>
                           </ul>
@@ -91,8 +101,11 @@
     <% if @shopping_list_items.empty? %>
       <div class="px-6 py-10 text-center">
         <%= icon "shopping-cart", class: "mx-auto size-10 text-gray-400" %>
-        <h2 class="mt-3 font-semibold text-gray-900 dark:text-white">Nothing on the list yet</h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Add an item below or plan a recipe from Meals.</p>
+        <h2 class="mt-3 font-semibold text-gray-900 dark:text-white">No confirmed shortfalls</h2>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          A meal only adds shopping work once its ingredients are resolved and your pantry evidence cannot cover them.
+          Unresolved requirements stay off this list until the household checks them. Add a manual item below anytime.
+        </p>
       </div>
     <% end %>
   </div>

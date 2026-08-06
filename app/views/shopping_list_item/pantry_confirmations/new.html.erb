@@ -1,0 +1,35 @@
+<% content_for :title, "Confirm purchase · Hearth" %>
+<%= render "layouts/meals_navigation" %>
+
+<section aria-labelledby="pantry-confirmation-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shopping list</p>
+  <h1 id="pantry-confirmation-heading" class="mt-2 text-3xl font-semibold tracking-tight">Confirm purchase</h1>
+  <p class="mt-2 text-gray-600 dark:text-gray-400">
+    Record what you actually brought home for <%= @shopping_list_item.name %>. This is the only step that adds pantry
+    evidence — checking the item off the list never does.
+  </p>
+
+  <%= form_with url: shopping_list_item_pantry_confirmation_path(@shopping_list_item), scope: :pantry_confirmation, class: "mt-6" do |form| %>
+    <% if @pantry_item.errors.any? %>
+      <%= render "layouts/alert", id: "pantry-confirmation-errors", title: "Please correct the following:", messages: @pantry_item.errors.full_messages %>
+    <% end %>
+
+    <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
+      <div class="sm:col-span-2">
+        <%= form.label :quantity, "Amount purchased", class: :label %>
+        <div class="mt-2"><%= form.text_field :quantity, value: @purchase[:quantity], required: true, autofocus: true, class: :text_field %></div>
+      </div>
+      <div class="sm:col-span-2">
+        <%= form.label :unit, class: :label %>
+        <div class="mt-2"><%= form.text_field :unit, value: @purchase[:unit], placeholder: "cans, cups, g", class: :text_field %></div>
+      </div>
+    </div>
+
+    <div class="mt-6 flex items-center gap-4">
+      <%= form.submit "Confirm purchase", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+      <%= link_to "Cancel", shopping_list_path(date: @shopping_list_item.shopping_list.week_start),
+        data: { turbo_prefetch: false },
+        class: "text-sm font-semibold text-gray-900 underline dark:text-white" %>
+    </div>
+  <% end %>
+</section>

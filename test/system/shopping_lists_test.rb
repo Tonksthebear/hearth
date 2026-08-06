@@ -42,12 +42,17 @@ class ShoppingListsTest < ApplicationSystemTestCase
       assert_no_selector "#shopping-list-item-#{manual.id}", wait: 5
 
       lettuce = ShoppingListItem.find_by!(shopping_list: shopping_lists(:target_week), name: "Lettuce")
+      assert_text "2 head Lettuce"
       within "#shopping-list-item-#{lettuce.id}" do
         click_button "2 contributing meals"
         assert_link recipes(:salad).title, count: 2, visible: :visible, wait: 5
+        assert_text "On hand"
+        assert_text "From pantry evidence"
         find("button[aria-label='Check Lettuce']").click
       end
       assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']", wait: 5
+      assert_predicate pantry_items(:out_lettuce).reload, :out?
+      assert_nil pantry_items(:out_lettuce).quantity
 
       click_link_and_wait_for_path "Meals", meal_week_path
       accept_confirm do
@@ -71,6 +76,39 @@ class ShoppingListsTest < ApplicationSystemTestCase
     end
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
+  test "confirming a purchase is the only step that turns a checked deficit into pantry evidence" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      sign_in_via_browser users(:one)
+      visit_and_wait_for_path shopping_list_path(date: WEEK_START)
+      lettuce = ShoppingListItem.find_by!(shopping_list: shopping_lists(:target_week), name: "Lettuce")
+
+      within "#shopping-list-item-#{lettuce.id}" do
+        find("button[aria-label='Check Lettuce']").click
+      end
+      assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']", wait: 5
+      assert_predicate pantry_items(:out_lettuce).reload, :out?
+
+      confirm_link = within("#shopping-list-item-#{lettuce.id}") { find_link("Confirm purchase") }
+      click_element_and_wait_for_path confirm_link, new_shopping_list_item_pantry_confirmation_path(lettuce)
+      assert_text "checking the item off the list never does"
+      fill_in_and_wait_for_value "Amount purchased", "2"
+      fill_in_and_wait_for_value "Unit", "head"
+      click_button_and_wait_for_text "Confirm purchase", "Pantry evidence recorded for Lettuce."
+
+      pantry = pantry_items(:out_lettuce).reload
+      assert_predicate pantry, :confirmed?
+      assert_equal Rational(2), pantry.quantity
+      assert_equal "head", pantry.unit
+      assert_equal PantryItem::PURCHASE_SOURCE, pantry.confirmation_source
+      assert_equal people(:one), pantry.confirmed_by
+      # The deficit is settled, so the checked row stays only as a tombstone with
+      # no contributing meals left to attribute it to.
+      assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']", wait: 5
+      assert_empty lettuce.reload.shopping_list_item_sources
+      within("#shopping-list-item-#{lettuce.id}") { assert_no_selector "el-disclosure" }
+    end
   end
 
   test "desktop hover stays read only until the explicit Shopping click" do

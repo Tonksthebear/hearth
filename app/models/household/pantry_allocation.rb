@@ -16,6 +16,12 @@ class Household::PantryAllocation
     # because the evidence half is only knowable after the allocation pass.
     def resolved_for_readiness? = resolved
 
+    # The name the household would shop for, which is the replacement's once a
+    # substitution redirected the requirement.
+    def display_name
+      requirement.substituted? ? requirement.replacement_display_name : requirement.display_name
+    end
+
     # Whether this requirement can be allocated numerically at all. Free text and
     # unrecognized units stay source-specific and faithful instead.
     def measurable? = measurement.known?
@@ -113,7 +119,7 @@ class Household::PantryAllocation
     def reserve(requirement)
       substituted = requirement.substituted?
       ingredient = substituted ? requirement.replacement_ingredient : requirement.ingredient
-      decision = substituted ? requirement.replacement_decision : requirement.decision
+      decision = requirement.effective_decision
       measurement = Ingredient::Measurement.new(
         quantity: substituted ? requirement.replacement_quantity : requirement.quantity,
         unit: substituted ? requirement.replacement_unit : requirement.unit

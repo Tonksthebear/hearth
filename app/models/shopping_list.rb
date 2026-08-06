@@ -1,6 +1,11 @@
 class ShoppingList < ApplicationRecord
   Requirement = Data.define(:key, :ingredient, :name, :quantity, :unit, :sources)
-  Source = Data.define(:planned_meal, :recipe_ingredient)
+  # One confirmed allocation deficit, kept with the plan it was queued for.
+  Source = Data.define(:planned_meal, :reservation) do
+    # Provenance points at the decision row rather than the recipe line, so a
+    # substitution flows into shopping without a second mapping.
+    def planned_meal_ingredient_id = reservation.requirement.id
+  end
 
   belongs_to :household
   has_many :items, -> { order(Arel.sql("completed_at IS NOT NULL"), :name, :id) },
@@ -34,7 +39,7 @@ class ShoppingList < ApplicationRecord
   end
 
   def display_items
-    items.includes(shopping_list_item_sources: { planned_meal: :recipe }).to_a
+    items.includes(shopping_list_item_sources: [ :planned_meal_ingredient, { planned_meal: :recipe } ]).to_a
   end
 
   def reconcile!
@@ -55,33 +60,42 @@ class ShoppingList < ApplicationRecord
         .sort_by { |requirement| [ requirement.name.downcase, requirement.unit.to_s, requirement.key ] }
     end
 
+    # Shopping work is whatever the household's own evidence could not cover. The
+    # engine runs over the whole household queue so an out-of-week plan still
+    # consumes the stock it was allocated, while only deficits belonging to this
+    # week's plans become rows. Never filtered through PlannedMeal.visible_to:
+    # the list is household operational data and counts every plan exactly once.
     def ordered_sources
-      household.planned_meals
-        .during(week_start..end_date)
-        .includes(recipe: { recipe_ingredients: :ingredient })
-        .order(:planned_on, :id)
-        .flat_map do |planned_meal|
-          planned_meal.recipe.recipe_ingredients
-            .sort_by { |recipe_ingredient| [ recipe_ingredient.position, recipe_ingredient.id ] }
-            .map { |recipe_ingredient| Source.new(planned_meal:, recipe_ingredient:) }
-        end
+      allocation = Household::PantryAllocation.new(household)
+
+      allocation.planned_meals.flat_map do |planned_meal|
+        next [] unless planned_meal.planned_on.between?(week_start, end_date)
+
+        allocation.reservations_for(planned_meal)
+          .select(&:deficit?)
+          .map { |reservation| Source.new(planned_meal:, reservation:) }
+      end
     end
 
+    # Measurable deficits aggregate on the canonical unit, so alias spellings of
+    # one unit land in one row while distinct units never convert into each
+    # other. Anything the measurement foundation cannot classify stays tied to
+    # the requirement that asked for it and is displayed exactly as authored.
     def generated_key_for(source)
-      ingredient = source.recipe_ingredient
-      if ingredient.quantity
-        [ "ingredient", ingredient.ingredient_id, normalized_unit(ingredient.unit) ].to_json
+      reservation = source.reservation
+      if reservation.measurable?
+        [ "deficit", reservation.ingredient.id, reservation.measurement.canonical_unit ].to_json
       else
-        [ "source", source.planned_meal.id, ingredient.id ].to_json
+        [ "deficit_source", source.planned_meal_ingredient_id ].to_json
       end
     end
 
     def requirement_for(key, sources)
-      first = sources.first.recipe_ingredient
-      quantity = if first.quantity
-        format_quantity(sources.sum { |source| source.recipe_ingredient.quantity })
+      first = sources.first.reservation
+      quantity, unit = if first.measurable?
+        [ format_quantity(sources.sum { |source| source.reservation.deficit_quantity }), canonical_unit_label(first.measurement) ]
       else
-        first.display_quantity.to_s.strip.presence
+        [ first.display_quantity.to_s.strip.presence, normalized_unit(first.measurement.display_unit) ]
       end
 
       Requirement.new(
@@ -89,7 +103,7 @@ class ShoppingList < ApplicationRecord
         ingredient: first.ingredient,
         name: first.display_name.squish,
         quantity:,
-        unit: normalized_unit(first.unit),
+        unit:,
         sources:
       )
     end
@@ -110,16 +124,14 @@ class ShoppingList < ApplicationRecord
 
     def detach_moved_sources(requirements)
       desired_keys = requirements.each_with_object({}) do |requirement, index|
-        requirement.sources.each do |source|
-          index[[ source.planned_meal.id, source.recipe_ingredient.id ]] = requirement.key
-        end
+        requirement.sources.each { |source| index[source.planned_meal_ingredient_id] = requirement.key }
       end
 
       ShoppingListItemSource
         .joins(:shopping_list_item)
         .where(shopping_list_items: { shopping_list_id: id })
         .find_each do |source|
-          desired_key = desired_keys[[ source.planned_meal_id, source.recipe_ingredient_id ]]
+          desired_key = desired_keys[source.planned_meal_ingredient_id]
           source.destroy! if desired_key != source.shopping_list_item.generated_key
         end
     end
@@ -133,6 +145,13 @@ class ShoppingList < ApplicationRecord
 
     def normalized_unit(unit)
       unit.to_s.strip.presence
+    end
+
+    # The generic count group carries no unit token a shopper would recognize, so
+    # it keeps the blank unit it has always displayed rather than the canonical
+    # "count" label pantry rows persist.
+    def canonical_unit_label(measurement)
+      measurement.normalized_label unless measurement.canonical_unit == Ingredient::Measurement::GENERIC_COUNT.canonical_unit
     end
 
     def format_quantity(quantity)

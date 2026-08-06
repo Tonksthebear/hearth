@@ -2,10 +2,11 @@ class ShoppingListItem < ApplicationRecord
   belongs_to :shopping_list
   belongs_to :ingredient, optional: true
   has_many :shopping_list_item_sources,
-    -> { joins(:planned_meal, :recipe_ingredient).order("planned_meals.planned_on", "planned_meals.id", "recipe_ingredients.position", "recipe_ingredients.id") },
+    -> { joins(planned_meal_ingredient: :planned_meal).order("planned_meals.planned_on", "planned_meals.id", "planned_meal_ingredients.position", "planned_meal_ingredients.id") },
     dependent: :destroy,
     inverse_of: :shopping_list_item
-  has_many :planned_meals, through: :shopping_list_item_sources
+  has_many :planned_meal_ingredients, through: :shopping_list_item_sources
+  has_many :planned_meals, through: :planned_meal_ingredients
 
   validates :name, presence: true
 
@@ -27,6 +28,12 @@ class ShoppingListItem < ApplicationRecord
     manual? || (user_managed? && shopping_list_item_sources.empty?)
   end
 
+  # Purchase confirmation writes pantry evidence for a canonical ingredient, so a
+  # manual row that names no ingredient has nothing to confirm against.
+  def confirmable_into_pantry?
+    ingredient_id.present?
+  end
+
   def complete!
     update!(completed_at: completed_at || Time.current)
   end
@@ -42,16 +49,12 @@ class ShoppingListItem < ApplicationRecord
   end
 
   def reconcile_sources!(sources)
-    desired = sources.index_by { |source| [ source.planned_meal.id, source.recipe_ingredient.id ] }
-    existing = shopping_list_item_sources.index_by { |source| [ source.planned_meal_id, source.recipe_ingredient_id ] }
+    desired = sources.map(&:planned_meal_ingredient_id)
+    existing = shopping_list_item_sources.index_by(&:planned_meal_ingredient_id)
 
-    (existing.keys - desired.keys).each { |key| existing.fetch(key).destroy! }
-    (desired.keys - existing.keys).each do |key|
-      source = desired.fetch(key)
-      shopping_list_item_sources.create!(
-        planned_meal: source.planned_meal,
-        recipe_ingredient: source.recipe_ingredient
-      )
+    (existing.keys - desired).each { |key| existing.fetch(key).destroy! }
+    (desired - existing.keys).each do |key|
+      shopping_list_item_sources.create!(planned_meal_ingredient_id: key)
     end
   end
 end
