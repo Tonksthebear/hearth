@@ -39,6 +39,7 @@ Rails.application.routes.draw do
   resource :shopping_list, only: :show do
     resources :items, controller: "shopping_list_items", only: %i[ create edit update destroy ] do
       resource :completion, only: %i[ create destroy ], module: :shopping_list_item
+      resource :pantry_confirmation, only: %i[ new create ], module: :shopping_list_item
     end
   end
   resources :habits, only: %i[ index new create edit update ]

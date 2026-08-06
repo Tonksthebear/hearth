@@ -16,6 +16,22 @@ class ShoppingListItem::CompletionsControllerTest < ActionDispatch::IntegrationT
     assert_equal other_completed_at, other.reload.completed_at
   end
 
+  test "checking a generated deficit off is checklist state only and never confirms pantry stock" do
+    sign_in_as users(:one)
+    item = ShoppingList.for(household: households(:home), date: "2026-07-27").items.find_by!(name: "Lettuce")
+    before = PantryItem.order(:id).pluck(:id, :state, :quantity_numerator, :unit, :confirmation_source, :confirmed_at)
+
+    assert_no_difference "PantryItem.count" do
+      post shopping_list_item_completion_path(item)
+      assert item.reload.completed?
+
+      delete shopping_list_item_completion_path(item)
+      refute item.reload.completed?
+    end
+
+    assert_equal before, PantryItem.order(:id).pluck(:id, :state, :quantity_numerator, :unit, :confirmation_source, :confirmed_at)
+  end
+
   test "unknown and anonymous completion requests cannot mutate items" do
     sign_in_as users(:one)
     assert_no_changes -> { shopping_list_items(:manual_milk).reload.completed_at } do

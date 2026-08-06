@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_040000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -1015,13 +1015,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
 
   create_table "shopping_list_item_sources", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.integer "planned_meal_id", null: false
-    t.integer "recipe_ingredient_id", null: false
+    t.integer "planned_meal_ingredient_id", null: false
     t.integer "shopping_list_item_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["planned_meal_id", "recipe_ingredient_id"], name: "index_shopping_sources_on_plan_and_ingredient", unique: true
-    t.index ["planned_meal_id"], name: "index_shopping_list_item_sources_on_planned_meal_id"
-    t.index ["recipe_ingredient_id"], name: "index_shopping_list_item_sources_on_recipe_ingredient_id"
+    t.index ["planned_meal_ingredient_id"], name: "index_shopping_list_item_sources_on_planned_meal_ingredient_id", unique: true
     t.index ["shopping_list_item_id"], name: "index_shopping_list_item_sources_on_shopping_list_item_id"
   end
 
@@ -1340,8 +1337,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_030000) do
   add_foreign_key "recipe_nutrient_values", "recipes"
   add_foreign_key "recipes", "households"
   add_foreign_key "sessions", "users"
-  add_foreign_key "shopping_list_item_sources", "planned_meals", on_delete: :cascade
-  add_foreign_key "shopping_list_item_sources", "recipe_ingredients", on_delete: :cascade
+  add_foreign_key "shopping_list_item_sources", "planned_meal_ingredients", on_delete: :cascade
   add_foreign_key "shopping_list_item_sources", "shopping_list_items", on_delete: :cascade
   add_foreign_key "shopping_list_items", "ingredients"
   add_foreign_key "shopping_list_items", "shopping_lists", on_delete: :cascade

@@ -170,6 +170,17 @@ class PlannedMealIngredientTest < ActiveSupport::TestCase
     assert_not_equal to_taste, fingerprint(display_quantity: "a pinch", unit: nil, quantity: nil)
   end
 
+  test "the effective decision follows a substitution to its replacement" do
+    substituted = planned_meal_ingredients(:soup_carrots_substituted)
+    assert_equal "unknown", substituted.effective_decision
+
+    substituted.decide_replacement!(:missing)
+    assert_equal "missing", substituted.reload.effective_decision
+
+    assert_equal "on_hand", planned_meal_ingredients(:sam_salad_lettuce).effective_decision
+    assert_equal "not_needed", planned_meal_ingredients(:adjacent_soup_carrots).effective_decision
+  end
+
   private
     def fingerprint(display_quantity:, unit:, quantity:)
       PlannedMealIngredient.requirement_fingerprint(

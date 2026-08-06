@@ -69,7 +69,7 @@ class ShoppingListItemsControllerTest < ActionDispatch::IntegrationTest
 
   test "generated requirements cannot be deleted through the manual item endpoint" do
     sign_in_as users(:one)
-    generated = ShoppingList.for(household: households(:home), date: "2026-07-27").items.find_by!(name: "Carrots")
+    generated = ShoppingList.for(household: households(:home), date: "2026-07-27").items.find_by!(name: "Lettuce")
 
     assert_no_difference "ShoppingListItem.count" do
       delete shopping_list_item_path(generated)
@@ -79,8 +79,8 @@ class ShoppingListItemsControllerTest < ActionDispatch::IntegrationTest
 
   test "edited generated requirement can be deleted after its last source disappears" do
     sign_in_as users(:one)
-    generated = ShoppingList.for(household: households(:home), date: "2026-07-27").items.find_by!(name: "Carrots")
-    assert generated.apply_user_attributes(name: "Farm carrots", quantity: generated.quantity, unit: generated.unit, notes: "Optional")
+    generated = ShoppingList.for(household: households(:home), date: "2026-07-27").items.find_by!(name: "Lettuce")
+    assert generated.apply_user_attributes(name: "Farm lettuce", quantity: generated.quantity, unit: generated.unit, notes: "Optional")
 
     generated.planned_meals.distinct.each(&:destroy!)
     assert_empty generated.reload.shopping_list_item_sources
