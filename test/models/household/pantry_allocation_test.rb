@@ -230,7 +230,7 @@ class Household::PantryAllocationTest < ActiveSupport::TestCase
       sam_dinner
   end
 
-  test "cooking a shared plan releases its reservation exactly once however many people log it" do
+  test "cooking a shared plan consumes its reservation exactly once however many people log it" do
     confirm("Barley", 1, "cup")
     shared = plan(MONDAY, line("Barley", "1", "cup"))
     later = plan(FRIDAY, line("Barley", "1", "cup"))
@@ -239,19 +239,21 @@ class Household::PantryAllocationTest < ActiveSupport::TestCase
     shared.convert_for!(people(:one), today: MONDAY)
     after_first = allocation
 
+    # The plan leaves the queue and takes its stock with it: cooking is the
+    # household action that turns a reservation into consumption.
     assert_nil after_first.readiness_for(shared)
-    assert_equal Rational(1), reserved(after_first, later)
-    assert_equal Rational(1), after_first.reserved_for(ingredient("Barley"))
+    assert_predicate pantry_item("Barley"), :out?
+    assert_equal [ Rational(0), Rational(1) ], [ reserved(after_first, later), deficit(after_first, later) ]
 
     shared.convert_for!(people(:two), today: MONDAY)
     after_second = allocation
 
     assert_nil after_second.readiness_for(shared)
-    assert_equal Rational(1), reserved(after_second, later)
-    assert_equal Rational(1), after_second.reserved_for(ingredient("Barley"))
+    assert_equal [ Rational(0), Rational(1) ], [ reserved(after_second, later), deficit(after_second, later) ]
+    assert_equal [ Rational(1) ], shared.pantry_consumptions.active.map(&:quantity)
   end
 
-  test "cooking a person's own plan releases its reservation" do
+  test "cooking a person's own plan consumes its reservation" do
     confirm("Millet", 1, "cup")
     alex_plan = plan(MONDAY, line("Millet", "1", "cup"), person: people(:one))
     later = plan(FRIDAY, line("Millet", "1", "cup"))
@@ -260,7 +262,8 @@ class Household::PantryAllocationTest < ActiveSupport::TestCase
     allocated = allocation
 
     assert_nil allocated.readiness_for(alex_plan)
-    assert_equal Rational(1), reserved(allocated, later)
+    assert_predicate pantry_item("Millet"), :out?
+    assert_equal [ Rational(0), Rational(1) ], [ reserved(allocated, later), deficit(allocated, later) ]
   end
 
   test "a past plan that was never cooked keeps its place ahead of later meals" do

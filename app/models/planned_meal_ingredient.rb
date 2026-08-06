@@ -13,6 +13,7 @@ class PlannedMealIngredient < ApplicationRecord
   belongs_to :source_recipe_ingredient, class_name: "RecipeIngredient", optional: true, inverse_of: :planned_meal_ingredients
   belongs_to :ingredient, inverse_of: :planned_meal_ingredients
   belongs_to :replacement_ingredient, class_name: "Ingredient", optional: true, inverse_of: :replacement_planned_meal_ingredients
+  has_many :pantry_consumptions, dependent: :restrict_with_exception, inverse_of: :planned_meal_ingredient
 
   enum :decision, {
     unknown: "unknown",
@@ -113,9 +114,15 @@ class PlannedMealIngredient < ApplicationRecord
   end
 
   # Obsolete requirements leave the active set: resolved ones stay as immutable
-  # provenance, untouched ones simply disappear.
+  # provenance, untouched ones simply disappear. A requirement that drew pantry
+  # stock is provenance too — the consumption ledger stamps it as the requirement
+  # that was answered at cooking time, and that claim is never rewritten.
   def discard_or_supersede!(reason, at: Time.current)
-    resolved? ? supersede!(reason, at: at) : destroy!
+    resolved? || drew_pantry_stock? ? supersede!(reason, at: at) : destroy!
+  end
+
+  def drew_pantry_stock?
+    pantry_consumptions.exists?
   end
 
   class << self

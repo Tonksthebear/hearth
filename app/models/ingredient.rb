@@ -9,6 +9,7 @@ class Ingredient < ApplicationRecord
     foreign_key: :replacement_ingredient_id,
     inverse_of: :replacement_ingredient,
     dependent: :restrict_with_exception
+  has_many :pantry_consumptions, dependent: :restrict_with_exception, inverse_of: :ingredient
   has_many :ingredient_nutrient_values, -> { includes(:nutrient).order("nutrients.display_order") },
     dependent: :destroy,
     inverse_of: :ingredient

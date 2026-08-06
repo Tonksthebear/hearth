@@ -116,6 +116,8 @@ class MealsTest < ApplicationSystemTestCase
     travel_to Time.zone.local(2026, 7, 31, 12) do
       sign_in_and_open_meals users(:one)
       plan = planned_meals(:shared_target_week)
+      stock = pantry_items(:out_lettuce)
+      stock.confirm!(quantity: 2, unit: "head", source: "pantry_check", confirmed_by: people(:without_login))
 
       within "li", text: plan.recipe.title, match: :first do
         click_button "Log as eaten"
@@ -124,6 +126,10 @@ class MealsTest < ApplicationSystemTestCase
       alex_meal = plan.meals.find_by!(person: people(:one))
       assert_current_path meal_path(alex_meal), wait: 5
       assert_equal plan.planned_on, alex_meal.eaten_on
+      # The rendered control reaches the reservation lifecycle: cooking drew the
+      # head of lettuce this plan was holding.
+      assert_equal [ "confirmed", Rational(1) ], [ stock.reload.state, stock.quantity ]
+      assert_equal [ Rational(1) ], plan.pantry_consumptions.active.map(&:quantity)
 
       assert_link "Back to meals", href: meal_week_path(date: plan.planned_on)
       visit_and_wait_for_path meal_week_path(date: plan.planned_on)
@@ -141,6 +147,9 @@ class MealsTest < ApplicationSystemTestCase
       sam_meal = plan.meals.find_by!(person: people(:two))
       assert_current_path meal_path(sam_meal), wait: 5
       refute_equal alex_meal.id, sam_meal.id
+      # The second eater records nutrition, not a second cooking event.
+      assert_equal [ "confirmed", Rational(1) ], [ stock.reload.state, stock.quantity ]
+      assert_equal 1, plan.pantry_consumptions.active.count
     end
   end
 
