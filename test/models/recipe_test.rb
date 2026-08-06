@@ -302,22 +302,43 @@ class RecipeTest < ActiveSupport::TestCase
   end
 
   test "ingredient lines expose exact quantities without coercing free text" do
+    attributes = [
+      { display_name: "One", display_quantity: "2", unit: "Cups", position: 1 },
+      { display_name: "Two", display_quantity: "1.25", unit: "GRAMS", position: 2 },
+      { display_name: "Three", display_quantity: "2/3", unit: nil, position: 3 },
+      { display_name: "Four", display_quantity: "1 1/2", unit: "tbsp", position: 4 },
+      { display_name: "Five", display_quantity: "", unit: "cup", position: 5 },
+      { display_name: "Six", display_quantity: "malformed", unit: "package", position: 6 },
+      { display_name: "Seven", display_quantity: "to taste", unit: "pinch", position: 7 },
+      { display_name: "Eight", display_quantity: "1/0", unit: "cup", position: 8 }
+    ]
     recipe = households(:home).recipes.create!(
       title: "Exact quantities",
       provenance_status: :personal,
-      recipe_ingredients_attributes: [
-        { display_name: "One", display_quantity: "2", position: 1 },
-        { display_name: "Two", display_quantity: "1.25", position: 2 },
-        { display_name: "Three", display_quantity: "2/3", position: 3 },
-        { display_name: "Four", display_quantity: "1 1/2", position: 4 },
-        { display_name: "Five", display_quantity: "to taste", position: 5 },
-        { display_name: "Six", display_quantity: "1/0", position: 6 }
-      ]
+      recipe_ingredients_attributes: attributes
     )
 
-    assert_equal [ Rational(2), Rational(5, 4), Rational(2, 3), Rational(3, 2), nil, nil ],
-      recipe.recipe_ingredients.map(&:quantity)
-    assert_equal [ "to taste", "1/0" ], recipe.recipe_ingredients.last(2).map(&:display_quantity)
+    lines = recipe.reload.recipe_ingredients
+    assert_equal [ Rational(2), Rational(5, 4), Rational(2, 3), Rational(3, 2), nil, nil, nil, nil ], lines.map(&:quantity)
+    assert_equal [ [ 2, 1 ], [ 5, 4 ], [ 2, 3 ], [ 3, 2 ], [ nil, nil ], [ nil, nil ], [ nil, nil ], [ nil, nil ] ],
+      lines.map { |line| [ line.quantity_numerator, line.quantity_denominator ] }
+    assert_equal attributes.map { |item| item[:display_quantity] }, lines.map(&:display_quantity)
+    assert_equal attributes.map { |item| item[:unit] }, lines.map(&:unit)
+  end
+
+  test "recipe import persists parsed quantities without rewriting authored units" do
+    recipe = Recipe.import!(household: households(:home), attributes: valid_import_attributes.deep_merge(
+      recipe_ingredients_attributes: [
+        { name: "First", amount: "1 1/2", unit: "Cups" },
+        { name: "Second", amount: "to taste", unit: "pinch" }
+      ]
+    ))
+
+    parsed, free_text = recipe.reload.recipe_ingredients
+    assert_equal Rational(3, 2), parsed.quantity
+    assert_equal [ "1 1/2", "Cups" ], parsed.values_at(:display_quantity, :unit)
+    assert_nil free_text.quantity
+    assert_equal [ "to taste", "pinch" ], free_text.values_at(:display_quantity, :unit)
   end
 
   test "ingredient lines reject canonical records from another household object" do
