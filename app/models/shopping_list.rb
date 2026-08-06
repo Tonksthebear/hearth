@@ -93,7 +93,7 @@ class ShoppingList < ApplicationRecord
     def requirement_for(key, sources)
       first = sources.first.reservation
       quantity, unit = if first.measurable?
-        [ format_quantity(sources.sum { |source| source.reservation.deficit_quantity }), canonical_unit_label(first.measurement) ]
+        [ Ingredient::Measurement.format_quantity(sources.sum { |source| source.reservation.deficit_quantity }), canonical_unit_label(first.measurement) ]
       else
         [ first.display_quantity.to_s.strip.presence, normalized_unit(first.measurement.display_unit) ]
       end
@@ -152,18 +152,5 @@ class ShoppingList < ApplicationRecord
     # "count" label pantry rows persist.
     def canonical_unit_label(measurement)
       measurement.normalized_label unless measurement.canonical_unit == Ingredient::Measurement::GENERIC_COUNT.canonical_unit
-    end
-
-    def format_quantity(quantity)
-      return quantity.numerator.to_s if quantity.denominator == 1
-      return quantity.to_f.to_s if finite_decimal?(quantity.denominator)
-
-      "#{quantity.numerator}/#{quantity.denominator}"
-    end
-
-    def finite_decimal?(denominator)
-      denominator /= 2 while denominator.even?
-      denominator /= 5 while (denominator % 5).zero?
-      denominator == 1
     end
 end

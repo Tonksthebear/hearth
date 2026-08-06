@@ -47,6 +47,26 @@ class Ingredient::Measurement
 
   attr_reader :display_quantity, :display_unit, :quantity
 
+  class << self
+    # The one rendering of an exact allocation amount. Rationals are the currency
+    # of every measurable path here, so a whole number, a finite decimal, and a
+    # repeating fraction each need a faithful display and none of them may be
+    # rounded into a different amount than the one that was reserved.
+    def format_quantity(quantity)
+      return quantity.numerator.to_s if quantity.denominator == 1
+      return quantity.to_f.to_s if finite_decimal?(quantity.denominator)
+
+      "#{quantity.numerator}/#{quantity.denominator}"
+    end
+
+    private
+      def finite_decimal?(denominator)
+        denominator /= 2 while denominator.even?
+        denominator /= 5 while (denominator % 5).zero?
+        denominator == 1
+      end
+  end
+
   def initialize(quantity:, unit:)
     @display_quantity = immutable_copy(quantity)
     @display_unit = immutable_copy(unit)

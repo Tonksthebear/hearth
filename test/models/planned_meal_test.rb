@@ -271,6 +271,61 @@ class PlannedMealTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { planned_meals(:shared_target_week).prioritize_before!(stranger) }
   end
 
+  test "the ingredient review is open until the plan is cooked" do
+    plan = planned_meals(:shared_target_week)
+
+    assert_predicate plan, :ingredient_review_open?
+    assert_predicate plan, :ingredients_awaiting_review?
+
+    plan.convert_for!(people(:one), today: plan.planned_on)
+
+    assert_not_predicate plan, :ingredient_review_open?
+    assert_not_predicate plan, :ingredients_awaiting_review?
+  end
+
+  test "a plan with every requirement answered is no longer awaiting review" do
+    plan = planned_meals(:sam_target_week)
+
+    assert_predicate plan, :ingredient_review_open?
+    assert_not_predicate plan, :ingredients_awaiting_review?
+  end
+
+  test "the fast path answers only the requirements the household has not decided" do
+    plan = planned_meals(:shared_soup_target_week)
+    recipes(:observed_soup).recipe_ingredients.create!(display_name: "Rolled oats", display_quantity: "1", unit: "cup", position: 2)
+    plan.reconcile_ingredient_snapshots!
+    substituted = planned_meal_ingredients(:soup_carrots_substituted)
+
+    plan.mark_remaining_ingredients_on_hand!(by: people(:one))
+
+    assert_equal "on_hand", plan.planned_meal_ingredients.active.find_by!(ingredient: ingredients(:rolled_oats)).decision
+    # A bulk convenience never reverses an explicit choice, so the substitution and
+    # its still-unresolved replacement are left exactly as the household set them.
+    assert_predicate substituted.reload, :substituted?
+    assert_equal "unknown", substituted.replacement_decision
+  end
+
+  test "the fast path leaves missing and not needed decisions alone" do
+    plan = planned_meals(:shared_target_week)
+    planned_meal_ingredients(:shared_salad_lettuce).decide!(:missing)
+
+    plan.mark_remaining_ingredients_on_hand!(by: people(:one))
+
+    assert_equal "missing", planned_meal_ingredients(:shared_salad_lettuce).reload.decision
+    assert_equal "not_needed", planned_meal_ingredients(:adjacent_soup_carrots).reload.decision
+  end
+
+  test "the fast path never touches a superseded requirement and is idempotent" do
+    plan = planned_meals(:adjacent_week)
+    superseded = planned_meal_ingredients(:adjacent_free_text_history)
+
+    2.times { plan.mark_remaining_ingredients_on_hand!(by: people(:one)) }
+
+    assert_equal "missing", superseded.reload.decision
+    assert_not_nil superseded.superseded_at
+    assert_equal "not_needed", planned_meal_ingredients(:adjacent_soup_carrots).reload.decision
+  end
+
   private
     def create_plan(planned_on:)
       PlannedMeal.create!(household: households(:home), recipe: recipes(:porridge), planned_on: planned_on)

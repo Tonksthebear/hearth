@@ -1,0 +1,128 @@
+<li id="requirement-<%= row.requirement.id %>"
+  data-decision="<%= row.requirement.decision %>"
+  data-resolved="<%= row.resolved? %>"
+  class="px-4 py-5 sm:px-6">
+  <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+    <div class="min-w-0 flex-auto">
+      <p class="text-sm/6 font-semibold text-gray-900 dark:text-white">
+        <% if row.measurable? %>
+          <span class="mr-1 text-primary-700 dark:text-primary-400"><%= row.required_amount %></span>
+        <% end %>
+        <%= row.requirement.display_name %>
+      </p>
+      <% if row.substituted? %>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          Substituted → <span class="font-medium text-gray-900 dark:text-white"><%= row.display_name %></span>
+        </p>
+      <% end %>
+    </div>
+    <p data-decision-label class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-300"><%= row.decision_label %></p>
+  </div>
+
+  <dl class="mt-3 divide-y divide-gray-100 text-sm/6 dark:divide-white/5">
+    <div class="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+      <dt class="font-medium text-gray-900 dark:text-gray-100">Required</dt>
+      <dd data-requirement-fact="required" class="mt-1 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300">
+        <%= row.measurable? ? row.required_amount : "#{row.source_amount} (not measurable)" %>
+      </dd>
+    </div>
+    <div class="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+      <dt class="font-medium text-gray-900 dark:text-gray-100">In your pantry</dt>
+      <dd data-requirement-fact="pantry" class="mt-1 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300">
+        <%= [ row.pantry_state_label, row.pantry_amount ].compact.join(" · ") %>
+        <% if row.pantry_evidence_incompatible? %>
+          <span class="block text-gray-500 dark:text-gray-400">
+            Your pantry measures this in a different way, so Hearth leaves that record alone rather than converting it.
+          </span>
+        <% end %>
+      </dd>
+    </div>
+    <% if row.measurable? %>
+      <div class="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+        <dt class="font-medium text-gray-900 dark:text-gray-100">Queued across your meals</dt>
+        <dd data-requirement-fact="queued-demand" class="mt-1 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300">
+          <%= row.queued_demand_amount %>
+          <% if row.incompatible_demand? %>
+            <span class="block text-gray-500 dark:text-gray-400">
+              <%= pluralize(row.incompatible_contributions, "other plan") %> ask for this in a different unit and are left out of the total.
+            </span>
+          <% end %>
+        </dd>
+      </div>
+      <div class="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+        <dt class="font-medium text-gray-900 dark:text-gray-100">Reserved for this meal</dt>
+        <dd data-requirement-fact="reserved" class="mt-1 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300"><%= row.reserved_amount %></dd>
+      </div>
+      <% if row.resolved? %>
+        <div class="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+          <dt class="font-medium text-gray-900 dark:text-gray-100">Short by</dt>
+          <dd data-requirement-fact="deficit" class="mt-1 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300"><%= row.deficit_amount %></dd>
+        </div>
+      <% end %>
+    <% end %>
+  </dl>
+
+  <% if row.contributions.any? %>
+    <dl class="mt-2 divide-y divide-gray-900/10 dark:divide-white/10">
+      <%= render Elements::DisclosureComponent.new do |disclosure| %>
+        <div class="py-2">
+          <dt>
+            <%= disclosure.button(class: "flex w-full items-start justify-between text-left text-sm/6 text-gray-700 dark:text-gray-300") do %>
+              <span class="font-semibold"><%= pluralize(row.contributions.size, "contributing meal") %></span>
+              <span class="ml-6 flex h-6 items-center">
+                <%= icon "chevron-down", class: "size-5 transition in-aria-expanded:rotate-180" %>
+              </span>
+            <% end %>
+          </dt>
+          <%= disclosure.panel do %>
+            <dd class="mt-2 pr-8">
+              <ol class="grid gap-1 text-sm/6 text-gray-600 dark:text-gray-400">
+                <% row.contributions.each do |contribution| %>
+                  <li data-contribution-anonymous="<%= contribution.anonymous? %>" data-contribution-current="<%= contribution.current? %>">
+                    <%= contribution.planned_on.to_fs(:long) %> ·
+                    <%= contribution.anonymous? ? "Another household plan" : contribution.recipe_title %><%= " (this meal)" if contribution.current? %> ·
+                    reserved <%= Ingredient::Measurement.format_quantity(contribution.reserved_quantity) %>
+                    of <%= Ingredient::Measurement.format_quantity(contribution.required_quantity) %>
+                    <%= contribution.measurement.display_unit %>
+                  </li>
+                <% end %>
+              </ol>
+            </dd>
+          <% end %>
+        </div>
+      <% end %>
+    </dl>
+  <% end %>
+
+  <% if resolvable %>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <% if row.replacement_resolvable? %>
+        <%= button_to "On hand", planned_meal_ingredient_replacement_decision_path(row.requirement),
+          method: :patch, params: { replacement_decision: "on_hand" },
+          form: { aria: { label: "Mark #{row.display_name} on hand" } },
+          class: yass(btn: [ :base, { md: :base }, { primary: :solid } ]) %>
+        <%= button_to "Add to list", planned_meal_ingredient_replacement_decision_path(row.requirement),
+          method: :patch, params: { replacement_decision: "missing" },
+          form: { aria: { label: "Add #{row.display_name} to the shopping list" } },
+          class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+      <% else %>
+        <%= button_to "On hand", planned_meal_ingredient_decision_path(row.requirement),
+          method: :patch, params: { decision: "on_hand" },
+          form: { aria: { label: "Mark #{row.requirement.display_name} on hand" } },
+          class: yass(btn: [ :base, { md: :base }, { primary: :solid } ]) %>
+        <%= button_to "Add to list", planned_meal_ingredient_decision_path(row.requirement),
+          method: :patch, params: { decision: "missing" },
+          form: { aria: { label: "Add #{row.requirement.display_name} to the shopping list" } },
+          class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+      <% end %>
+      <%= link_to row.substituted? ? "Change substitute" : "Substitute",
+        new_planned_meal_ingredient_substitution_path(row.requirement),
+        data: { turbo_prefetch: false },
+        class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+      <%= button_to "Not needed", planned_meal_ingredient_decision_path(row.requirement),
+        method: :patch, params: { decision: "not_needed" },
+        form: { aria: { label: "Mark #{row.requirement.display_name} not needed" } },
+        class: "text-sm font-medium text-gray-700 underline hover:no-underline dark:text-gray-300" %>
+    </div>
+  <% end %>
+</li>

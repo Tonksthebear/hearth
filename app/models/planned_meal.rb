@@ -77,6 +77,46 @@ class PlannedMeal < ApplicationRecord
     meals.find_by!(person:)
   end
 
+  # The ingredient review answers for a plan that is still queued for allocation.
+  # Cooking removes the plan from that queue and draws its stock, so afterwards
+  # there is no projection left to review and the page renders a terminal state
+  # rather than an error. Matches the allocatable scope exactly.
+  def ingredient_review_open?
+    meals.empty?
+  end
+
+  # Whether the fast path still has anything to decide.
+  def ingredients_awaiting_review?
+    ingredient_review_open? && planned_meal_ingredients.active.unknown.exists?
+  end
+
+  # Runs a review command inside this plan's own lock, rechecking the lifecycle
+  # from the row the transaction reloaded. convert_for! takes the same lock before
+  # it draws stock, so the two serialize and whichever starts second sees what the
+  # other committed.
+  #
+  # Asking ingredient_review_open? anywhere outside this boundary is check-then-
+  # act: cooking can commit in the gap, and the write would then rewrite a
+  # decision the contract keeps as history — or, for an "on hand", confirm pantry
+  # evidence for stock this plan has already drawn.
+  def with_open_review
+    with_lock do
+      raise ActiveRecord::RecordNotFound, "The ingredient review for planned meal #{id} is closed" unless ingredient_review_open?
+
+      yield
+    end
+  end
+
+  # One tap for the common case: everything still undecided is on the shelf. Rows
+  # the household already decided missing, substituted, or not needed are explicit
+  # choices, and a bulk convenience never silently reverses one.
+  def mark_remaining_ingredients_on_hand!(by:, at: Time.current)
+    with_open_review do
+      planned_meal_ingredients.active.unknown.ordered.each { |requirement| requirement.answer!(:on_hand, by: by, at: at) }
+    end
+    self
+  end
+
   # Undo for the cooking event: once the last Meal is gone the plan re-enters the
   # allocation queue, so every draw it still holds is settled. Replay credits
   # nothing further because the ledger, not inference, is the guard.

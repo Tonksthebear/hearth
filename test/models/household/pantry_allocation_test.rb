@@ -356,6 +356,43 @@ class Household::PantryAllocationTest < ActiveSupport::TestCase
     assert_equal before, [ requirement_snapshot, pantry_snapshot ]
   end
 
+  test "contributions record every competing plan in the order stock was handed out" do
+    confirm("Beans", 3, "can")
+    monday = plan(MONDAY, line("Beans", "2", "can"))
+    friday = plan(FRIDAY, line("Beans", "2", "can"))
+
+    allocated = allocation
+    contributions = allocated.contributions_for(ingredient("Beans"))
+
+    assert_equal [ monday, friday ], contributions.map(&:planned_meal)
+    assert_equal [ Rational(2), Rational(1) ], contributions.map { |contribution| contribution.reservation.reserved_quantity }
+  end
+
+  test "a not needed or unmeasurable requirement is never recorded as a contribution" do
+    confirm("Beans", 3, "can")
+    monday = plan(MONDAY, line("Beans", "2", "can"))
+    skipped = plan(FRIDAY, line("Beans", "1", "can"))
+    requirement(skipped, "Beans").decide!(:not_needed)
+    plan(THURSDAY, line("Beans", "a handful", nil))
+
+    assert_equal [ monday ], allocation.contributions_for(ingredient("Beans")).map(&:planned_meal)
+  end
+
+  test "the pantry row for an ingredient is answered without a further query" do
+    confirm("Beans", 3, "can")
+    plan(MONDAY, line("Beans", "2", "can"))
+    beans = ingredient("Beans")
+    untracked = ingredient("Untracked spice")
+    allocated = allocation
+
+    # A review renders one row per requirement, so a per-row pantry lookup would
+    # grow the page's query count with the recipe.
+    assert_no_queries do
+      assert_equal Rational(3), allocated.pantry_item_for(beans).quantity
+      assert_nil allocated.pantry_item_for(untracked)
+    end
+  end
+
   private
     def allocation
       Household::PantryAllocation.new(households(:home))

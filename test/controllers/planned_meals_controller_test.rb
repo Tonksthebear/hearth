@@ -18,8 +18,13 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     planned_meal = PlannedMeal.order(:created_at).last
     assert_equal households(:home), planned_meal.household
     assert_equal people(:one), planned_meal.person
-    assert_redirected_to meal_week_path(date: "2026-07-27")
+    # Planning hands the household straight to the ingredient check for the plan
+    # it just created, which is the flow's production entry point.
+    assert_redirected_to planned_meal_ingredient_review_path(planned_meal)
     assert_response :see_other
+    follow_redirect!
+    assert_response :success
+    assert_select "h1", text: recipes(:porridge).title
     assert ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
     # A brand new plan carries only unknown decisions, so it contributes no
     # confirmed deficit until the household resolves its requirements.

@@ -80,6 +80,12 @@ class PantryReadinessContractTest < ActiveSupport::TestCase
     assert_equal decisions.keys, PlannedMealIngredient.decisions.keys
     assert_equal %w[ unknown on_hand missing ], PlannedMealIngredient.replacement_decisions.keys
     assert_equal pantry_states.keys, PantryItem.states.keys
+
+    # The ingredient review renders these labels, so the vocabulary the household
+    # reads is pinned to the normative document rather than hand-copied into a view.
+    assert_equal decisions, PlannedMealIngredient::DECISION_LABELS
+    assert_equal pantry_states, PantryItem::STATE_LABELS
+    assert_equal readiness, Household::PantryAllocation::STATE_LABELS.transform_keys(&:to_s)
   end
 
   test "scenarios pin the cross-ticket acceptance outcomes" do

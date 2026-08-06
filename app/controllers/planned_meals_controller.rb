@@ -9,7 +9,9 @@ class PlannedMealsController < ApplicationController
     )
 
     if planned_meal.save
-      redirect_to meal_week_path(date: week_for(planned_meal.planned_on)),
+      # Planning a meal hands the household straight to its ingredient check,
+      # which is the point at which the new requirements are all still unknown.
+      redirect_to planned_meal_ingredient_review_path(planned_meal),
         notice: "#{planned_meal.recipe.title} was added to the plan.",
         status: :see_other
     else
