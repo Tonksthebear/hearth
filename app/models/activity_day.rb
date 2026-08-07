@@ -49,7 +49,6 @@ class ActivityDay
     def load_habit_check_ins
       HabitCheckIn
         .where(person_habit_id: @person_habits.map(&:id), checked_on: date)
-        .includes(:person_habit)
         .to_a
     end
 
