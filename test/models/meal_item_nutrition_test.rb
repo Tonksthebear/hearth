@@ -15,8 +15,10 @@ class MealItemNutritionTest < ActiveSupport::TestCase
     assert_equal BigDecimal("9.2625"), item.meal_item_nutrient_values.find_by!(snapshot_key: "protein").amount
   end
 
-  test "upstream and note-only edits do not rewrite history but portion correction does" do
+  test "historical snapshots stay immutable until the logged portion changes" do
     item = meal_items(:alex_salad)
+    item.meal_item_nutrient_values.update_all(snapshot_calculation_kind: "explicit")
+    item.update_columns(nutrition_estimated: false)
     before = item.meal_item_nutrient_values.order(:snapshot_key).map { |value| value.attributes.except("id", "created_at", "updated_at") }
 
     item.recipe.update!(title: "Changed title", serving_count: 4)
@@ -25,9 +27,11 @@ class MealItemNutritionTest < ActiveSupport::TestCase
     item.update!(notes: "Meal note only")
 
     assert_equal before, item.reload.meal_item_nutrient_values.order(:snapshot_key).map { |value| value.attributes.except("id", "created_at", "updated_at") }
+    assert_equal "complete", item.nutrition_status
 
     item.update!(portion_amount: 2)
     assert_equal BigDecimal("6.175"), item.meal_item_nutrient_values.find_by!(snapshot_key: "protein").amount
+    assert_equal "estimated", item.nutrition_status
   end
 
   test "unsupported or absent portions remain incomplete without false zero rows" do

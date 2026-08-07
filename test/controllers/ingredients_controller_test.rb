@@ -9,7 +9,16 @@ class IngredientsControllerTest < ActionDispatch::IntegrationTest
 
     get ingredients_path
     assert_response :success
+    assert_select "nav[aria-label='Primary'] a[aria-current='page']", text: "Meals"
+    assert_select "nav[aria-label='Meals'] a[aria-current='page']", text: "Recipes"
+    assert_select "table[data-nutrition-table]", text: /Lettuce.*Complete/m
+    assert_select "table[data-nutrition-table]", text: /Carrots.*No values/m
     assert_select "a[href='#{edit_ingredient_path(ingredients(:lettuce))}']", text: "Edit"
+
+    get ingredients_path, params: { q: "blue" }
+    assert_response :success
+    assert_select "tr", text: /Blueberries/
+    assert_select "tr", text: /Lettuce/, count: 0
 
     get edit_ingredient_path(ingredients(:lettuce))
     assert_response :success

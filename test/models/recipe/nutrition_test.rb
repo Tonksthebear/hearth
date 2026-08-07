@@ -13,21 +13,18 @@ class Recipe::NutritionTest < ActiveSupport::TestCase
 
     assert_equal BigDecimal("6.175"), result.amount
     assert result.complete
-    assert result.estimated
     assert_equal "6.18 g", result.formatted_amount
   end
 
-  test "explicit zero overrides an estimate only for its nutrient" do
+  test "legacy recipe values do not override ingredient-derived nutrition" do
     recipe = recipes(:salad)
     recipe.recipe_nutrient_values.create!(nutrient: nutrients(:protein), amount: 0)
 
     protein = recipe.nutrition.result_for(nutrients(:protein))
     energy = recipe.nutrition.result_for(nutrients(:energy))
 
-    assert_equal BigDecimal("0"), protein.amount
-    assert_not protein.estimated
+    assert_equal BigDecimal("6.175"), protein.amount
     assert_equal BigDecimal("0"), energy.amount
-    assert energy.estimated
   end
 
   test "missing serving count gram weight or ingredient value remains visible" do

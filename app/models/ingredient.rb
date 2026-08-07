@@ -1,4 +1,14 @@
 class Ingredient < ApplicationRecord
+  NutritionCoverage = Data.define(:known_count, :total_count, :status) do
+    def label
+      case status
+      when "complete" then "Complete"
+      when "unavailable" then "No values"
+      else "#{known_count} of #{total_count} known"
+      end
+    end
+  end
+
   belongs_to :household
   has_many :recipe_ingredients, dependent: :restrict_with_exception
   has_many :meal_items, dependent: :restrict_with_exception
@@ -26,6 +36,15 @@ class Ingredient < ApplicationRecord
 
   before_validation :normalize_identity
 
+  scope :matching, ->(query) {
+    if query.present?
+      pattern = "%#{sanitize_sql_like(Ingredient.normalize_name(query), "!")}%"
+      where("normalized_name LIKE ? ESCAPE '!'", pattern)
+    else
+      all
+    end
+  }
+
   validates :name, presence: true
   validates :normalized_name, presence: true, uniqueness: { scope: :household_id }
   validates :nutrition_provenance_status, presence: true, if: :nutrition_profile_required?
@@ -51,6 +70,22 @@ class Ingredient < ApplicationRecord
     rescue ActiveRecord::RecordNotUnique
       household.ingredients.find_by!(normalized_name: normalize_name(name))
     end
+  end
+
+  def nutrition_coverage(nutrients)
+    nutrient_ids = nutrients.map(&:id)
+    known_count = ingredient_nutrient_values.count do |value|
+      nutrient_ids.include?(value.nutrient_id) && !value.amount_per_100_grams.nil?
+    end
+    status = if nutrient_ids.empty? || known_count.zero?
+      "unavailable"
+    elsif known_count == nutrient_ids.size
+      "complete"
+    else
+      "incomplete"
+    end
+
+    NutritionCoverage.new(known_count:, total_count: nutrient_ids.size, status:)
   end
 
   private

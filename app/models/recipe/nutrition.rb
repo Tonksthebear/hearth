@@ -1,15 +1,7 @@
 class Recipe::Nutrition
-  Result = Data.define(:nutrient, :amount, :complete, :estimated, :calculation_kind, :source_name, :provenance_status) do
+  Result = Data.define(:nutrient, :amount, :complete, :source_name, :provenance_status) do
     def formatted_amount
       Nutrient.format_amount(amount, unit: nutrient.unit)
-    end
-
-    def status
-      return "explicit fact" unless estimated
-      return "complete estimate" if complete
-      return "incomplete estimate" if amount
-
-      "missing data"
     end
   end
 
@@ -24,29 +16,10 @@ class Recipe::Nutrition
   end
 
   def result_for(nutrient)
-    explicit = explicit_values_by_nutrient_id[nutrient.id]
-    return explicit_result(nutrient, explicit) if explicit
-
     estimated_result(nutrient)
   end
 
   private
-    def explicit_values_by_nutrient_id
-      @explicit_values_by_nutrient_id ||= recipe.recipe_nutrient_values.reject(&:marked_for_destruction?).index_by(&:nutrient_id)
-    end
-
-    def explicit_result(nutrient, value)
-      Result.new(
-        nutrient: nutrient,
-        amount: BigDecimal(value.amount.to_s),
-        complete: true,
-        estimated: false,
-        calculation_kind: "explicit",
-        source_name: recipe.source_name,
-        provenance_status: recipe.provenance_status
-      )
-    end
-
     def estimated_result(nutrient)
       serving_count = decimal(recipe.serving_count)
       return missing_result(nutrient) unless serving_count&.positive?
@@ -70,8 +43,6 @@ class Recipe::Nutrition
         nutrient: nutrient,
         amount: amount,
         complete: complete,
-        estimated: true,
-        calculation_kind: "estimated",
         source_name: recipe.source_name,
         provenance_status: recipe.provenance_status
       )
@@ -82,8 +53,6 @@ class Recipe::Nutrition
         nutrient: nutrient,
         amount: nil,
         complete: false,
-        estimated: true,
-        calculation_kind: "estimated",
         source_name: recipe.source_name,
         provenance_status: recipe.provenance_status
       )

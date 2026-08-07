@@ -1,37 +1,98 @@
 <% content_for :title, "Ingredient nutrition · Hearth" %>
 <%= render "layouts/meals_navigation" %>
 
-<section aria-labelledby="ingredients-heading">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
-      <h1 id="ingredients-heading" class="mt-2 text-3xl font-semibold tracking-tight">Ingredient nutrition</h1>
-      <p class="mt-2 max-w-2xl text-gray-600 dark:text-gray-400">Record known values per 100 grams. A blank value is missing; zero is a known zero.</p>
-    </div>
-    <%= link_to "Back to recipes", recipes_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+<section aria-labelledby="ingredients-heading" class="max-w-7xl">
+  <nav aria-label="Breadcrumb">
+    <ol role="list" class="flex items-center gap-2 text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">
+      <li><%= link_to "Recipes", recipes_path, class: "font-medium hover:text-gray-700 dark:hover:text-gray-200" %></li>
+      <li aria-hidden="true" class="text-gray-300 dark:text-gray-600">/</li>
+      <li aria-current="page" class="font-medium">Ingredient nutrition</li>
+    </ol>
+  </nav>
+
+  <div class="mt-4">
+    <h1 id="ingredients-heading" class="text-balance text-3xl font-semibold tracking-tight">Ingredient nutrition</h1>
+    <p class="mt-2 max-w-[64ch] text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">Values are recorded per 100 grams. A dash means unknown; zero means the amount is known to be zero.</p>
   </div>
 
-  <div class="mt-8 flow-root overflow-x-auto">
-    <table class="<%= yass(nutrition_table: :table) %>" data-nutrition-table>
-      <thead class="<%= yass(nutrition_table: :head) %>">
-        <tr>
-          <th scope="col" class="<%= yass(nutrition_table: :heading) %>">Ingredient</th>
-          <% @nutrients.each do |nutrient| %><th scope="col" class="<%= yass(nutrition_table: :heading) %>"><%= nutrient.name %></th><% end %>
-          <th scope="col" class="py-3.5 pl-3"><span class="sr-only">Edit</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @ingredients.each do |ingredient| %>
-          <% values = ingredient.ingredient_nutrient_values.index_by(&:nutrient_id) %>
-          <tr class="<%= yass(nutrition_table: :row) %>">
-            <th scope="row" class="<%= yass(nutrition_table: :label) %>"><%= ingredient.name %></th>
-            <% @nutrients.each do |nutrient| %>
-              <td class="<%= yass(nutrition_table: :value) %>"><%= Nutrient.format_amount(values[nutrient.id]&.amount_per_100_grams, unit: nutrient.unit) %></td>
-            <% end %>
-            <td class="py-5 pl-3 text-right text-sm"><%= link_to "Edit", edit_ingredient_path(ingredient), class: "font-semibold text-primary-700 underline dark:text-primary-300" %></td>
-          </tr>
+  <%= form_with url: ingredients_path, method: :get, class: "mt-8 grid max-w-2xl gap-3 rounded-xl bg-white p-4 ring-1 ring-gray-950/10 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end dark:bg-white/5 dark:ring-white/10" do |form| %>
+    <div class="min-w-0">
+      <%= form.label :q, "Search ingredients", class: :label %>
+      <div class="mt-2"><%= form.search_field :q, value: @query, placeholder: "Ingredient name", class: :text_field %></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <%= form.submit "Search", class: { btn: [ :base, { lg: :base }, { neutral: :outline } ] } %>
+      <% if @query.present? %><%= link_to "Clear", ingredients_path, class: yass(btn: [ :base, { lg: :base }, { neutral: :ghost } ]) %><% end %>
+    </div>
+  <% end %>
+
+  <section aria-labelledby="ingredient-results-heading" class="mt-8 min-w-0">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 id="ingredient-results-heading" class="text-balance text-xl font-semibold text-gray-900 dark:text-white"><%= @query.present? ? "Results" : "Household ingredients" %></h2>
+      <p class="tabular-nums text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= pluralize(@ingredients.size, "ingredient") %></p>
+    </div>
+
+    <% if @ingredients.any? %>
+      <% nutrition_rows = @ingredients.map { |ingredient| [ ingredient, ingredient.ingredient_nutrient_values.index_by(&:nutrient_id), ingredient.nutrition_coverage(@nutrients) ] } %>
+
+      <ul role="list" data-nutrition-list class="mt-4 divide-y divide-gray-950/10 border-y border-gray-950/10 lg:hidden dark:divide-white/10 dark:border-white/10">
+        <% nutrition_rows.each do |ingredient, values, coverage| %>
+          <li class="py-5">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h3 class="text-base/7 font-semibold text-gray-900 dark:text-white"><%= ingredient.name %></h3>
+                <p class="mt-1"><span class="<%= yass(nutrition_badge: [ :base, :md, coverage.status.to_sym ]) %>"><%= coverage.label %></span></p>
+              </div>
+              <%= link_to "Edit", edit_ingredient_path(ingredient), class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %>
+            </div>
+
+            <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-4">
+              <% @nutrients.each do |nutrient| %>
+                <div>
+                  <dt class="text-base/7 font-medium text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= nutrient.name %></dt>
+                  <dd class="mt-0.5 text-base/7 tabular-nums text-gray-900 dark:text-white"><%= Nutrient.format_amount(values[nutrient.id]&.amount_per_100_grams, unit: nutrient.unit) %></dd>
+                </div>
+              <% end %>
+            </dl>
+          </li>
         <% end %>
-      </tbody>
-    </table>
-  </div>
+      </ul>
+
+      <div class="-mx-4 -mb-2 mt-2 max-lg:hidden overflow-x-auto whitespace-nowrap sm:-mx-6 lg:-mx-8">
+        <div class="inline-block min-w-full px-4 py-2 align-middle sm:px-6 lg:px-8">
+          <table class="w-full min-w-max" data-nutrition-table>
+            <caption class="sr-only">Known nutrient values per 100 grams for household ingredients.</caption>
+            <thead class="border-b border-gray-950/15 text-gray-900 dark:border-white/15 dark:text-white">
+              <tr>
+                <th scope="col" class="sticky left-0 z-10 whitespace-nowrap bg-gray-50 py-3.5 pr-6 text-left text-sm font-semibold dark:bg-gray-900">Ingredient</th>
+                <% @nutrients.each do |nutrient| %><th scope="col" class="whitespace-nowrap px-4 py-3.5 text-right text-sm font-semibold"><%= nutrient.name %></th><% end %>
+                <th scope="col" class="whitespace-nowrap py-3.5 pl-6 text-right"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-950/5 dark:divide-white/10">
+              <% nutrition_rows.each do |ingredient, values, coverage| %>
+                <tr>
+                  <th scope="row" class="sticky left-0 z-10 bg-gray-50 py-4 pr-6 text-left dark:bg-gray-900">
+                    <p class="text-sm/6 font-medium text-gray-900 dark:text-white"><%= ingredient.name %></p>
+                    <p class="mt-1"><span class="<%= yass(nutrition_badge: [ :base, :md, coverage.status.to_sym ]) %>"><%= coverage.label %></span></p>
+                  </th>
+                  <% @nutrients.each do |nutrient| %>
+                    <td class="px-4 py-4 text-right text-sm/6 tabular-nums text-gray-600 dark:text-gray-400"><%= Nutrient.format_amount(values[nutrient.id]&.amount_per_100_grams, unit: nutrient.unit) %></td>
+                  <% end %>
+                  <td class="py-4 pl-6 text-right"><%= link_to "Edit", edit_ingredient_path(ingredient), class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% else %>
+      <div class="mt-4 rounded-xl border border-dashed border-gray-950/15 px-6 py-10 text-center dark:border-white/15">
+        <h3 class="text-balance font-semibold text-gray-900 dark:text-white">No ingredients found</h3>
+        <p class="mx-auto mt-1 max-w-[48ch] text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">Try a different ingredient name.</p>
+      </div>
+    <% end %>
+  </section>
+
+  <p class="mt-8 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Nutrition values support household tracking and are not medical advice.</p>
 </section>

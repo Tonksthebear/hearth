@@ -18,7 +18,7 @@ class MealWeek
     @household = household
     @person = person
     @start_date = date.beginning_of_week(:monday)
-    @planned_meal = planned_meal || household.planned_meals.build(planned_on: date)
+    @planned_meal = planned_meal || household.planned_meals.build(planned_on: action_date)
   end
 
   def end_date
@@ -31,6 +31,30 @@ class MealWeek
 
   def days
     date_range.to_a
+  end
+
+  def current_week?
+    Date.current.in?(date_range)
+  end
+
+  def agenda_days
+    return days.select { |day| activity_on?(day) } unless current_week?
+
+    [ Date.current, *days.select { |day| day > Date.current && activity_on?(day) } ]
+  end
+
+  def earlier_days
+    current_week? ? days.select { |day| day < Date.current && activity_on?(day) } : []
+  end
+
+  def earlier_days_need_attention?
+    return @earlier_days_need_attention if defined?(@earlier_days_need_attention)
+
+    @earlier_days_need_attention = earlier_days.any? do |day|
+      planned_meals_for(day).any? do |planned_meal|
+        !converted_meal_for(planned_meal) && planned_meal.convertible_by?(person)
+      end
+    end
   end
 
   def planned_meals
@@ -69,7 +93,7 @@ class MealWeek
   end
 
   def logging_date
-    Date.current.in?(date_range) ? Date.current : start_date
+    action_date
   end
 
   def recipes
@@ -101,6 +125,14 @@ class MealWeek
   end
 
   private
+    def activity_on?(day)
+      planned_meals_for(day).any? || meals_for(day).any?
+    end
+
+    def action_date
+      Date.current.in?(date_range) ? Date.current : start_date
+    end
+
     def planned_meals_by_date
       @planned_meals_by_date ||= planned_meals.group_by(&:planned_on)
     end

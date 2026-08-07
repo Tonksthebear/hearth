@@ -87,34 +87,23 @@
 </div>
 
 <section aria-labelledby="today-details-heading" class="mt-10 border-t border-gray-950/10 pt-6 dark:border-white/10">
-  <%= render Elements::DisclosureComponent.new(id: "today-details") do |disclosure| %>
-    <h2>
-      <%= disclosure.button(class: "flex w-full items-start justify-between gap-4 rounded-lg py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:focus-visible:outline-primary-500") do %>
-        <span class="block">
-          <span id="today-details-heading" class="block text-xl font-semibold text-gray-900 dark:text-white">Day details</span>
-          <span class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">
-            <span>Nutrition <%= @today.nutrition_summary.status.humanize.downcase %></span>
-            <% if @today.unchecked_shopping_count.positive? %><span><%= pluralize(@today.unchecked_shopping_count, "shopping item") %></span><% end %>
-          </span>
-        </span>
-        <%= icon "chevron-down", variant: :micro, class: "mt-1 size-4 shrink-0 transition-transform in-aria-expanded:rotate-180" %>
-      <% end %>
-    </h2>
-    <%= disclosure.panel do %>
-      <div class="mt-5 space-y-6">
-        <% if @today.unchecked_shopping_count.positive? %>
-          <%= link_to "Open shopping list (#{@today.unchecked_shopping_count})", shopping_list_path(date: @today.date),
-            data: { turbo_prefetch: false },
-            class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
-        <% end %>
-        <%= render "shared/nutrition_summary",
-          summary: @today.nutrition_summary,
-          id: "today-nutrition-heading",
-          title: "Nutrition",
-          description: "Known totals from logged meal snapshots; missing data is not counted as zero." %>
-      </div>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 id="today-details-heading" class="text-balance text-xl font-semibold text-gray-900 dark:text-white">Day details</h2>
+    <% if @today.unchecked_shopping_count.positive? %>
+      <%= link_to "Open shopping list (#{@today.unchecked_shopping_count})", shopping_list_path(date: @today.date),
+        data: { turbo_prefetch: false },
+        class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
     <% end %>
-  <% end %>
+  </div>
+  <div class="mt-5">
+    <%= render "shared/nutrition_summary",
+      summary: @today.nutrition_summary,
+      id: "today-nutrition-heading",
+      title: "Nutrition",
+      description: "Known totals from logged meal snapshots; missing data is not counted as zero.",
+      empty_title: "No nutrition logged yet",
+      empty_description: "Log a meal with ingredient amounts to see nutrition totals for today.",
+      empty_action_label: "Log a meal",
+      empty_action_path: new_meal_path(date: @today.date) %>
+  </div>
 </section>
-
-<p class="mt-8 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Hearth provides tracking and planning tools, not medical advice.</p>

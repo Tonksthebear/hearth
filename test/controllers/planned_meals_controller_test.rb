@@ -40,8 +40,9 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_select "#planned-meal-errors", text: /Person is not available/
+    assert_select "el-disclosure#plan-meal:not([hidden])"
     assert_select "h2", text: "Plan a meal"
-    assert_select "h2", text: "Log what was eaten"
+    assert_select "a", text: "Log meal"
     assert_select "section", text: /Dinner with friends/
   end
 

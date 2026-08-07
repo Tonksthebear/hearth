@@ -105,6 +105,11 @@ class TodayNavigationTest < ApplicationSystemTestCase
 
       assert_equal 390, page.evaluate_script("window.innerWidth")
       assert_selector "#today-details-heading", text: "Day details"
+      assert_no_selector "el-disclosure#today-details"
+      assert_selector "#today-nutrition-heading", text: "Nutrition"
+      assert_selector "h3", text: "No nutrition logged yet"
+      assert_link "Log a meal", href: new_meal_path(date: "2026-07-30")
+      assert_no_text "Nutrition unavailable"
       assert_selector "[data-today-section='up-next']"
       assert_no_text "Planned meal"
       assert_no_text "Simple habit"

@@ -20,7 +20,6 @@ class RecipesController < ApplicationController
     @recipe = Current.household.recipes.build(provenance_status: :personal)
     @recipe.add_ingredient
     @recipe.add_instruction
-    prepare_nutrition_rows
     prepare_ingredient_reference_options
   end
 
@@ -34,19 +33,16 @@ class RecipesController < ApplicationController
     if structural_action?
       @recipe.preserve_cover_for_form
       @recipe.ensure_form_rows
-      prepare_nutrition_rows
       render_form_update
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was created.", status: :see_other
     else
       @recipe.preserve_cover_for_form
-      prepare_nutrition_rows
       render :new, status: :unprocessable_entity
     end
   end
 
   def edit
-    prepare_nutrition_rows
     prepare_ingredient_reference_options
   end
 
@@ -60,13 +56,11 @@ class RecipesController < ApplicationController
     if structural_action?
       @recipe.preserve_cover_for_form
       @recipe.ensure_form_rows
-      prepare_nutrition_rows
       render_form_update
     elsif @recipe.save
       redirect_to @recipe, notice: "#{@recipe.title} was updated.", status: :see_other
     else
       @recipe.preserve_cover_for_form
-      prepare_nutrition_rows
       render :edit, status: :unprocessable_entity
     end
   end
@@ -76,7 +70,6 @@ class RecipesController < ApplicationController
       scope = Current.household.recipes
       if action_name == "show"
         scope = scope.includes(
-          :recipe_nutrient_values,
           recipe_instructions: :referenced_recipe_ingredients,
           recipe_ingredients: { ingredient: { ingredient_nutrient_values: :nutrient } }
         )
@@ -86,12 +79,6 @@ class RecipesController < ApplicationController
 
     def prepare_form
       @provenance_statuses = Recipe.provenance_statuses.keys
-      @nutrients = Nutrient.displayed
-    end
-
-    def prepare_nutrition_rows
-      existing = @recipe.recipe_nutrient_values.index_by(&:nutrient_id)
-      @nutrients.each { |nutrient| @recipe.recipe_nutrient_values.build(nutrient:) unless existing[nutrient.id] }
     end
 
     def prepare_ingredient_reference_options
@@ -119,7 +106,6 @@ class RecipesController < ApplicationController
         :source_url,
         :provenance_status,
         recipe_ingredients_attributes: %i[ id display_quantity unit display_name gram_weight notes form_key _destroy ],
-        recipe_nutrient_values_attributes: %i[ id nutrient_id amount _destroy ],
         recipe_instructions_attributes: [
           :id,
           :body,
@@ -131,9 +117,6 @@ class RecipesController < ApplicationController
           { ingredient_reference_keys: [] }
         ]
       )
-      permitted.fetch(:recipe_nutrient_values_attributes, {}).each_value do |attributes|
-        attributes[:_destroy] = "1" if attributes[:id].present? && attributes[:amount].blank?
-      end
       permitted
     end
 
@@ -169,8 +152,7 @@ class RecipesController < ApplicationController
           recipe: @recipe,
           provenance_statuses: @provenance_statuses,
           ingredient_name_options: @ingredient_name_options,
-          ingredient_reference_options: @ingredient_reference_options,
-          nutrients: @nutrients
+          ingredient_reference_options: @ingredient_reference_options
         }
       )
     end

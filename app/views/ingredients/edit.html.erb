@@ -1,8 +1,17 @@
 <% content_for :title, "Nutrition for #{@ingredient.name} · Hearth" %>
 <%= render "layouts/meals_navigation" %>
 
-<section aria-labelledby="ingredient-heading" class="mx-auto max-w-3xl">
-  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Ingredient nutrition</p>
-  <h1 id="ingredient-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= @ingredient.name %></h1>
+<section aria-labelledby="ingredient-heading" class="max-w-3xl">
+  <nav aria-label="Breadcrumb">
+    <ol role="list" class="flex flex-wrap items-center gap-2 text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">
+      <li><%= link_to "Recipes", recipes_path, class: "font-medium hover:text-gray-700 dark:hover:text-gray-200" %></li>
+      <li aria-hidden="true" class="text-gray-300 dark:text-gray-600">/</li>
+      <li><%= link_to "Ingredient nutrition", ingredients_path, class: "font-medium hover:text-gray-700 dark:hover:text-gray-200" %></li>
+      <li aria-hidden="true" class="text-gray-300 dark:text-gray-600">/</li>
+      <li aria-current="page" class="font-medium"><%= @ingredient.name %></li>
+    </ol>
+  </nav>
+  <h1 id="ingredient-heading" class="mt-4 text-balance text-3xl font-semibold tracking-tight"><%= @ingredient.name %></h1>
+  <p class="mt-2 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">Update known values and record where they came from.</p>
   <%= render "form", ingredient: @ingredient, nutrients: @nutrients %>
 </section>

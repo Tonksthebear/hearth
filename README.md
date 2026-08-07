@@ -35,9 +35,11 @@ The importer records USDA attribution, accepts only recognized nutrient identifi
 Choose one first-run path:
 
 - **Setup-first (recommended):** start with an empty database, open Hearth, and create your household and first user.
-- **Demo:** opt in with `HEARTH_DEMO_DATA=1` and `HEARTH_DEMO_PASSWORD`. This loads a generic, PII-free household and representative meal, training, and habit history.
+- **Demo:** opt in with `HEARTH_DEMO_DATA=1` and `HEARTH_DEMO_PASSWORD`. This loads a generic, PII-free household with recipe covers and structured instructions, planned and logged multi-item meals, complete and incomplete nutrition snapshots, recipe feedback, a persistent shopping checklist, planned/in-progress/completed workouts spanning every performance kind, and simple plus measured habits.
 
 Hearth permits exactly one household. Demo data therefore consumes the installation's only household slot and disables first-run setup. To return to setup-first, use a new empty database or Docker volume; do not run demo seeds against a real household. Re-running the demo seed is safe and updates the same recognized demo graph.
+
+The demo seed does not fabricate a Coach installation or conversation. Coach requires a real certified ACP adapter and its external authentication, so configure that separately after the demo household exists.
 
 For the directory-scoped source launcher, initialize an explicit empty directory and
 run Hearth from that same instance root:
@@ -207,7 +209,7 @@ unset HEARTH_DEMO_PASSWORD
 bin/dev
 ```
 
-Sign in as `demo@hearth.local`.
+Sign in as `demo@example.com`.
 
 ## Run the production image with Docker
 

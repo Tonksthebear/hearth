@@ -82,19 +82,22 @@
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h2 id="recipe-nutrition-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Nutrition per serving</h2>
-        <p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400">Explicit facts override estimates. Estimates use only entered gram weights and serving count.</p>
+        <p class="mt-1 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Calculated from ingredient weights and divided by the number of servings. Incomplete means an ingredient is missing a gram weight or nutrient value.</p>
       </div>
     </div>
     <div class="mt-5 flow-root overflow-x-auto">
       <table class="<%= yass(nutrition_table: :table) %>" data-nutrition-table>
-        <thead class="<%= yass(nutrition_table: :head) %>"><tr><th scope="col" class="<%= yass(nutrition_table: :heading) %>">Nutrient</th><th scope="col" class="<%= yass(nutrition_table: :heading) %>">Status</th><th scope="col" class="<%= yass(nutrition_table: :heading) %>">Per serving</th></tr></thead>
+        <thead class="<%= yass(nutrition_table: :head) %>"><tr><th scope="col" class="<%= yass(nutrition_table: :heading) %>">Nutrient</th><th scope="col" class="<%= yass(nutrition_table: :heading) %>">Per serving</th></tr></thead>
         <tbody>
           <% @recipe.nutrition.results.each do |result| %>
-            <% tone = result.complete ? (result.estimated ? :estimated : :complete) : (result.amount ? :incomplete : :unavailable) %>
             <tr class="<%= yass(nutrition_table: :row) %>">
               <th scope="row" class="<%= yass(nutrition_table: :label) %>"><%= result.nutrient.name %></th>
-              <td class="px-3 py-5 text-sm"><span class="<%= yass(nutrition_badge: [ :base, :sm, tone ]) %>"><span aria-hidden="true" class="<%= yass(nutrition_badge_dot: [ :base, tone ]) %>"></span><%= result.status %></span></td>
-              <td class="<%= yass(nutrition_table: :value) %>"><%= result.formatted_amount %></td>
+              <td class="<%= yass(nutrition_table: :value) %>">
+                <div class="flex items-center justify-end gap-2">
+                  <span><%= result.formatted_amount %></span>
+                  <% unless result.complete %><span class="font-medium text-amber-700 dark:text-amber-300">Incomplete</span><% end %>
+                </div>
+              </td>
             </tr>
           <% end %>
         </tbody>

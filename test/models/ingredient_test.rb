@@ -32,6 +32,23 @@ class IngredientTest < ActiveSupport::TestCase
     end
   end
 
+  test "matches normalized names and reports displayed nutrition coverage" do
+    nutrients = Nutrient.displayed.to_a
+
+    assert_equal [ ingredients(:blueberries) ], households(:home).ingredients.matching(" BLUE ").to_a
+
+    complete = ingredients(:lettuce).nutrition_coverage(nutrients)
+    assert_equal [ 6, 6, "complete", "Complete" ], [ complete.known_count, complete.total_count, complete.status, complete.label ]
+
+    unavailable = ingredients(:carrots).nutrition_coverage(nutrients)
+    assert_equal [ 0, 6, "unavailable", "No values" ], [ unavailable.known_count, unavailable.total_count, unavailable.status, unavailable.label ]
+
+    ingredient = ingredients(:rolled_oats)
+    ingredient.ingredient_nutrient_values.build(nutrient: nutrients.first, amount_per_100_grams: 0)
+    incomplete = ingredient.nutrition_coverage(nutrients)
+    assert_equal [ 1, 6, "incomplete", "1 of 6 known" ], [ incomplete.known_count, incomplete.total_count, incomplete.status, incomplete.label ]
+  end
+
 
   test "manual nutrition allows blank attribution while sourced statuses require it" do
     ingredient = ingredients(:rolled_oats)

@@ -27,7 +27,7 @@ class ApplicationController < ActionController::Base
 
     def primary_navigation_area
       return :meals if %w[
-        meal_weeks planned_meals planned_meal/meals meals recipes shopping_lists
+        meal_weeks planned_meals planned_meal/meals meals recipes ingredients shopping_lists
         shopping_list_items shopping_list_item/completions
       ].include?(controller_path)
       return :activities if %w[
@@ -46,7 +46,7 @@ class ApplicationController < ActionController::Base
       when :meals
         [
           [ "Week", meal_week_path, %w[meal_weeks planned_meals planned_meal/meals meals] ],
-          [ "Recipes", recipes_path, %w[recipes] ],
+          [ "Recipes", recipes_path, %w[recipes ingredients] ],
           [ "Shopping", shopping_list_path, %w[shopping_lists shopping_list_items shopping_list_item/completions], { turbo_prefetch: false } ]
         ]
       when :activities

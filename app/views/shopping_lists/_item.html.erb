@@ -1,0 +1,64 @@
+<li id="shopping-list-item-<%= item.id %>" data-completed="<%= item.completed? %>" class="px-4 py-4 sm:px-6">
+  <div class="flex min-w-0 items-start gap-3">
+    <% completion_path = shopping_list_item_completion_path(item) %>
+    <%= button_to completion_path,
+      method: item.completed? ? :delete : :post,
+      aria: { label: item.completed? ? "Uncheck #{item.name}" : "Check #{item.name}", pressed: item.completed? },
+      class: class_names(
+        "group relative mt-0.5 grid size-7 shrink-0 grid-cols-1 appearance-none rounded-sm border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 sm:size-6 dark:focus-visible:outline-primary-500",
+        item.completed? ?
+          "border-primary-600 bg-primary-600 dark:border-primary-500 dark:bg-primary-500" :
+          "border-gray-300 bg-white dark:border-white/10 dark:bg-white/5"
+      ) do %>
+      <%= icon "check", class: "pointer-events-none col-start-1 row-start-1 size-5 self-center justify-self-center stroke-white #{item.completed? ? '' : 'opacity-0'}" %>
+      <span class="pointer-events-none absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden" aria-hidden="true"></span>
+    <% end %>
+
+    <div class="min-w-0 flex-1">
+      <div class="flex min-w-0 items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="<%= class_names("text-base/7 font-medium sm:text-sm/6", item.completed? ? "text-gray-500 line-through dark:text-gray-400" : "text-gray-900 dark:text-white") %>">
+            <% if item.quantity.present? || item.unit.present? %>
+              <span class="mr-1 font-semibold text-gray-900 dark:text-white"><%= [ item.quantity, item.unit ].compact.join(" ") %></span>
+            <% end %>
+            <%= item.name %>
+          </p>
+          <% if item.notes.present? %>
+            <p class="mt-1 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= item.notes %></p>
+          <% end %>
+        </div>
+        <div class="flex shrink-0 flex-wrap items-center gap-1">
+          <%= link_to "Edit", edit_shopping_list_item_path(item, date: item.shopping_list.week_start),
+            data: { turbo_prefetch: false },
+            class: yass(btn: [ :base, { md: :base }, { neutral: :ghost } ]) %>
+          <% if item.removable_by_person? %>
+            <%= button_to "Delete", shopping_list_item_path(item), method: :delete,
+              form: { data: { turbo_confirm: "Remove #{item.name} from the list?" } },
+              class: yass(btn: [ :base, { md: :base }, { danger: :ghost } ]) %>
+          <% end %>
+        </div>
+      </div>
+
+      <% if item.shopping_list_item_sources.any? %>
+        <div class="mt-3 border-t border-gray-950/5 pt-2 dark:border-white/5">
+          <%= render Elements::DisclosureComponent.new(id: "shopping-item-sources-#{item.id}") do |disclosure| %>
+            <%= disclosure.button(class: "flex w-full items-center justify-between gap-3 rounded-md py-1 text-left text-gray-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:text-gray-400 dark:focus-visible:outline-primary-500") do %>
+              <span class="text-base/7 font-medium sm:text-sm/6"><%= pluralize(item.shopping_list_item_sources.size, "contributing meal") %></span>
+              <%= icon "chevron-down", variant: :micro, class: "size-4 shrink-0 transition-transform in-aria-expanded:rotate-180" %>
+            <% end %>
+            <%= disclosure.panel do %>
+              <ul role="list" class="mt-2 grid gap-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">
+                <% item.shopping_list_item_sources.each do |source| %>
+                  <li>
+                    <%= source.planned_meal.planned_on.to_fs(:long) %> ·
+                    <%= link_to source.planned_meal.recipe.title, source.planned_meal.recipe, class: "font-medium text-gray-900 underline decoration-gray-400 underline-offset-2 dark:text-white" %>
+                  </li>
+                <% end %>
+              </ul>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</li>

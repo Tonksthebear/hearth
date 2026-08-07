@@ -6,7 +6,8 @@ class MealsTest < ApplicationSystemTestCase
   test "plans a household meal for the frozen current week" do
     travel_to WEEK_START do
       sign_in_and_open_meals users(:one)
-      select_and_wait recipes(:porridge).title, from: "Planned recipe"
+      click_button "Plan meal"
+      select_and_wait recipes(:porridge).title, from: "Recipe"
       select_and_wait "Whole household", from: "Plan for"
 
       click_button_and_wait_for_text "Add to plan", "#{recipes(:porridge).title} was added to the plan."
@@ -18,7 +19,8 @@ class MealsTest < ApplicationSystemTestCase
   test "plans a meal for the selected person" do
     travel_to WEEK_START do
       sign_in_and_open_meals users(:one)
-      select_and_wait recipes(:porridge).title, from: "Planned recipe"
+      click_button "Plan meal"
+      select_and_wait recipes(:porridge).title, from: "Recipe"
       select_and_wait people(:one).name, from: "Plan for"
 
       click_button_and_wait_for_text "Add to plan", "#{recipes(:porridge).title} was added to the plan."
@@ -166,8 +168,9 @@ class MealsTest < ApplicationSystemTestCase
 
       assert_no_text "Dinner with friends"
       assert_no_selector "li", text: recipes(:alex_only).title
-      assert_selector "section[aria-labelledby='day-2026-07-27'] > div > div:first-child li",
-        text: recipes(:salad).title
+      within "section[aria-labelledby='day-2026-07-27']" do
+        assert_selector "li", text: recipes(:salad).title
+      end
     end
   end
 
@@ -176,7 +179,10 @@ class MealsTest < ApplicationSystemTestCase
       sign_in_and_open_meals users(:one)
       click_link_and_wait_for_path "Shopping", shopping_list_path
       click_link_and_wait_for_path "Meals", meal_week_path
-      click_link_and_wait_for_path "Shopping list", shopping_list_path(date: "2026-07-27")
+      click_button "Week details"
+      shopping_path = shopping_list_path(date: "2026-07-27")
+      shopping_link = within("el-disclosure#meal-week-details") { find("a", text: "Open shopping list", match: :first) }
+      click_element_and_wait_for_path shopping_link, shopping_path
 
       assert_text "Carrots"
       assert_text "Lettuce"
@@ -214,7 +220,7 @@ class MealsTest < ApplicationSystemTestCase
       end
       assert_selector "h1", text: "Meals"
       assert_text WEEK_START.to_fs(:long)
-      assert_selector "h3", text: /Planned/i
-      assert_selector "h3", text: /Eaten/i
+      assert_selector "#meal-agenda-heading"
+      assert_selector "section[aria-labelledby^='day-']"
     end
 end

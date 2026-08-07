@@ -71,22 +71,6 @@
     </fieldset>
 
     <fieldset class="border-b border-gray-900/10 pb-12 dark:border-white/10">
-      <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Explicit nutrition facts per serving</legend>
-      <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Optional source-provided facts override estimates one nutrient at a time. Blank values continue to derive from ingredient grams when possible.</p>
-      <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <%= form.fields_for :recipe_nutrient_values do |value_form| %>
-          <% nutrient = value_form.object.nutrient %>
-          <div>
-            <%= value_form.hidden_field :id if value_form.object.persisted? %>
-            <%= value_form.hidden_field :nutrient_id %>
-            <%= value_form.label :amount, "#{nutrient.name} (#{nutrient.unit})", class: :label %>
-            <div class="mt-2"><%= value_form.number_field :amount, min: 0, step: :any, class: :text_field %></div>
-          </div>
-        <% end %>
-      </div>
-    </fieldset>
-
-    <fieldset class="border-b border-gray-900/10 pb-12 dark:border-white/10">
       <div class="flex items-center justify-between gap-4">
         <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Ingredients</legend>
         <%= form.button "Add ingredient",
