@@ -31,6 +31,14 @@ class Person::TodayTest < ActiveSupport::TestCase
 
   test "fully materialized query count is bounded" do
     travel_to Time.zone.local(2026, 7, 30, 12) do
+      # habit_check_ins fixtures move with Date.current; rebuild one in-window row so the
+      # bound still exercises the check-in path after calendar day advances.
+      pinned_on = Date.new(2026, 7, 30)
+      water = person_habits(:alex_water)
+      water.habit_check_ins.where(checked_on: pinned_on).delete_all
+      water.habit_check_ins.create!(checked_on: pinned_on)
+      ActiveRecord::Base.connection.clear_query_cache
+
       # Full household allocation for readiness is an accepted root-page cost.
       assert_queries_count(20) do
         Person::Today.current(household: households(:home), person: people(:one))
