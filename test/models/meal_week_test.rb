@@ -40,4 +40,17 @@ class MealWeekTest < ActiveSupport::TestCase
       assert_equal Date.new(2026, 7, 20), earlier.logging_date
     end
   end
+
+  test "readiness_for uses one allocation and omits cooked plans" do
+    week = MealWeek.for(household: households(:home), person: people(:one), date: "2026-07-27")
+    salad = planned_meals(:shared_target_week)
+    soup = planned_meals(:shared_soup_target_week)
+
+    readiness = week.readiness_for(salad)
+    assert_equal :shopping_needed, readiness.state
+    assert_equal "Shopping needed", readiness.label
+    assert_equal 1, readiness.shortfall_count
+    assert_same week.allocation, week.allocation
+    assert_equal week.readiness_for(soup).state, week.allocation.readiness_for(soup).state
+  end
 end

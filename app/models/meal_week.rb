@@ -88,6 +88,16 @@ class MealWeek
     shopping_list&.unchecked_count.to_i
   end
 
+  # One household allocation for the week projection. Built once so every planned
+  # card reads the same readiness without re-deriving states in the view.
+  def readiness_for(planned_meal)
+    allocation.readiness_for(planned_meal)
+  end
+
+  def allocation
+    @allocation ||= Household::PantryAllocation.new(household)
+  end
+
   def previous_date
     start_date - 7.days
   end

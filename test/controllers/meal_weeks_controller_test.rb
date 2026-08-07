@@ -56,17 +56,34 @@ class MealWeeksControllerTest < ActionDispatch::IntegrationTest
     get meal_week_path, params: { date: list.week_start.iso8601 }
 
     assert_response :success
-    assert_select "a[href=?][data-turbo-prefetch='false']", shopping_list_path(date: list.week_start.iso8601), text: /Shopping list \(1\)/
+    assert_select "[data-shopping-attention]"
+    assert_select "a[href=?][data-turbo-prefetch='false']", shopping_list_path(date: list.week_start.iso8601), text: /Open shopping list \(1\)/
     assert_equal counts, [ ShoppingList.count, ShoppingListItem.count, ShoppingListItemSource.count ]
     assert_equal timestamps, [ list.reload.updated_at, *list.items.order(:id).pluck(:updated_at) ]
 
     list.items.update_all(completed_at: Time.current)
     get meal_week_path, params: { date: list.week_start.iso8601 }
-    assert_select "a", text: /Shopping list \(/, count: 0
+    assert_select "[data-shopping-attention]", count: 0
+    assert_select "a", text: /Open shopping list \(/, count: 0
 
     list.destroy!
     get meal_week_path, params: { date: "2026-07-27" }
-    assert_select "a", text: /Shopping list \(/, count: 0
+    assert_select "[data-shopping-attention]", count: 0
+    assert_select "a", text: /Open shopping list \(/, count: 0
     refute ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
+  end
+
+  test "planned cards surface readiness badges without reconciling shopping or writing pantry evidence" do
+    sign_in_as users(:one)
+    pantry_before = pantry_items(:out_lettuce).attributes
+    decisions_before = PlannedMealIngredient.order(:id).pluck(:id, :decision, :decided_at)
+
+    get meal_week_path, params: { date: "2026-07-27" }
+
+    assert_response :success
+    assert_select "[data-readiness-state='shopping_needed']", text: /Shopping needed/
+    assert_select "[data-readiness-state='needs_ingredient_check']", text: /Needs ingredient check/
+    assert_equal pantry_before, pantry_items(:out_lettuce).reload.attributes
+    assert_equal decisions_before, PlannedMealIngredient.order(:id).pluck(:id, :decision, :decided_at)
   end
 end

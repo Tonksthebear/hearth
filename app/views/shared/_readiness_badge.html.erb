@@ -1,0 +1,10 @@
+<%# locals: readiness (Household::PantryAllocation::Readiness or nil) %>
+<% if readiness %>
+  <% state = readiness.state %>
+  <span data-readiness-state="<%= state %>"
+    class="<%= yass(readiness_badge: [ :base, :sm, state ]) %>">
+    <span aria-hidden="true" class="<%= yass(readiness_badge_dot: [ :base, state ]) %>"></span>
+    <span class="sr-only">Meal readiness:</span>
+    <%= readiness.label %><% if readiness.shopping_needed? && readiness.shortfall_count.positive? %> · <%= readiness.shortfall_count %><% end %>
+  </span>
+<% end %>

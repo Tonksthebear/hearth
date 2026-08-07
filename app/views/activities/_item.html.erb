@@ -20,6 +20,9 @@
           <%= item.status.to_s.humanize %>
         </span>
       <% end %>
+      <% if item.record.is_a?(PlannedMeal) && item.status == :planned %>
+        <%= render "shared/readiness_badge", readiness: item.readiness %>
+      <% end %>
     </div>
     <% if item.description.present? %>
       <p class="mt-1 text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= item.description %></p>
@@ -33,6 +36,10 @@
       <% if today_execution && item.status == :in_progress && item.destination.present? %>
         <%= link_to "Resume", polymorphic_path(item.destination), class: yass(btn: [ :base, { lg: :base }, execution_button ]) %>
       <% elsif item.record.is_a?(PlannedMeal) && item.status == :planned %>
+        <% if item.readiness&.needs_ingredient_check? %>
+          <%= link_to "Review ingredients", planned_meal_ingredient_review_path(item.record),
+            class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+        <% end %>
         <% if item.record.convertible_by?(Current.person) %>
           <%= button_to "Log as eaten", planned_meal_meal_path(item.record), class: yass(btn: [ :base, { md: :base }, today_execution ? execution_button : { primary: :solid } ]) %>
         <% end %>

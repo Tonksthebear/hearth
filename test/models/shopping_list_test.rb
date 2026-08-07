@@ -256,6 +256,18 @@ class ShoppingListTest < ActiveSupport::TestCase
     assert_equal [ plan.id ], new_list.items.find_by!(name: "Beans").planned_meals.ids
   end
 
+  test "reconcile exposes the single allocation used for ownership without building a second engine" do
+    recipe = recipe_with(title: "Ownership chili", ingredients: [ { display_quantity: "2", unit: "can", display_name: "Beans" } ])
+    plan_with(recipe: recipe, planned_on: WEEK_START, decision: :missing)
+    list = reconciled_list
+
+    assert list.allocation.present?
+    assert_kind_of Household::PantryAllocation, list.allocation
+    first_object_id = list.allocation.object_id
+    assert_equal first_object_id, list.allocation.object_id
+    assert_equal :shopping_needed, list.allocation.readiness_for(PlannedMeal.order(:id).last).state
+  end
+
   test "converting a plan removes its open deficit rows only at the next explicit reconciliation" do
     recipe = recipe_with(
       title: "Convertible",
