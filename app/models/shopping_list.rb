@@ -13,6 +13,10 @@ class ShoppingList < ApplicationRecord
 
   validates :week_start, presence: true
 
+  # The allocation built during reconcile!/ordered_sources for this request.
+  # Views reuse it for ownership lines; existing_for never builds one.
+  attr_reader :allocation
+
   class << self
     def for(household:, date:)
       week_start = week_start_for(date)
@@ -66,12 +70,12 @@ class ShoppingList < ApplicationRecord
     # week's plans become rows. Never filtered through PlannedMeal.visible_to:
     # the list is household operational data and counts every plan exactly once.
     def ordered_sources
-      allocation = Household::PantryAllocation.new(household)
+      @allocation = Household::PantryAllocation.new(household)
 
-      allocation.planned_meals.flat_map do |planned_meal|
+      @allocation.planned_meals.flat_map do |planned_meal|
         next [] unless planned_meal.planned_on.between?(week_start, end_date)
 
-        allocation.reservations_for(planned_meal)
+        @allocation.reservations_for(planned_meal)
           .select(&:deficit?)
           .map { |reservation| Source.new(planned_meal:, reservation:) }
       end

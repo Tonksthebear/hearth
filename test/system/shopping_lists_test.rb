@@ -48,6 +48,8 @@ class ShoppingListsTest < ApplicationSystemTestCase
         assert_link recipes(:salad).title, count: 2, visible: :visible, wait: 5
         assert_text "On hand"
         assert_text "From pantry evidence"
+        assert_selector "[data-shopping-ownership]", minimum: 1
+        assert_selector "[data-ownership-role='short']", minimum: 1
         find("button[aria-label='Check Lettuce']").click
       end
       assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']", wait: 5

@@ -12,6 +12,11 @@
 <% primary_in_progress_item = in_progress.items.first %>
 <% primary_up_next_item = @today.primary_up_next_item if in_progress.items.empty? %>
 
+<%= render "shared/shopping_attention",
+  count: @today.unchecked_shopping_count,
+  date: @today.date,
+  class: "mt-6" %>
+
 <div class="mt-8 space-y-8">
   <% if in_progress.items.any? %>
     <section aria-labelledby="today-in-progress-heading" data-today-section="in-progress">
@@ -102,11 +107,6 @@
     </h2>
     <%= disclosure.panel do %>
       <div class="mt-5 space-y-6">
-        <% if @today.unchecked_shopping_count.positive? %>
-          <%= link_to "Open shopping list (#{@today.unchecked_shopping_count})", shopping_list_path(date: @today.date),
-            data: { turbo_prefetch: false },
-            class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
-        <% end %>
         <%= render "shared/nutrition_summary",
           summary: @today.nutrition_summary,
           id: "today-nutrition-heading",

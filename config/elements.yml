@@ -394,6 +394,23 @@ nutrition_badge_dot:
   incomplete: "bg-warning-500 dark:bg-warning-400"
   unavailable: "bg-gray-400"
 
+# Contract readiness states. Tone maps machine state, not "shopping work left":
+# unanswered requirements (warning) vs known shortfall (primary/info) vs ready (success).
+# Household shopping attention alerts use alert:warning separately for open list work.
+readiness_badge:
+  base: "inline-flex items-center gap-x-1.5 rounded-md font-medium"
+  sm: "px-2 py-1 text-xs"
+  md: "px-2.5 py-1 text-sm"
+  needs_ingredient_check: "bg-warning-100 text-warning-800 dark:bg-warning-400/10 dark:text-warning-400"
+  shopping_needed: "bg-primary-100 text-primary-700 dark:bg-primary-400/10 dark:text-primary-400"
+  ready_to_cook: "bg-success-100 text-success-700 dark:bg-success-400/10 dark:text-success-400"
+
+readiness_badge_dot:
+  base: "size-1.5 rounded-full"
+  needs_ingredient_check: "bg-warning-500 dark:bg-warning-400"
+  shopping_needed: "bg-primary-500 dark:bg-primary-400"
+  ready_to_cook: "bg-success-500 dark:bg-success-400"
+
 nutrition_stats:
   container: "grid grid-cols-2 divide-x divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm sm:grid-cols-3 lg:grid-cols-6 dark:divide-white/10 dark:bg-gray-800/75 dark:shadow-none dark:inset-ring dark:inset-ring-white/10"
   item: "px-4 py-5 sm:p-6"

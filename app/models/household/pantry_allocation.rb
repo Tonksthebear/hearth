@@ -64,6 +64,12 @@ class Household::PantryAllocation
     def ready_to_cook? = state == :ready_to_cook
 
     def label = STATE_LABELS.fetch(state)
+
+    # Meal-level shortfall count: confirmed deficits on this plan's reservations.
+    # Surfaced beside the shopping_needed label; zero when nothing is short.
+    def shortfall_count
+      reservations.count(&:deficit?)
+    end
   end
 
   attr_reader :household

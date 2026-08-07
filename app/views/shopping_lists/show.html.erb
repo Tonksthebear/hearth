@@ -61,6 +61,23 @@
               </div>
 
               <% if item.shopping_list_item_sources.any? %>
+                <%# Sources own the row membership (unit-scoped). Allocation only enriches each source. %>
+                <% allocation = @shopping_list.allocation %>
+                <% stock_holders = [] %>
+                <% if allocation && item.ingredient.present? && item.generated_key.to_s.start_with?("[\"deficit\"") %>
+                  <% source_plan_ids = item.shopping_list_item_sources.map { |source| source.planned_meal.id }.to_set %>
+                  <% source_units = item.shopping_list_item_sources.filter_map { |source|
+                       req = source.planned_meal_ingredient
+                       measurement = req.substituted? ? req.replacement_measurement : req.measurement
+                       measurement.canonical_unit if measurement.known?
+                     }.uniq %>
+                  <% stock_holders = allocation.contributions_for(item.ingredient).select { |contribution|
+                       reservation = contribution.reservation
+                       next false if source_plan_ids.include?(contribution.planned_meal.id)
+                       next false unless reservation.measurable? && reservation.reserved_quantity&.positive? && !reservation.deficit?
+                       source_units.include?(reservation.measurement.canonical_unit)
+                     } %>
+                <% end %>
                 <dl class="mt-2 divide-y divide-gray-900/10 dark:divide-white/10">
                   <%= render Elements::DisclosureComponent.new do |disclosure| %>
                     <div class="py-2">
@@ -76,16 +93,47 @@
                         <dd class="mt-2 pr-8">
                           <ul class="grid gap-1 text-gray-600 dark:text-gray-400">
                             <% item.shopping_list_item_sources.each do |source| %>
-                              <li>
-                                <%= source.planned_meal.planned_on.to_fs(:long) %> ·
-                                <%= link_to source.planned_meal.recipe.title, source.planned_meal.recipe, class: "underline" %> ·
+                              <% planned_meal = source.planned_meal %>
+                              <% requirement = source.planned_meal_ingredient %>
+                              <% reservation = allocation&.reservations_for(planned_meal)&.find { |row|
+                                   row.requirement.id == requirement.id
+                                 } %>
+                              <li data-shopping-ownership data-source-plan="<%= planned_meal.id %>">
+                                <%= planned_meal.planned_on.to_fs(:long) %> ·
+                                <%= link_to planned_meal.recipe.title, planned_meal.recipe, class: "underline" %> ·
                                 <span data-confirmation-state="<%= source.confirmation_state %>"><%= source.confirmation_label %></span>
                                 <% if source.substituted? %>
                                   · Substituted → <%= source.replacement_display_name %>
                                 <% end %>
+                                <% if reservation&.measurable? %>
+                                  · reserved <%= Ingredient::Measurement.format_quantity(reservation.reserved_quantity) %>
+                                  of <%= Ingredient::Measurement.format_quantity(reservation.required_quantity) %>
+                                  <%= reservation.unit unless reservation.unit == Ingredient::Measurement::GENERIC_COUNT.normalized_label %>
+                                  <% if reservation.deficit? %>
+                                    · <span data-ownership-role="short">short <%= Ingredient::Measurement.format_quantity(reservation.deficit_quantity) %></span>
+                                  <% end %>
+                                <% end %>
                               </li>
                             <% end %>
                           </ul>
+                          <% if stock_holders.any? %>
+                            <p class="mt-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Stock reserved by earlier meals</p>
+                            <ul class="mt-1 grid gap-1 text-gray-600 dark:text-gray-400">
+                              <% stock_holders.each do |contribution| %>
+                                <% planned_meal = contribution.planned_meal %>
+                                <% reservation = contribution.reservation %>
+                                <li data-stock-holder data-source-plan="<%= planned_meal.id %>">
+                                  <%= planned_meal.planned_on.to_fs(:long) %> ·
+                                  <%= link_to planned_meal.recipe.title, planned_meal.recipe, class: "underline" %> ·
+                                  <span data-ownership-role="reserved">
+                                    reserved <%= Ingredient::Measurement.format_quantity(reservation.reserved_quantity) %>
+                                    of <%= Ingredient::Measurement.format_quantity(reservation.required_quantity) %>
+                                    <%= reservation.unit unless reservation.unit == Ingredient::Measurement::GENERIC_COUNT.normalized_label %>
+                                  </span>
+                                </li>
+                              <% end %>
+                            </ul>
+                          <% end %>
                         </dd>
                       <% end %>
                     </div>

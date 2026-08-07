@@ -191,7 +191,9 @@ class MealsTest < ApplicationSystemTestCase
       sign_in_and_open_meals users(:one)
       click_link_and_wait_for_path "Shopping", shopping_list_path
       click_link_and_wait_for_path "Meals", meal_week_path
-      click_link_and_wait_for_path "Shopping list", shopping_list_path(date: "2026-07-27")
+      # Visiting Shopping reconciles deficits (lettuce) onto the fixture list, so
+      # the meals attention link shows the post-reconcile open-item count.
+      click_link_and_wait_for_path "Open shopping list (2)", shopping_list_path(date: "2026-07-27")
 
       # Only confirmed allocation deficits reach the list: the salad plans are
       # short against an `out` pantry row, while the soup's substituted carrots
