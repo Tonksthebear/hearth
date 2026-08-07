@@ -1,0 +1,72 @@
+shared_salad_lettuce:
+  planned_meal: shared_target_week
+  source_recipe: salad
+  source_recipe_ingredient: salad_lettuce
+  ingredient: lettuce
+  display_name: Lettuce
+  display_quantity: 1
+  unit: head
+  quantity_numerator: 1
+  quantity_denominator: 1
+  position: 1
+  decision: unknown
+
+sam_salad_lettuce:
+  planned_meal: sam_target_week
+  source_recipe: salad
+  source_recipe_ingredient: salad_lettuce
+  ingredient: lettuce
+  display_name: Lettuce
+  display_quantity: 1
+  unit: head
+  quantity_numerator: 1
+  quantity_denominator: 1
+  position: 1
+  decision: on_hand
+  decided_at: 2026-07-28 12:00:00
+
+soup_carrots_substituted:
+  planned_meal: shared_soup_target_week
+  source_recipe: observed_soup
+  source_recipe_ingredient: soup_carrots
+  ingredient: carrots
+  display_name: Carrots
+  display_quantity: 2
+  quantity_numerator: 2
+  quantity_denominator: 1
+  position: 1
+  decision: substituted
+  decided_at: 2026-07-29 12:00:00
+  replacement_ingredient: blueberries
+  replacement_display_name: Blueberries
+  replacement_display_quantity: 1
+  replacement_unit: cup
+  replacement_quantity_numerator: 1
+  replacement_quantity_denominator: 1
+  replacement_decision: unknown
+
+adjacent_soup_carrots:
+  planned_meal: adjacent_week
+  source_recipe: observed_soup
+  source_recipe_ingredient: soup_carrots
+  ingredient: carrots
+  display_name: Carrots
+  display_quantity: 2
+  quantity_numerator: 2
+  quantity_denominator: 1
+  position: 1
+  decision: not_needed
+  decided_at: 2026-08-02 12:00:00
+
+# Free-text provenance that outlived the recipe line it came from: inactive
+# history is the only place a null source is representable.
+adjacent_free_text_history:
+  planned_meal: adjacent_week
+  ingredient: rolled_oats
+  display_name: Rolled oats
+  display_quantity: to taste
+  position: 2
+  decision: missing
+  decided_at: 2026-08-01 12:00:00
+  superseded_at: 2026-08-02 09:00:00
+  superseded_reason: source_removed

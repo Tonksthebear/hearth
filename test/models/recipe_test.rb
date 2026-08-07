@@ -301,22 +301,43 @@ class RecipeTest < ActiveSupport::TestCase
   end
 
   test "ingredient lines expose exact quantities without coercing free text" do
+    attributes = [
+      { display_name: "One", display_quantity: "2", unit: "Cups", position: 1 },
+      { display_name: "Two", display_quantity: "1.25", unit: "GRAMS", position: 2 },
+      { display_name: "Three", display_quantity: "2/3", unit: nil, position: 3 },
+      { display_name: "Four", display_quantity: "1 1/2", unit: "tbsp", position: 4 },
+      { display_name: "Five", display_quantity: "", unit: "cup", position: 5 },
+      { display_name: "Six", display_quantity: "malformed", unit: "package", position: 6 },
+      { display_name: "Seven", display_quantity: "to taste", unit: "pinch", position: 7 },
+      { display_name: "Eight", display_quantity: "1/0", unit: "cup", position: 8 }
+    ]
     recipe = households(:home).recipes.create!(
       title: "Exact quantities",
       provenance_status: :personal,
-      recipe_ingredients_attributes: [
-        { display_name: "One", display_quantity: "2", position: 1 },
-        { display_name: "Two", display_quantity: "1.25", position: 2 },
-        { display_name: "Three", display_quantity: "2/3", position: 3 },
-        { display_name: "Four", display_quantity: "1 1/2", position: 4 },
-        { display_name: "Five", display_quantity: "to taste", position: 5 },
-        { display_name: "Six", display_quantity: "1/0", position: 6 }
-      ]
+      recipe_ingredients_attributes: attributes
     )
 
-    assert_equal [ Rational(2), Rational(5, 4), Rational(2, 3), Rational(3, 2), nil, nil ],
-      recipe.recipe_ingredients.map(&:quantity)
-    assert_equal [ "to taste", "1/0" ], recipe.recipe_ingredients.last(2).map(&:display_quantity)
+    lines = recipe.reload.recipe_ingredients
+    assert_equal [ Rational(2), Rational(5, 4), Rational(2, 3), Rational(3, 2), nil, nil, nil, nil ], lines.map(&:quantity)
+    assert_equal [ [ 2, 1 ], [ 5, 4 ], [ 2, 3 ], [ 3, 2 ], [ nil, nil ], [ nil, nil ], [ nil, nil ], [ nil, nil ] ],
+      lines.map { |line| [ line.quantity_numerator, line.quantity_denominator ] }
+    assert_equal attributes.map { |item| item[:display_quantity] }, lines.map(&:display_quantity)
+    assert_equal attributes.map { |item| item[:unit] }, lines.map(&:unit)
+  end
+
+  test "recipe import persists parsed quantities without rewriting authored units" do
+    recipe = Recipe.import!(household: households(:home), attributes: valid_import_attributes.deep_merge(
+      recipe_ingredients_attributes: [
+        { name: "First", amount: "1 1/2", unit: "Cups" },
+        { name: "Second", amount: "to taste", unit: "pinch" }
+      ]
+    ))
+
+    parsed, free_text = recipe.reload.recipe_ingredients
+    assert_equal Rational(3, 2), parsed.quantity
+    assert_equal [ "1 1/2", "Cups" ], parsed.values_at(:display_quantity, :unit)
+    assert_nil free_text.quantity
+    assert_equal [ "to taste", "pinch" ], free_text.values_at(:display_quantity, :unit)
   end
 
   test "ingredient lines reject canonical records from another household object" do
@@ -552,6 +573,65 @@ class RecipeTest < ActiveSupport::TestCase
     assert_raises ActiveRecord::DeleteRestrictionError do
       logged_recipe.destroy!
     end
+  end
+
+  test "a presentation-only line edit keeps the plan requirement and its decision" do
+    decided = planned_meal_ingredients(:sam_salad_lettuce)
+
+    recipe_ingredients(:salad_lettuce).update!(display_name: "  lettuce  ", unit: "Heads")
+
+    assert_equal [ decided.id ], planned_meals(:sam_target_week).planned_meal_ingredients.active.ids
+    assert_predicate decided.reload, :on_hand?
+    assert_equal "  lettuce  ", decided.display_name
+    assert_equal "Heads", decided.unit
+  end
+
+  test "a semantic line edit supersedes the resolved decision and issues a fresh unknown" do
+    decided = planned_meal_ingredients(:sam_salad_lettuce)
+
+    recipe_ingredients(:salad_lettuce).update!(display_quantity: "2")
+
+    assert_equal "requirement_changed", decided.reload.superseded_reason
+    fresh = planned_meals(:sam_target_week).planned_meal_ingredients.active.sole
+    assert_equal Rational(2), fresh.quantity
+    assert_predicate fresh, :untouched?
+  end
+
+  test "positional import reuse supersedes every repointed requirement exactly once" do
+    plan = planned_meals(:sam_target_week)
+    plan.planned_meal_ingredients.active.sole.decide!(:on_hand)
+    recipes(:salad).update!(import_key: "salad-import")
+
+    Recipe.import!(household: households(:home), attributes: {
+      import_key: "salad-import",
+      title: "Garden Salad",
+      source_name: "Family Notebook",
+      provenance_status: "adapted",
+      recipe_ingredients_attributes: [
+        { name: "Croutons", amount: "1", unit: "cup" },
+        { name: "Lettuce", amount: "1", unit: "head" }
+      ]
+    })
+
+    active = plan.planned_meal_ingredients.active.to_a
+    assert_equal %w[ Croutons Lettuce ], active.map(&:display_name)
+    assert_equal [ true ], active.map(&:untouched?).uniq
+    assert_equal active.map(&:source_recipe_ingredient_id), active.map(&:source_recipe_ingredient_id).uniq
+    assert_equal [ "requirement_changed" ], plan.planned_meal_ingredients.superseded.map(&:superseded_reason)
+    assert_equal 1, plan.planned_meal_ingredients.superseded.count
+  end
+
+  test "destroying a line releases active requirements before provenance is nullified" do
+    plan = planned_meals(:sam_target_week)
+    resolved = plan.planned_meal_ingredients.active.sole
+    untouched = planned_meal_ingredients(:shared_salad_lettuce)
+
+    recipe_ingredients(:salad_lettuce).destroy!
+
+    assert_equal "source_removed", resolved.reload.superseded_reason
+    assert_nil resolved.source_recipe_ingredient_id
+    assert_not PlannedMealIngredient.exists?(untouched.id)
+    assert_empty PlannedMealIngredient.active.where(source_recipe_ingredient_id: nil)
   end
 
   private

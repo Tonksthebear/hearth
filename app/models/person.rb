@@ -8,6 +8,11 @@ class Person < ApplicationRecord
   has_many :person_habits, dependent: :destroy
   has_many :habit_check_ins, through: :person_habits
   has_many :agent_conversations, class_name: "Agent::Conversation", dependent: :restrict_with_exception
+  has_many :confirmed_pantry_items,
+    class_name: "PantryItem",
+    foreign_key: :confirmed_by_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :confirmed_by
 
   accepts_nested_attributes_for :user, update_only: true, reject_if: ->(attributes) { attributes["email_address"].blank? }
 

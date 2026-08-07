@@ -13,7 +13,9 @@ class TodayNavigationTest < ApplicationSystemTestCase
       within "[data-activity-kind='simple_habit']", text: "Water" do
         click_button "Check off"
       end
-      assert_current_path root_path, wait: 5
+      # Same-path button_to stays on /; path assert alone is a no-op. Wait for post-render flash.
+      assert_selector "#notice", text: "Today's check-in was saved.", wait: 5
+      assert_current_path root_path
       click_button "Completed"
       assert_button "Hide"
       assert_selector "[data-activity-kind='habit_check_in']", text: "Water"
@@ -64,14 +66,19 @@ class TodayNavigationTest < ApplicationSystemTestCase
         fill_in "Skip reason (optional)", with: "Not ready"
         click_button "Skip"
       end
-      assert_current_path root_path, wait: 5
+      # Same-path button_to stays on /; path assert alone is a no-op. Wait for post-render flash.
+      assert_selector "#notice", text: "Workout skipped.", wait: 5
+      assert_current_path root_path
       click_button "Completed"
       assert_selector "[data-activity-status='skipped']", text: "Not ready"
 
       within "[data-activity-status='skipped']", text: workout_templates(:balanced).title do
         click_button "Restore"
       end
-      assert_current_path root_path, wait: 5
+      # Same-path restore: wait until the skipped row is gone (flips only after re-render).
+      assert_selector "#notice", text: "Workout restored to the plan.", wait: 5
+      assert_no_selector "[data-activity-status='skipped']", text: workout_templates(:balanced).title, wait: 5
+      assert_current_path root_path
 
       within "[data-activity-kind='workout']", text: workout_templates(:balanced).title do
         click_button "Start"

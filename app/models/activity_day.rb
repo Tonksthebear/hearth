@@ -1,5 +1,11 @@
 class ActivityDay
-  Item = Data.define(:kind, :record, :title, :description, :status, :destination)
+  # readiness is optional so this shape stays compatible with Person::Today::Item
+  # when both are rendered through activities/_item on the root page.
+  Item = Data.define(:kind, :record, :title, :description, :status, :destination, :readiness) do
+    def initialize(kind:, record:, title:, description:, status:, destination:, readiness: nil)
+      super
+    end
+  end
   Section = Data.define(:key, :title, :description, :items)
 
   attr_reader :household, :person, :date, :up_next, :in_progress, :done, :sections
@@ -49,7 +55,6 @@ class ActivityDay
     def load_habit_check_ins
       HabitCheckIn
         .where(person_habit_id: @person_habits.map(&:id), checked_on: date)
-        .includes(:person_habit)
         .to_a
     end
 

@@ -50,6 +50,11 @@
     </div>
   </div>
 
+  <%= render "shared/shopping_attention",
+    count: @meal_week.unchecked_shopping_count,
+    date: @meal_week,
+    class: "mt-6" %>
+
   <nav aria-label="Meal week" class="mt-6 flex flex-wrap items-center gap-2">
     <%= link_to "Previous", meal_week_path(date: @meal_week.previous_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
     <%= link_to "Current week", meal_week_path, aria: ({ current: "page" } if @meal_week.current_week?), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>

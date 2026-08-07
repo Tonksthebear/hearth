@@ -1,5 +1,11 @@
 class Person::Today
-  Item = Data.define(:kind, :record, :title, :description, :status, :destination)
+  # Same shape as ActivityDay::Item, including optional readiness, because both
+  # types are mixed into one section list and rendered by activities/_item.
+  Item = Data.define(:kind, :record, :title, :description, :status, :destination, :readiness) do
+    def initialize(kind:, record:, title:, description:, status:, destination:, readiness: nil)
+      super
+    end
+  end
   Section = Data.define(:key, :title, :description, :items)
 
   attr_reader :household, :person, :date, :activity_day, :sections, :shopping_list, :nutrition_summary
@@ -16,6 +22,9 @@ class Person::Today
     @date = date
     @activity_day = ActivityDay.new(household: household, person: @person, date: date)
     @shopping_list = ShoppingList.existing_for(household:, date:)
+    # Full household allocation queue is required so readiness matches shopping
+    # and ingredient review; accepted root-page cost for correct projection.
+    @allocation = Household::PantryAllocation.new(household)
     @sections = build_sections.freeze
   end
 
@@ -57,7 +66,9 @@ class Person::Today
           title: meal.recipe.title,
           description: meal.person ? "Planned for #{meal.person.name}" : "Planned for the household",
           status: :planned,
-          destination: meal.recipe
+          destination: meal.recipe,
+          # nil when another person already cooked a household plan still listed here
+          readiness: @allocation.readiness_for(meal)
         )
       end
       up_next.concat(activity_day.up_next)

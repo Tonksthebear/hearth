@@ -144,13 +144,59 @@ class TodaysControllerTest < ActionDispatch::IntegrationTest
       get root_path
 
       assert_response :success
+      assert_select "[data-shopping-attention]"
       assert_select "a[href=?][data-turbo-prefetch='false']", shopping_list_path(date: "2026-07-30"), text: /Open shopping list \(1\)/
       assert_equal counts, [ ShoppingList.count, ShoppingListItem.count, ShoppingListItemSource.count ]
 
       shopping_lists(:target_week).destroy!
       get root_path
-      assert_select "a", text: /Shopping list \(/, count: 0
+      assert_select "[data-shopping-attention]", count: 0
+      assert_select "a", text: /Open shopping list \(/, count: 0
       refute ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
+    end
+  end
+
+  test "planned meals show readiness and mixed activity rows still render" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      person_habits(:alex_water).habit_check_ins.destroy_all
+      sign_in_as users(:one)
+      pantry_before = PantryItem.order(:id).pluck(:id, :state, :quantity_numerator, :quantity_denominator, :unit)
+      decisions_before = PlannedMealIngredient.order(:id).pluck(:id, :decision, :decided_at)
+
+      get root_path
+
+      assert_response :success
+      assert_select "[data-activity-kind='planned_meal'] [data-readiness-state]"
+      assert_select "[data-activity-kind='workout']"
+      assert_select "[data-activity-kind='simple_habit']"
+      assert_equal pantry_before, PantryItem.order(:id).pluck(:id, :state, :quantity_numerator, :quantity_denominator, :unit)
+      assert_equal decisions_before, PlannedMealIngredient.order(:id).pluck(:id, :decision, :decided_at)
+
+      get root_path
+      assert_response :success
+      assert_equal pantry_before, PantryItem.order(:id).pluck(:id, :state, :quantity_numerator, :quantity_denominator, :unit)
+      assert_equal decisions_before, PlannedMealIngredient.order(:id).pluck(:id, :decision, :decided_at)
+    end
+  end
+
+  test "household plan cooked by another person stays listed without readiness badge" do
+    travel_to Time.zone.local(2026, 7, 30, 12) do
+      plan = planned_meals(:shared_soup_target_week)
+      people(:two).meals.create!(
+        household: households(:home),
+        planned_meal: plan,
+        eaten_on: Date.current,
+        meal_items_attributes: [ { source_kind: :free_text, snapshot_label: "Sam cooked shared soup" } ]
+      )
+      sign_in_as users(:one)
+
+      get root_path
+
+      assert_response :success
+      assert_select "[data-activity-kind='planned_meal']", text: /#{Regexp.escape(plan.recipe.title)}/
+      assert_select "[data-activity-kind='planned_meal']", text: /#{Regexp.escape(plan.recipe.title)}/ do
+        assert_select "[data-readiness-state]", count: 0
+      end
     end
   end
 end

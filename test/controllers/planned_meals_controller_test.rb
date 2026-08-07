@@ -18,10 +18,23 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     planned_meal = PlannedMeal.order(:created_at).last
     assert_equal households(:home), planned_meal.household
     assert_equal people(:one), planned_meal.person
-    assert_redirected_to meal_week_path(date: "2026-07-27")
+    # Planning hands the household straight to the ingredient check for the plan
+    # it just created, which is the flow's production entry point.
+    assert_redirected_to planned_meal_ingredient_review_path(planned_meal)
     assert_response :see_other
+    follow_redirect!
+    assert_response :success
+    assert_select "h1", text: recipes(:porridge).title
     assert ShoppingList.exists?(household: households(:home), week_start: Date.new(2026, 7, 27))
-    assert ShoppingListItemSource.exists?(planned_meal: planned_meal)
+    # A brand new plan carries only unknown decisions, so it contributes no
+    # confirmed deficit until the household resolves its requirements.
+    refute sources_for(planned_meal).exists?
+
+    requirements = planned_meal.planned_meal_ingredients.active.to_a
+    assert_equal recipes(:porridge).recipe_ingredients.map(&:id), requirements.map(&:source_recipe_ingredient_id)
+    assert_equal [ Rational(1), Rational(1, 2) ], requirements.map(&:quantity)
+    assert_equal [ true ], requirements.map(&:untouched?).uniq
+    assert_equal 1, planned_meal.recipe_scale
   end
 
   test "invalid scoped ids render the complete week without creating a shared plan" do
@@ -86,16 +99,17 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
 
   test "destroys only a household plan and preserves the week" do
     sign_in_as users(:one)
-    planned_meal = planned_meals(:alex_target_week)
+    planned_meal = planned_meals(:sam_target_week)
 
     list = ShoppingList.for(household: households(:home), date: planned_meal.planned_on)
+    assert sources_for(planned_meal).exists?
     assert_difference "PlannedMeal.count", -1 do
       delete planned_meal_path(planned_meal), params: { date: "2026-07-27" }
     end
 
     assert_redirected_to meal_week_path(date: "2026-07-27")
     assert_response :see_other
-    refute ShoppingListItemSource.exists?(planned_meal_id: planned_meal.id)
+    refute sources_for(planned_meal).exists?
     assert list.reload.persisted?
   end
 
@@ -116,4 +130,9 @@ class PlannedMealsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to meal_week_path(date: "2026-07-27")
     assert_equal "A plan that has been logged cannot be removed.", flash[:alert]
   end
+
+  private
+    def sources_for(planned_meal)
+      ShoppingListItemSource.where(planned_meal_ingredient: planned_meal.planned_meal_ingredients)
+    end
 end

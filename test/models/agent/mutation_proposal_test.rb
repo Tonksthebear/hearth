@@ -162,6 +162,39 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
     assert PlannedMeal.exists?(plan.id)
   end
 
+  test "planned meal scale is person scoped and previews the decision history a delete would destroy" do
+    created = Agent::Mutation::Operations.execute!(
+      operation: "create_planned_meal",
+      arguments: { planned_on: "2026-08-05", recipe_id: recipes(:salad).id, recipe_scale: 2 },
+      proposal: @grant
+    )
+    plan = PlannedMeal.find(created.dig(:result, "id"))
+    assert_equal 2, plan.recipe_scale
+    assert_equal [ Rational(2) ], plan.planned_meal_ingredients.active.map(&:quantity)
+
+    Agent::Mutation::Operations.execute!(
+      operation: "update_planned_meal",
+      arguments: { id: plan.id, recipe_scale: "0.5" },
+      proposal: @grant
+    )
+    assert_equal 0.5, plan.reload.recipe_scale
+    assert_equal [ Rational(1, 2) ], plan.planned_meal_ingredients.active.map(&:quantity)
+
+    plan.planned_meal_ingredients.active.sole.decide!(:missing)
+    plan.update!(recipe: recipes(:observed_soup))
+    preview = Agent::Mutation::Operations.preview(
+      operation: "delete_planned_meal", arguments: { "id" => plan.id }, context: @grant
+    )
+    assert_equal 1, preview.dig("before", "active_ingredient_decisions")
+    assert_equal 1, preview.dig("before", "superseded_ingredient_decisions")
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      Agent::Mutation::Operations.execute!(
+        operation: "update_planned_meal", arguments: { id: plan.id, recipe_scale: 0 }, proposal: @grant
+      )
+    end
+  end
+
   test "planned meal logging uses the controlled UTC date boundary and a stable future error" do
     travel_to Time.zone.local(2026, 7, 31, 12) do
       plan = PlannedMeal.create!(
@@ -177,6 +210,31 @@ class Agent::MutationProposalTest < ActiveSupport::TestCase
 
       assert_equal "A planned meal can only be logged on or after its planned date", error.message
       assert_nil plan.reload.converted_meal_for(people(:two))
+    end
+  end
+
+  test "agent logging and deletion reach the same pantry reservation lifecycle" do
+    travel_to Time.zone.local(2026, 7, 31, 12) do
+      ingredient = Ingredient.resolve!(household: households(:home), name: "Agent rice")
+      stock = PantryItem.for(household: households(:home), ingredient: ingredient).confirm!(
+        quantity: 4, unit: "cup", source: "pantry_check", confirmed_by: people(:without_login)
+      )
+      recipe = households(:home).recipes.create!(
+        title: "Agent lifecycle plan", source_name: "Agent fixture", provenance_status: :observed
+      )
+      recipe.recipe_ingredients.create!(display_name: "Agent rice", display_quantity: "2", unit: "cup", position: 1)
+      plan = PlannedMeal.create!(household: households(:home), recipe: recipe, planned_on: Date.new(2026, 7, 31))
+
+      Agent::Mutation::Operations.execute!(operation: "log_planned_meal", arguments: { id: plan.id }, proposal: @grant)
+      meal = plan.meals.sole
+
+      assert_equal [ "confirmed", Rational(2) ], [ stock.reload.state, stock.quantity ]
+      assert_equal [ Rational(2) ], plan.pantry_consumptions.active.map(&:quantity)
+
+      Agent::Mutation::Operations.execute!(operation: "delete_meal", arguments: { id: meal.id }, proposal: @grant)
+
+      assert_equal [ "confirmed", Rational(4) ], [ stock.reload.state, stock.quantity ]
+      assert_equal [ "credited" ], plan.pantry_consumptions.reload.map(&:released_reason)
     end
   end
 

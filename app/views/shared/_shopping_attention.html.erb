@@ -1,0 +1,27 @@
+<%# locals: count (Integer), date (Date or MealWeek/param), class: optional %>
+<% if count.to_i.positive? %>
+  <% color = :warning %>
+  <% link_date = local_assigns[:date] %>
+  <div role="status"
+    data-shopping-attention
+    class="<%= class_names(yass(alert: { container: { color => [ :base, :rounded ] } }), local_assigns[:class]) %>">
+    <div class="<%= yass(alert: :inner) %>">
+      <div class="<%= yass(alert: :icon_wrapper) %>">
+        <%= icon "shopping-cart", variant: :mini, class: yass(alert: { icon: [ :base, color ] }) %>
+      </div>
+      <div class="<%= yass(alert: :content_row) %>">
+        <div>
+          <h3 class="<%= yass(alert: { title: [ :base, color ] }) %>">Shopping work remains</h3>
+          <p class="<%= yass(alert: { text: [ :base, color ] }) %>">
+            <%= pluralize(count, "open item") %> on this week's list.
+          </p>
+        </div>
+        <p class="<%= yass(alert: :link_wrapper) %>">
+          <%= link_to "Open shopping list (#{count})", shopping_list_path(date: link_date.respond_to?(:to_param) ? link_date.to_param : link_date),
+            data: { turbo_prefetch: false },
+            class: yass(alert: { link: [ :base, color ] }) %>
+        </p>
+      </div>
+    </div>
+  </div>
+<% end %>

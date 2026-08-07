@@ -10,8 +10,16 @@ class Ingredient < ApplicationRecord
   end
 
   belongs_to :household
+  has_one :pantry_item, dependent: :destroy
   has_many :recipe_ingredients, dependent: :restrict_with_exception
   has_many :meal_items, dependent: :restrict_with_exception
+  has_many :planned_meal_ingredients, dependent: :restrict_with_exception, inverse_of: :ingredient
+  has_many :replacement_planned_meal_ingredients,
+    class_name: "PlannedMealIngredient",
+    foreign_key: :replacement_ingredient_id,
+    inverse_of: :replacement_ingredient,
+    dependent: :restrict_with_exception
+  has_many :pantry_consumptions, dependent: :restrict_with_exception, inverse_of: :ingredient
   has_many :ingredient_nutrient_values, -> { includes(:nutrient).order("nutrients.display_order") },
     dependent: :destroy,
     inverse_of: :ingredient

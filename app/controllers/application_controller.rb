@@ -27,8 +27,11 @@ class ApplicationController < ActionController::Base
 
     def primary_navigation_area
       return :meals if %w[
-        meal_weeks planned_meals planned_meal/meals meals recipes ingredients shopping_lists
-        shopping_list_items shopping_list_item/completions
+        meal_weeks planned_meals planned_meal/meals planned_meal/ingredient_reviews
+        planned_meal/on_hand_confirmations planned_meal_ingredient/decisions
+        planned_meal_ingredient/replacement_decisions planned_meal_ingredient/substitutions
+        meals recipes ingredients shopping_lists
+        shopping_list_items shopping_list_item/completions shopping_list_item/pantry_confirmations
       ].include?(controller_path)
       return :activities if %w[
         activity_weeks activity_libraries activity_histories planned_workouts planned_workout/skips
@@ -45,9 +48,13 @@ class ApplicationController < ActionController::Base
       items = case primary_navigation_area
       when :meals
         [
-          [ "Week", meal_week_path, %w[meal_weeks planned_meals planned_meal/meals meals] ],
+          [ "Week", meal_week_path, %w[
+            meal_weeks planned_meals planned_meal/meals planned_meal/ingredient_reviews
+            planned_meal/on_hand_confirmations planned_meal_ingredient/decisions
+            planned_meal_ingredient/replacement_decisions planned_meal_ingredient/substitutions meals
+          ] ],
           [ "Recipes", recipes_path, %w[recipes ingredients] ],
-          [ "Shopping", shopping_list_path, %w[shopping_lists shopping_list_items shopping_list_item/completions], { turbo_prefetch: false } ]
+          [ "Shopping", shopping_list_path, %w[shopping_lists shopping_list_items shopping_list_item/completions shopping_list_item/pantry_confirmations], { turbo_prefetch: false } ]
         ]
       when :activities
         [

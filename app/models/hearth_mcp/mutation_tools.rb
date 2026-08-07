@@ -188,7 +188,7 @@ module HearthMcp
       end
     end
 
-    PLAN_PROPERTIES = { planned_on: DATE, recipe_id: ID }.freeze
+    PLAN_PROPERTIES = { planned_on: DATE, recipe_id: ID, recipe_scale: { type: "number", exclusiveMinimum: 0 } }.freeze
     MEAL_PROPERTIES = {
       eaten_on: DATE, eaten_at: { type: [ "string", "null" ], format: "date-time" }, notes: TEXT,
       meal_items: { type: "array", minItems: 1, items: MEAL_ITEM_SCHEMA }
