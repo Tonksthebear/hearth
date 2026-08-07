@@ -139,20 +139,156 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
 
       week_start = Date.current.beginning_of_week
       today = Date.current
-      past_plan_date = today > week_start ? week_start : today
-      past_bowl_plan = household.planned_meals.find_or_initialize_by(
-        person: nil,
-        recipe: bowl,
-        planned_on: past_plan_date
-      )
-      past_bowl_plan.save!
-      household.planned_meals.find_or_initialize_by(
-        person: (alex if today == week_start),
-        recipe: bowl,
-        planned_on: today
-      ).save!
-      household.planned_meals.find_or_initialize_by(person: alex, recipe: oats, planned_on: week_start + 1.day).save!
+      ingredient_named = lambda do |name|
+        household.ingredients.find_by!(normalized_name: Ingredient.normalize_name(name))
+      end
+      pantry_for = lambda do |name|
+        PantryItem.for(household:, ingredient: ingredient_named.call(name))
+      end
+      # Seeds run inside one Household.transaction, so after_commit snapshot
+      # reconcile does not fire until the end. Force the runtime path explicitly.
+      materialize_requirements = lambda do |plan|
+        plan.reconcile_ingredient_snapshots!
+        plan.planned_meal_ingredients.active.reload
+        plan
+      end
+      requirement_named = lambda do |plan, name|
+        plan.planned_meal_ingredients.active.find_by!(display_name: name)
+      end
+      answer_if_open = lambda do |requirement, decision, by:|
+        return unless requirement.planned_meal.ingredient_review_open?
+        return unless requirement.unknown?
 
+        requirement.answer!(decision, by: by)
+      end
+
+      # Replacement ingredient for the substitution demo (not on a recipe yet).
+      flax = Ingredient.for(household:, name: "flax seeds")
+      flax.save! if flax.new_record?
+
+      # --- Pantry evidence: every pantry state used by the readiness walkthrough ---
+      # Start with enough rice for the cooked plan; trim after convert so the live
+      # queue still shows ready vs shopping competition.
+      pantry_for.call("rolled oats").confirm!(
+        quantity: 5, unit: "cup", source: "pantry_check", confirmed_by: alex
+      )
+      pantry_for.call("cooked brown rice").confirm!(
+        quantity: 4, unit: "cup", source: "pantry_check", confirmed_by: alex
+      )
+      pantry_for.call("chickpeas").confirm!(
+        quantity: 4, unit: "can", source: "pantry_check", confirmed_by: alex
+      )
+      pantry_for.call("olive oil").confirm!(
+        quantity: 12, unit: "tbsp", source: "pantry_check", confirmed_by: alex
+      )
+      pantry_for.call("flax seeds").confirm!(
+        quantity: 4, unit: "tbsp", source: "pantry_check", confirmed_by: alex
+      )
+      # low — never allocatable; keeps open decisions unresolved
+      pantry_for.call("chia seeds").mark_low!(source: "pantry_check", confirmed_by: alex)
+      # out — supplies zero; a missing decision becomes a shopping deficit
+      pantry_for.call("mixed vegetables").mark_out!(source: "pantry_check", confirmed_by: alex)
+      # apple + water stay untracked (pantry unknown — no row)
+
+      # Cooked plan first so its draw does not steal the live queue's rice budget.
+      # Keep it strictly before `today` so it never collides with the ready bowl.
+      cooked_date = [ today - 2.days, week_start ].max
+      cooked_date = today - 1.day if cooked_date >= today
+      cooked_bowl = household.planned_meals.find_or_initialize_by(
+        person: nil, recipe: bowl, planned_on: cooked_date
+      )
+      cooked_bowl.save!
+      materialize_requirements.call(cooked_bowl)
+      if cooked_bowl.meals.empty? && cooked_bowl.ingredient_review_open?
+        cooked_bowl.planned_meal_ingredients.active.find_each do |requirement|
+          next unless requirement.unknown?
+
+          if requirement.display_name == "mixed vegetables"
+            requirement.answer!(:not_needed, by: alex)
+          else
+            requirement.answer!(:on_hand, by: alex)
+          end
+        end
+        cooked_bowl.convert_for!(alex) if cooked_bowl.convertible_by?(alex, today: cooked_date)
+      end
+
+      # Exactly one bowl of rice left for the queued household plans: the earlier
+      # ready bowl holds it; the later shopping bowl is short even when on hand.
+      pantry_for.call("cooked brown rice").confirm!(
+        quantity: 2, unit: "cup", source: "pantry_check", confirmed_by: alex
+      )
+      # Re-assert out vegetables in case on_hand from cooking wrote evidence.
+      pantry_for.call("mixed vegetables").mark_out!(source: "pantry_check", confirmed_by: alex)
+
+      # --- Live queue (allocation order: planned_on, then id) ---
+      # Ready to cook — household bowl; vegetables not needed, rest on hand.
+      ready_bowl = household.planned_meals.find_or_initialize_by(
+        person: nil, recipe: bowl, planned_on: today
+      )
+      ready_bowl.save!
+      materialize_requirements.call(ready_bowl)
+      if ready_bowl.ingredient_review_open?
+        answer_if_open.call(requirement_named.call(ready_bowl, "cooked brown rice"), :on_hand, by: alex)
+        answer_if_open.call(requirement_named.call(ready_bowl, "mixed vegetables"), :not_needed, by: alex)
+        answer_if_open.call(requirement_named.call(ready_bowl, "chickpeas"), :on_hand, by: alex)
+        answer_if_open.call(requirement_named.call(ready_bowl, "olive oil"), :on_hand, by: alex)
+      end
+
+      # Needs ingredient check — Alex oats; apple + chia stay unknown (chia is low).
+      needs_check_oats = household.planned_meals.find_or_initialize_by(
+        person: alex, recipe: oats, planned_on: today + 1.day
+      )
+      needs_check_oats.save!
+      materialize_requirements.call(needs_check_oats)
+      if needs_check_oats.ingredient_review_open?
+        answer_if_open.call(requirement_named.call(needs_check_oats, "rolled oats"), :on_hand, by: alex)
+        answer_if_open.call(requirement_named.call(needs_check_oats, "water"), :not_needed, by: alex)
+      end
+
+      # Shopping needed — later bowl loses rice allocation; vegetables missing + out.
+      shopping_bowl = household.planned_meals.find_or_initialize_by(
+        person: nil, recipe: bowl, planned_on: today + 2.days
+      )
+      shopping_bowl.save!
+      materialize_requirements.call(shopping_bowl)
+      if shopping_bowl.ingredient_review_open?
+        answer_if_open.call(requirement_named.call(shopping_bowl, "cooked brown rice"), :on_hand, by: alex)
+        answer_if_open.call(requirement_named.call(shopping_bowl, "mixed vegetables"), :missing, by: alex)
+        answer_if_open.call(requirement_named.call(shopping_bowl, "chickpeas"), :on_hand, by: alex)
+        answer_if_open.call(requirement_named.call(shopping_bowl, "olive oil"), :on_hand, by: alex)
+      end
+
+      # Substitution — Sam oats; chia → flax, replacement answered on hand.
+      substituted_oats = household.planned_meals.find_or_initialize_by(
+        person: sam, recipe: oats, planned_on: today + 3.days
+      )
+      substituted_oats.save!
+      materialize_requirements.call(substituted_oats)
+      if substituted_oats.ingredient_review_open?
+        chia_req = requirement_named.call(substituted_oats, "chia seeds")
+        if chia_req.unknown?
+          chia_req.substitute!(
+            ingredient: flax,
+            display_quantity: "1",
+            unit: "tbsp",
+            display_name: "flax seeds"
+          )
+        end
+        chia_req.reload
+        if chia_req.substituted? && chia_req.replacement_decision.to_s == "unknown"
+          chia_req.answer_replacement!(:on_hand, by: sam)
+        end
+        answer_if_open.call(requirement_named.call(substituted_oats, "rolled oats"), :on_hand, by: sam)
+        answer_if_open.call(requirement_named.call(substituted_oats, "water"), :not_needed, by: sam)
+        # Unitless apple "1" count does not allocate cleanly against pantry evidence;
+        # force not_needed so the substitution (chia → flax) is the headline demo.
+        apple_req = requirement_named.call(substituted_oats, "apple")
+        if apple_req.planned_meal.ingredient_review_open? && !apple_req.not_needed?
+          apple_req.decide!(:not_needed)
+        end
+      end
+
+      # Logged meals (nutrition snapshots, multi-item, incomplete free-text)
       alex_meal = household.meals.find_or_initialize_by(person: alex, eaten_on: today)
       alex_meal.assign_attributes(
         eaten_at: Time.zone.local(today.year, today.month, today.day, 8, 15),
@@ -166,7 +302,7 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         },
         {
           position: 2, source_kind: :ingredient, recipe: nil,
-          ingredient: household.ingredients.find_by!(normalized_name: "apple"),
+          ingredient: ingredient_named.call("apple"),
           snapshot_label: "apple", portion_amount: 100, portion_unit: "g",
           substitutions: nil, notes: "Extra sliced apple."
         },
@@ -186,38 +322,29 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
         item.create_recipe_feedback!(body: "Keep the apple pieces smaller next time; the cinnamon level was right.") unless item.recipe_feedback
       end
 
-      sam_meal = household.meals.find_or_initialize_by(person: sam, eaten_on: week_start + 2.days)
-      sam_meal.assign_attributes(
-        planned_meal: past_bowl_plan,
-        eaten_at: Time.zone.local((week_start + 2.days).year, (week_start + 2.days).month, (week_start + 2.days).day, 18, 30),
-        notes: "Shared dinner logged from the household plan."
-      )
-      sam_item = sam_meal.meal_items.find_or_initialize_by(position: 1)
-      sam_item.assign_attributes(
-        source_kind: :recipe,
-        recipe: bowl,
-        ingredient: nil,
-        snapshot_label: bowl.title,
-        portion_amount: 1,
-        portion_unit: "serving",
-        substitutions: "Used broccoli and peppers for the mixed vegetables.",
-        notes: "Packed the remaining serving for lunch."
-      )
-      sam_meal.save!
-      refresh_demo_portion.call(sam_item, 1, "serving")
-      sam_item.create_recipe_feedback!(body: "Add a little more acid at the table next time.") unless sam_item.recipe_feedback
+      if (cooked_meal = cooked_bowl.meals.find_by(person: alex))
+        cooked_meal.update!(
+          notes: "Logged from the plan — pantry draw and consumption ledger are on this conversion."
+        )
+      end
 
+      # Shopping from allocation deficits (cold-switch generator) + household intent
       shopping_list = ShoppingList.for(household:, date: today)
       manual_item = shopping_list.items.find_or_initialize_by(generated_key: nil, name: "Dish soap")
-      manual_item.assign_attributes(quantity: "1", notes: "Unscented refill")
+      manual_item.assign_attributes(quantity: "1", notes: "Unscented refill — manual checklist intent")
       manual_item.save!
-      shopping_list.items.find_by!(ingredient: household.ingredients.find_by!(normalized_name: "olive oil")).complete!
-      shopping_list.items.find_by!(ingredient: household.ingredients.find_by!(normalized_name: "mixed vegetables")).tap do |item|
-        item.apply_user_attributes(
+
+      # Prefer a generated vegetables deficit for the purchase-confirmation handoff.
+      vegetables_item = shopping_list.items.find { |item| item.ingredient == ingredient_named.call("mixed vegetables") }
+      if vegetables_item
+        vegetables_item.apply_user_attributes(
           name: "Vegetables for grain bowls",
-          notes: "Broccoli, peppers, and zucchini"
-        ) unless item.user_managed?
+          notes: "Broccoli, peppers, and zucchini — confirm into pantry after shopping"
+        ) unless vegetables_item.user_managed?
       end
+
+      # Complete one open row so completed vs remaining shopping UI has content.
+      shopping_list.items.where(completed_at: nil).where.not(id: vegetables_item&.id).first&.complete!
 
       squat = household.exercises.find_or_create_by!(name: "Goblet squat") do |exercise|
         exercise.modality = "strength"
@@ -475,6 +602,12 @@ if ENV["HEARTH_DEMO_DATA"] == "1"
       end
     end
 
-    puts "Hearth demo data ready: sign in as #{demo_email}."
+    puts <<~MSG.squish
+      Hearth demo data ready: sign in as #{demo_email}.
+      Pantry walkthrough — Ready to cook: household grain bowl on #{Date.current};
+      Needs ingredient check: Alex oats on #{Date.current + 1};
+      Shopping needed: later household bowl (rice short + vegetables missing);
+      Substitution: Sam oats with flax; cooked plan earlier this week drew pantry stock.
+    MSG
   end
 end
