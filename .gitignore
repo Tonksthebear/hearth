@@ -40,3 +40,8 @@
 
 # Local Tailwind Plus element reference used by agents and previews.
 /reference
+
+# Ignore local agent, editor, and worktree state.
+/.botster/
+/.ruby-lsp/
+/mise.local.toml
