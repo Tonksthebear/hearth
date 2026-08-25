@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_050000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_140100) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -572,6 +572,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_050000) do
     t.check_constraint "target_count_unit IS NULL OR target_count_unit IN ('laps', 'flights', 'steps')", name: "exercise_prescriptions_target_count_unit"
     t.check_constraint "target_distance_unit IS NULL OR target_distance_unit IN ('m', 'km', 'mi', 'ft')", name: "exercise_prescriptions_target_distance_unit"
     t.check_constraint "target_heart_rate_unit IS NULL OR target_heart_rate_unit IN ('bpm', 'percent_max')", name: "exercise_prescriptions_target_heart_rate_unit"
+  end
+
+  create_table "exercise_visual_items", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "exercise_visual_id", null: false
+    t.integer "position", null: false
+    t.string "source_checksum"
+    t.string "source_identifier"
+    t.json "source_metadata", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["exercise_visual_id", "position"], name: "index_exercise_visual_items_on_exercise_visual_id_and_position", unique: true
+    t.index ["exercise_visual_id"], name: "index_exercise_visual_items_on_exercise_visual_id"
+    t.check_constraint "position > 0", name: "exercise_visual_items_positive_position"
+  end
+
+  create_table "exercise_visuals", force: :cascade do |t|
+    t.string "alt_text", null: false
+    t.text "caption"
+    t.datetime "created_at", null: false
+    t.text "display_attribution"
+    t.integer "exercise_id", null: false
+    t.integer "frame_interval_ms"
+    t.string "kind", null: false
+    t.integer "position", null: false
+    t.string "provenance_status", default: "personal", null: false
+    t.string "source_key"
+    t.datetime "updated_at", null: false
+    t.index ["exercise_id", "position"], name: "index_exercise_visuals_on_exercise_id_and_position", unique: true
+    t.index ["exercise_id", "source_key"], name: "index_exercise_visuals_on_exercise_id_and_source_key", unique: true, where: "source_key IS NOT NULL"
+    t.index ["exercise_id"], name: "index_exercise_visuals_on_exercise_id"
+    t.check_constraint "(kind = 'frame_sequence' AND frame_interval_ms IS NOT NULL AND frame_interval_ms BETWEEN 100 AND 5000) OR (kind <> 'frame_sequence' AND frame_interval_ms IS NULL)", name: "exercise_visuals_frame_interval_ms"
+    t.check_constraint "kind IN ('image', 'frame_sequence', 'video')", name: "exercise_visuals_kind"
+    t.check_constraint "length(trim(alt_text)) > 0", name: "exercise_visuals_present_alt_text"
+    t.check_constraint "position > 0", name: "exercise_visuals_positive_position"
+    t.check_constraint "provenance_status IN ('personal', 'verified', 'adapted', 'observed')", name: "exercise_visuals_provenance_status"
   end
 
   create_table "exercises", force: :cascade do |t|
@@ -1308,6 +1343,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_050000) do
   add_foreign_key "agent_turns", "sessions", column: "browser_session_id", on_delete: :cascade
   add_foreign_key "exercise_prescriptions", "exercises", on_delete: :restrict
   add_foreign_key "exercise_prescriptions", "workout_blocks"
+  add_foreign_key "exercise_visual_items", "exercise_visuals"
+  add_foreign_key "exercise_visuals", "exercises"
   add_foreign_key "exercises", "households"
   add_foreign_key "habit_check_in_measurements", "habit_check_ins"
   add_foreign_key "habit_check_in_measurements", "habit_metrics"

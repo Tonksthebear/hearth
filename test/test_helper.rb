@@ -98,6 +98,8 @@ module ActiveSupport
         ExercisePrescription.delete_all
         WorkoutBlock.delete_all
         WorkoutTemplate.delete_all
+        ExerciseVisualItem.delete_all
+        ExerciseVisual.delete_all
         Exercise.delete_all
         RecipeInstructionIngredient.delete_all
         RecipeInstruction.delete_all

@@ -14,5 +14,12 @@
     <div><dt class="text-sm text-gray-500 dark:text-gray-400">Equipment</dt><dd class="mt-1"><%= @exercise.equipment.presence || "None recorded" %></dd></div>
     <div><dt class="text-sm text-gray-500 dark:text-gray-400">Guidance</dt><dd class="mt-1"><%= @exercise.guidance.presence || "None recorded" %></dd></div>
   </dl>
+  <% if @exercise.exercise_visuals.any? %>
+    <section aria-label="Exercise visuals" class="mt-8 space-y-4">
+      <% @exercise.exercise_visuals.each do |visual| %>
+        <%= render "visual", visual: visual %>
+      <% end %>
+    </section>
+  <% end %>
   <p class="mt-8"><%= link_to "Back to exercises", exercises_path, class: "font-medium text-primary-800 dark:text-primary-300 underline" %></p>
 </article>

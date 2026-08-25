@@ -1,0 +1,45 @@
+<figure class="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50">
+  <% if visual.image? && (item = visual.exercise_visual_items.first) %>
+    <% if item.inline_renderable? %>
+      <%= image_tag rails_storage_proxy_path(item.file), alt: visual.alt_text, class: "max-w-full rounded-lg" %>
+    <% else %>
+      <%= link_to visual.alt_text, rails_storage_proxy_path(item.file), class: "font-medium text-primary-800 underline dark:text-primary-300" %>
+    <% end %>
+  <% elsif visual.video? && (item = visual.exercise_visual_items.first) %>
+    <%= video_tag rails_storage_proxy_path(item.file), controls: true, aria: { label: visual.alt_text }, class: "max-w-full rounded-lg" %>
+  <% elsif visual.frame_sequence? %>
+    <% animated_items = visual.animated_items %>
+    <% if animated_items.any? %>
+      <div
+        role="img"
+        aria-label="<%= visual.alt_text %>"
+        data-controller="frame-sequence"
+        data-frame-sequence-interval-value="<%= visual.frame_interval_ms %>"
+        class="relative">
+        <% animated_items.each_with_index do |item, index| %>
+          <%= image_tag rails_storage_proxy_path(item.file),
+            alt: "",
+            class: "max-w-full rounded-lg data-[hidden]:hidden",
+            data: { frame_sequence_target: "frame" }.merge(index.positive? ? { hidden: true } : {}) %>
+        <% end %>
+      </div>
+    <% end %>
+    <% visual.download_items.each do |item| %>
+      <p class="mt-3">
+        <%= link_to "#{visual.alt_text} frame #{item.position}",
+          rails_storage_proxy_path(item.file),
+          class: "font-medium text-primary-800 underline dark:text-primary-300" %>
+      </p>
+    <% end %>
+  <% end %>
+  <% if visual.caption.present? || visual.display_attribution.present? %>
+    <figcaption class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+      <% if visual.caption.present? %>
+        <span><%= visual.caption %></span>
+      <% end %>
+      <% if visual.display_attribution.present? %>
+        <span><%= visual.display_attribution %></span>
+      <% end %>
+    </figcaption>
+  <% end %>
+</figure>

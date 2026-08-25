@@ -1,6 +1,9 @@
 require "application_system_test_case"
+require_relative "../test_helpers/exercise_visual_test_helper"
 
 class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
+  include ExerciseVisualTestHelper
+
   test "creates a structured exercise and attributed workout template through the real UI" do
     sign_in_via_browser users(:one)
 
@@ -140,5 +143,75 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
       assert_button "Move up"
       assert_no_button "Move down"
     end
+  end
+
+  test "keeps staged visual uploads through an invalid save and then persists frame order" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path new_exercise_path
+    fill_in_and_wait_for_value "Name", exercises(:squat).name
+    select_and_wait "Strength", from: "Modality"
+    select_and_wait "Hinge", from: "Movement pattern"
+    click_button_and_wait_for_count "Add visual", "input[type='file']", 1
+    click_button_and_wait_for_count "Add file", "input[type='file']", 2
+    select_and_wait "Frame sequence", from: "Kind"
+    fill_in_and_wait_for_value "Accessible description", "Staged hinge"
+    fill_in_and_wait_for_value "Frame interval (ms)", "1000"
+    attach_file "File 1", file_fixture("exercises/frame-a.png")
+    attach_file "File 2", file_fixture("exercises/frame-b.png")
+    click_button "Create Exercise"
+    assert_text "The exercise could not be saved", wait: 5
+
+    signed_ids = all("input[type='hidden'][name$='[file]']", visible: :all).map { |field| field.value }
+    assert_equal 2, signed_ids.size
+    blobs = signed_ids.map { |signed_id| ActiveStorage::Blob.find_signed!(signed_id) }
+    assert blobs.all? { |blob| blob.service.exist?(blob.key) }
+
+    fill_in_and_wait_for_value "Name", "Staged sequence"
+    click_button_and_wait_for_text "Create Exercise", "Staged sequence"
+    frames = all("[data-frame-sequence-target='frame']", visible: :all)
+    assert_equal 2, frames.size
+    assert_includes frames.first[:src], blobs.first.filename.to_s
+    assert_includes frames.last[:src], blobs.last.filename.to_s
+  end
+
+  test "advances a raster frame sequence by toggling data-hidden" do
+    exercise = create_catalog_exercise(name: "Advancing sequence")
+    add_frame_sequence(exercise, alt_text: "Advance", frame_interval_ms: 1000)
+    exercise.save!
+
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path exercise_path(exercise)
+    frames = all("[data-frame-sequence-target='frame']", visible: :all)
+    assert_equal 2, frames.size
+    initial_src = find("[data-frame-sequence-target='frame']:not([data-hidden])")[:src]
+    assert page.has_no_selector?("[data-frame-sequence-target='frame']:not([data-hidden])[src='#{initial_src}']", wait: 3)
+    assert_selector "[data-frame-sequence-target='frame']:not([data-hidden])", count: 1
+  end
+
+  test "renders mixed raster and svg frames without putting svg in an img" do
+    exercise = create_catalog_exercise(name: "Mixed frames")
+    add_frame_sequence(
+      exercise,
+      files: [ [ "frame-a.png", "image/png" ], [ "icon.svg", "image/svg+xml" ] ],
+      alt_text: "Mixed frames"
+    )
+    exercise.save!
+    svg_path = rails_storage_proxy_path(exercise.exercise_visuals.sole.download_items.sole.file)
+
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path exercise_path(exercise)
+    assert_selector "a[href='#{svg_path}']"
+    assert_no_selector "img[src='#{svg_path}']"
+    assert_selector "[data-frame-sequence-target='frame']", visible: :all, count: 1
+  end
+
+  test "exposes native controls on a video visual" do
+    exercise = create_catalog_exercise(name: "Video show")
+    add_video_visual(exercise, alt_text: "Demo video")
+    exercise.save!
+
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path exercise_path(exercise)
+    assert_selector "video[controls][aria-label='Demo video']"
   end
 end
