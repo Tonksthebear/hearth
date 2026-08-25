@@ -434,6 +434,22 @@ It runs style and refreshed dependency/security scans, Rails and browser system 
 - Verified image platform is Linux amd64; native arm64 and remote Kamal deployment remain unverified.
 - Hearth is a tracking and automation tool, not medical advice, a diagnostic product, or regulated medical-device software.
 
+## Workout Guide catalog
+
+Hearth vendors the pinned [Workout Guide](https://github.com/bryllim/workout-guide) release as an offline exercise catalog. The normative contract is [docs/workout-guide-catalog-contract.md](docs/workout-guide-catalog-contract.md). Runtime import belongs to a later ticket.
+
+Pinned release: `v1.0.0`.
+
+Refresh the vendor bundle with an explicit GitHub release tag:
+
+```bash
+bin/sync-workout-guide v1.0.0
+```
+
+The command rejects a branch name and a bare commit SHA. Application runtime does not request GitHub. A clean checkout already contains every file required for an offline import under `vendor/workout_guide/`.
+
+Frame assets are licensed CC BY-SA 4.0. That license is separate from Hearth's O'Saasy license. Keep `vendor/workout_guide/LICENSE-ASSETS` and `vendor/workout_guide/ATTRIBUTION.md` beside the frames.
+
 ## License
 
 [O'Saasy License](LICENSE) — free to use and self-host; no competing hosted SaaS that resells the product's core functionality.
