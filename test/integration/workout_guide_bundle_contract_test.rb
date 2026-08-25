@@ -121,17 +121,21 @@ class WorkoutGuideBundleContractTest < ActiveSupport::TestCase
   test "checksum generation stays stable when the process locale is not C" do
     script = Rails.root.join("bin/sync-workout-guide").read
     assert_includes script, "LC_ALL=C sort"
+    assert_equal BUNDLE.join("CHECKSUMS").read, checksum_manifest_text
+    assert_equal checksums.keys, sorted_bundle_paths("LC_ALL" => "en_US.UTF-8")
+  end
 
-    command = <<~SH
-      export LC_ALL=en_US.UTF-8
-      CDPATH= cd -- #{BUNDLE}
-      find . -type f ! -name CHECKSUMS | sed 's|^\\./||' | LC_ALL=C sort | while IFS= read -r path; do
-        shasum -a 256 "$path"
-      done
-    SH
-    generated = `#{command}`
-    assert_equal 0, $?.exitstatus
-    assert_equal BUNDLE.join("CHECKSUMS").read, generated
+  test "checksum locale regression does not require shasum" do
+    Dir.mktmpdir("workout-guide-shasum-") do |dir|
+      shim = Pathname(dir).join("shasum")
+      shim.write("#!/bin/sh\nexit 127\n")
+      shim.chmod(0755)
+      env = { "PATH" => "#{dir}:#{ENV.fetch("PATH")}", "LC_ALL" => "en_US.UTF-8" }
+
+      refute system(env, "shasum", "-a", "256", "/dev/null", out: File::NULL, err: File::NULL)
+      assert_equal BUNDLE.join("CHECKSUMS").read, checksum_manifest_text
+      assert_equal checksums.keys, sorted_bundle_paths(env)
+    end
   end
 
   test "destination rsync restores equal-size files whose bytes changed" do
@@ -247,6 +251,19 @@ class WorkoutGuideBundleContractTest < ActiveSupport::TestCase
         digest, path = line.rstrip.split(/[ *]{2}/, 2)
         [ path, digest ]
       }
+    end
+
+    def checksum_manifest_text
+      (bundle_files - [ "CHECKSUMS" ]).sort.map { |path|
+        "#{Digest::SHA256.hexdigest(BUNDLE.join(path).binread)}  #{path}\n"
+      }.join
+    end
+
+    def sorted_bundle_paths(env = {})
+      command = "CDPATH= cd -- #{BUNDLE} && find . -type f ! -name CHECKSUMS | sed 's|^\\./||' | LC_ALL=C sort"
+      output = IO.popen(env, [ "sh", "-c", command ], err: [ :child, :out ], &:read)
+      assert_equal 0, $?.exitstatus, output
+      output.split("\n")
     end
 
     def bundle_files
