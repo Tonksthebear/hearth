@@ -1,0 +1,2 @@
+# Visuals are assembled in tests so catalog exercises keep their existing destroy constraints.
+--- {}

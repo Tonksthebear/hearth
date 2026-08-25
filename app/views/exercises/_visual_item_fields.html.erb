@@ -1,0 +1,34 @@
+<% if form.object.marked_for_destruction? %>
+  <div hidden>
+    <%= form.hidden_field :id if form.object.persisted? %>
+    <%= form.hidden_field :_destroy, value: "1" %>
+  </div>
+<% else %>
+  <div class="grid gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-800/50 sm:grid-cols-[1fr_auto]">
+    <%= form.hidden_field :id if form.object.persisted? %>
+    <%= form.hidden_field :position %>
+    <div>
+      <%= form.label :file, "File #{form.object.position}", class: :label %>
+      <p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400">PNG, JPEG, WebP, GIF, SVG, MP4, or WebM. Images up to 10 MB. Videos up to 50 MB.</p>
+      <% if (filename = form.object.file.attachment&.filename) %>
+        <p class="mt-1 text-sm text-gray-700 dark:text-gray-300"><%= filename %></p>
+      <% end %>
+      <% if form.object.file_signed_id.present? %>
+        <%= form.hidden_field :file, value: form.object.file_signed_id, id: nil %>
+      <% end %>
+      <div class="mt-2">
+        <%= form.file_field :file,
+          accept: (ExerciseVisualItem::IMAGE_CONTENT_TYPES + ExerciseVisualItem::VIDEO_CONTENT_TYPES).join(","),
+          class: :file_field %>
+      </div>
+    </div>
+    <div class="flex items-end">
+      <%= form.button "Remove file",
+        name: "remove_visual_item",
+        value: "#{visual_index}:#{form.index}",
+        formnovalidate: true,
+        class: { btn: [ :base, { md: :base }, { danger: :outline } ] },
+        aria: { label: "Remove file #{form.object.position} from visual #{visual_index.to_i + 1}" } %>
+    </div>
+  </div>
+<% end %>

@@ -16,6 +16,9 @@ module Hearth
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks hearth/version.rb])
     config.paths["tmp"] = ENV.fetch("HEARTH_TMP", Rails.root.join("tmp"))
+    config.active_storage.content_types_allowed_inline += %w[video/mp4 video/webm]
+    config.active_storage.analyzers.delete(ActiveStorage::Analyzer::VideoAnalyzer)
+    config.active_storage.previewers.delete(ActiveStorage::Previewer::VideoPreviewer)
 
     # Configuration for the application, engines, and railties goes here.
     #

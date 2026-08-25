@@ -1,0 +1,19 @@
+<fieldset class="sm:col-span-2 border-t border-gray-900/10 pt-6 dark:border-white/10">
+  <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Visuals</legend>
+  <div class="flex items-center justify-end gap-4">
+    <%= form.button "Add visual",
+      name: "add_visual",
+      value: "1",
+      formnovalidate: true,
+      class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
+  </div>
+  <p id="exercise-visuals-hint" class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Still images, animated GIFs, videos, or ordered frame sequences. SVG files download instead of rendering.</p>
+  <div class="mt-6 space-y-4">
+    <%= form.fields_for :exercise_visuals do |visual_form| %>
+      <%= render "visual_fields",
+        form: visual_form,
+        visual_kinds: visual_kinds,
+        provenance_statuses: provenance_statuses %>
+    <% end %>
+  </div>
+</fieldset>
