@@ -237,6 +237,15 @@ class ShoppingListTest < ActiveSupport::TestCase
     assert_equal counts.second, ShoppingListItemSource.count
   end
 
+  test "separates remaining and completed display items" do
+    list = ShoppingList.for(household: households(:home), date: Date.new(2026, 7, 27))
+
+    assert list.remaining_items.any?
+    assert list.remaining_items.none?(&:completed?)
+    assert_equal [ shopping_list_items(:completed_foil) ], list.completed_items
+    assert list.completed_items.all?(&:completed?)
+  end
+
   test "plan date and recipe changes reconcile new periods without materializing a missing old list" do
     first_recipe = recipe_with(title: "Old recipe", ingredients: [ { display_quantity: "1", unit: "box", display_name: "Rice" } ])
     second_recipe = recipe_with(title: "New recipe", ingredients: [ { display_quantity: "2", unit: "can", display_name: "Beans" } ])

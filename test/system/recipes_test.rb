@@ -62,10 +62,10 @@ class RecipesTest < ApplicationSystemTestCase
 
     click_link_and_wait_for_path "Back to recipes", recipes_path
     fill_in_and_wait_for_value "Search", "Chickpeas"
-    select_element_and_wait "Provenance", "Adapted"
-    click_button_and_wait_for_absence "Filter", "h2", recipes(:porridge).title
-    assert_selector "h2", text: "Lemony Chickpea Bowl"
-    assert_no_selector "h2", text: recipes(:porridge).title
+    select_element_and_wait "Source status", "Adapted"
+    click_button_and_wait_for_absence "Filter", "h3", recipes(:porridge).title
+    assert_selector "h3", text: "Lemony Chickpea Bowl"
+    assert_no_selector "h3", text: recipes(:porridge).title
 
     click_link_and_wait_for_path "Lemony Chickpea Bowl", recipe_path(Recipe.find_by!(title: "Lemony Chickpea Bowl"))
     assert_text "Household Notebook"

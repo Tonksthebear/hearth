@@ -1,0 +1,1042 @@
+# Reviewed Hearth mapping for the pinned Workout Guide bundle.
+# Importer runtime belongs to a later ticket. This file is the catalog contract.
+contract_version: workout_guide/v1
+source:
+  repository: bryllim/workout-guide
+  release_tag: v1.0.0
+
+exercises:
+  # squat
+  assisted-pistol-squat:
+    modality: strength
+    movement_pattern: squat
+  banded-squat:
+    modality: strength
+    movement_pattern: squat
+  belt-squat:
+    modality: strength
+    movement_pattern: squat
+  bodyweight-squat:
+    modality: strength
+    movement_pattern: squat
+  cossack-squat:
+    modality: strength
+    movement_pattern: squat
+  dumbbell-sumo-squat:
+    modality: strength
+    movement_pattern: squat
+  front-squat:
+    modality: strength
+    movement_pattern: squat
+  goblet-squat:
+    modality: strength
+    movement_pattern: squat
+  hack-squat:
+    modality: strength
+    movement_pattern: squat
+  heel-elevated-goblet-squat:
+    modality: strength
+    movement_pattern: squat
+  jump-squat:
+    modality: strength
+    movement_pattern: squat
+  landmine-squat:
+    modality: strength
+    movement_pattern: squat
+  leg-press:
+    modality: strength
+    movement_pattern: squat
+  pistol-squat:
+    modality: strength
+    movement_pattern: squat
+  shrimp-squat:
+    modality: strength
+    movement_pattern: squat
+  single-leg-box-squat:
+    modality: strength
+    movement_pattern: squat
+  sissy-squat:
+    modality: strength
+    movement_pattern: squat
+  skater-squat:
+    modality: strength
+    movement_pattern: squat
+  smith-machine-squat:
+    modality: strength
+    movement_pattern: squat
+  squat:
+    modality: strength
+    movement_pattern: squat
+  wall-sit:
+    modality: strength
+    movement_pattern: squat
+
+  # hinge
+  back-extension:
+    modality: strength
+    movement_pattern: hinge
+  banded-frog-pump:
+    modality: strength
+    movement_pattern: hinge
+  banded-glute-bridge:
+    modality: strength
+    movement_pattern: hinge
+  banded-hip-thrust:
+    modality: strength
+    movement_pattern: hinge
+  barbell-glute-bridge:
+    modality: strength
+    movement_pattern: hinge
+  cable-pull-through:
+    modality: strength
+    movement_pattern: hinge
+  deadlift:
+    modality: strength
+    movement_pattern: hinge
+  dumbbell-glute-bridge:
+    modality: strength
+    movement_pattern: hinge
+  dumbbell-hip-thrust:
+    modality: strength
+    movement_pattern: hinge
+  dumbbell-romanian-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  dumbbell-sumo-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  frog-pump:
+    modality: strength
+    movement_pattern: hinge
+  glute-bridge:
+    modality: strength
+    movement_pattern: hinge
+  glute-bridge-march:
+    modality: strength
+    movement_pattern: hinge
+  glute-focused-back-extension:
+    modality: strength
+    movement_pattern: hinge
+  good-morning:
+    modality: strength
+    movement_pattern: hinge
+  hip-thrust:
+    modality: strength
+    movement_pattern: hinge
+  kettlebell-romanian-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  kettlebell-swing:
+    modality: strength
+    movement_pattern: hinge
+  landmine-romanian-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  lying-hamstring-walkout:
+    modality: strength
+    movement_pattern: hinge
+  nordic-hamstring-curl:
+    modality: strength
+    movement_pattern: hinge
+  rack-pull:
+    modality: strength
+    movement_pattern: hinge
+  reverse-hyperextension:
+    modality: strength
+    movement_pattern: hinge
+  romanian-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  single-leg-glute-bridge:
+    modality: strength
+    movement_pattern: hinge
+  single-leg-romanian-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  smith-machine-hip-thrust:
+    modality: strength
+    movement_pattern: hinge
+  smith-machine-romanian-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  stability-ball-hamstring-curl:
+    modality: strength
+    movement_pattern: hinge
+  sumo-deadlift:
+    modality: strength
+    movement_pattern: hinge
+  towel-hamstring-curl:
+    modality: strength
+    movement_pattern: hinge
+  trap-bar-deadlift:
+    modality: strength
+    movement_pattern: hinge
+
+  # lunge
+  bulgarian-split-squat:
+    modality: strength
+    movement_pattern: lunge
+  curtsy-lunge:
+    modality: strength
+    movement_pattern: lunge
+  deficit-reverse-lunge:
+    modality: strength
+    movement_pattern: lunge
+  dumbbell-curtsy-lunge:
+    modality: strength
+    movement_pattern: lunge
+  dumbbell-lateral-lunge:
+    modality: strength
+    movement_pattern: lunge
+  forward-lunge:
+    modality: strength
+    movement_pattern: lunge
+  front-foot-elevated-split-squat:
+    modality: strength
+    movement_pattern: lunge
+  lateral-lunge:
+    modality: strength
+    movement_pattern: lunge
+  reverse-lunge:
+    modality: strength
+    movement_pattern: lunge
+  smith-machine-bulgarian-split-squat:
+    modality: strength
+    movement_pattern: lunge
+  smith-machine-reverse-lunge:
+    modality: strength
+    movement_pattern: lunge
+  smith-machine-split-squat:
+    modality: strength
+    movement_pattern: lunge
+  split-squat:
+    modality: strength
+    movement_pattern: lunge
+  step-down:
+    modality: strength
+    movement_pattern: lunge
+  step-up:
+    modality: strength
+    movement_pattern: lunge
+  walking-lunge:
+    modality: strength
+    movement_pattern: lunge
+
+  # horizontal_push
+  archer-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  cable-fly:
+    modality: strength
+    movement_pattern: horizontal_push
+  close-grip-bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  decline-bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  decline-dumbbell-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  decline-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  diamond-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  dumbbell-bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  dumbbell-fly:
+    modality: strength
+    movement_pattern: horizontal_push
+  explosive-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  hindu-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  incline-bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  incline-cable-fly:
+    modality: strength
+    movement_pattern: horizontal_push
+  incline-dumbbell-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  incline-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  knee-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  machine-chest-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  pec-deck:
+    modality: strength
+    movement_pattern: horizontal_push
+  push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  smith-machine-bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+  typewriter-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  wall-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  weighted-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+  wide-push-up:
+    modality: strength
+    movement_pattern: horizontal_push
+
+  # vertical_push
+  arnold-press:
+    modality: strength
+    movement_pattern: vertical_push
+  assisted-dip:
+    modality: strength
+    movement_pattern: vertical_push
+  bench-dip:
+    modality: strength
+    movement_pattern: vertical_push
+  chair-dip:
+    modality: strength
+    movement_pattern: vertical_push
+  chest-dip:
+    modality: strength
+    movement_pattern: vertical_push
+  dip:
+    modality: strength
+    movement_pattern: vertical_push
+  feet-elevated-pike-push-up:
+    modality: strength
+    movement_pattern: vertical_push
+  handstand-push-up:
+    modality: strength
+    movement_pattern: vertical_push
+  landmine-press:
+    modality: strength
+    movement_pattern: vertical_push
+  machine-shoulder-press:
+    modality: strength
+    movement_pattern: vertical_push
+  overhead-press:
+    modality: strength
+    movement_pattern: vertical_push
+  pike-push-up:
+    modality: strength
+    movement_pattern: vertical_push
+  push-press:
+    modality: strength
+    movement_pattern: vertical_push
+  seated-dumbbell-press:
+    modality: strength
+    movement_pattern: vertical_push
+  standing-dumbbell-press:
+    modality: strength
+    movement_pattern: vertical_push
+  wall-handstand-push-up:
+    modality: strength
+    movement_pattern: vertical_push
+  wall-walk:
+    modality: strength
+    movement_pattern: vertical_push
+  weighted-dip:
+    modality: strength
+    movement_pattern: vertical_push
+
+  # horizontal_pull
+  band-pull-apart:
+    modality: strength
+    movement_pattern: horizontal_pull
+  banded-face-pull:
+    modality: strength
+    movement_pattern: horizontal_pull
+  banded-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  barbell-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  bent-over-rear-delt-raise:
+    modality: strength
+    movement_pattern: horizontal_pull
+  cable-rear-delt-fly:
+    modality: strength
+    movement_pattern: horizontal_pull
+  chest-supported-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  doorway-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  dumbbell-bent-over-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  face-pull:
+    modality: strength
+    movement_pattern: horizontal_pull
+  inverted-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  machine-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  meadows-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  one-arm-dumbbell-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  pendlay-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  prone-t-raise:
+    modality: strength
+    movement_pattern: horizontal_pull
+  prone-y-raise:
+    modality: strength
+    movement_pattern: horizontal_pull
+  rear-delt-fly:
+    modality: strength
+    movement_pattern: horizontal_pull
+  reverse-pec-deck:
+    modality: strength
+    movement_pattern: horizontal_pull
+  reverse-snow-angel:
+    modality: strength
+    movement_pattern: horizontal_pull
+  seated-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  single-arm-cable-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  t-bar-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+  towel-row:
+    modality: strength
+    movement_pattern: horizontal_pull
+
+  # vertical_pull
+  active-hang:
+    modality: strength
+    movement_pattern: vertical_pull
+  assisted-chin-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  assisted-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  banded-lat-pulldown:
+    modality: strength
+    movement_pattern: vertical_pull
+  chin-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  close-grip-lat-pulldown:
+    modality: strength
+    movement_pattern: vertical_pull
+  commando-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  l-sit-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  lat-pulldown:
+    modality: strength
+    movement_pattern: vertical_pull
+  negative-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  neutral-grip-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  scapular-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  straight-arm-pulldown:
+    modality: strength
+    movement_pattern: vertical_pull
+  towel-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  upright-row:
+    modality: strength
+    movement_pattern: vertical_pull
+  weighted-chin-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  weighted-pull-up:
+    modality: strength
+    movement_pattern: vertical_pull
+  wide-grip-lat-pulldown:
+    modality: strength
+    movement_pattern: vertical_pull
+
+  # carry
+  farmer-carry:
+    modality: strength
+    movement_pattern: carry
+
+  # core
+  ab-wheel:
+    modality: strength
+    movement_pattern: core
+  banded-dead-bug:
+    modality: strength
+    movement_pattern: core
+  banded-pallof-press:
+    modality: strength
+    movement_pattern: core
+  banded-woodchop:
+    modality: strength
+    movement_pattern: core
+  bear-plank:
+    modality: strength
+    movement_pattern: core
+  bicycle-crunch:
+    modality: strength
+    movement_pattern: core
+  bird-dog:
+    modality: strength
+    movement_pattern: core
+  cable-crunch:
+    modality: strength
+    movement_pattern: core
+  cable-pallof-hold:
+    modality: strength
+    movement_pattern: core
+  cable-woodchop:
+    modality: strength
+    movement_pattern: core
+  captains-chair-knee-raise:
+    modality: strength
+    movement_pattern: core
+  copenhagen-plank:
+    modality: strength
+    movement_pattern: core
+  crunch:
+    modality: strength
+    movement_pattern: core
+  dead-bug:
+    modality: strength
+    movement_pattern: core
+  decline-sit-up:
+    modality: strength
+    movement_pattern: core
+  dragon-flag:
+    modality: strength
+    movement_pattern: core
+  dumbbell-side-bend:
+    modality: strength
+    movement_pattern: core
+  flutter-kick:
+    modality: strength
+    movement_pattern: core
+  half-kneeling-pallof-press:
+    modality: strength
+    movement_pattern: core
+  hanging-knee-raise:
+    modality: strength
+    movement_pattern: core
+  hanging-leg-raise:
+    modality: strength
+    movement_pattern: core
+  heel-tap:
+    modality: strength
+    movement_pattern: core
+  hollow-body-hold:
+    modality: strength
+    movement_pattern: core
+  hollow-rock:
+    modality: strength
+    movement_pattern: core
+  l-sit-hold:
+    modality: strength
+    movement_pattern: core
+  lying-leg-raise:
+    modality: strength
+    movement_pattern: core
+  pallof-press:
+    modality: strength
+    movement_pattern: core
+  plank:
+    modality: strength
+    movement_pattern: core
+  plank-shoulder-tap:
+    modality: strength
+    movement_pattern: core
+  push-up-shoulder-tap:
+    modality: strength
+    movement_pattern: core
+  reverse-crunch:
+    modality: strength
+    movement_pattern: core
+  russian-twist:
+    modality: strength
+    movement_pattern: core
+  seated-knee-tuck:
+    modality: strength
+    movement_pattern: core
+  side-plank:
+    modality: strength
+    movement_pattern: core
+  side-plank-hip-dip:
+    modality: strength
+    movement_pattern: core
+  superman:
+    modality: strength
+    movement_pattern: core
+  superman-hold:
+    modality: strength
+    movement_pattern: core
+  toe-touch:
+    modality: strength
+    movement_pattern: core
+  v-up:
+    modality: strength
+    movement_pattern: core
+  weighted-crunch:
+    modality: strength
+    movement_pattern: core
+  weighted-russian-twist:
+    modality: strength
+    movement_pattern: core
+
+  # locomotion_cardio
+  assault-bike:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  battle-ropes:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  bear-crawl:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  burpee:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  cycling:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  elliptical:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  fast-feet:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  half-burpee:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  high-knees:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  hiking:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  jump-rope:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  jumping-jack:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  lateral-shuffle:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  mountain-climber:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  plank-jack:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  rowing:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  running:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  seal-jack:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  skater-hop:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  skierg:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  sprawl:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  squat-thrust:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  stair-climber:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  swimming:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  treadmill-incline-walk:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+  walking:
+    modality: cardio
+    movement_pattern: locomotion_cardio
+
+  # mobility
+  arm-circles:
+    modality: mobility
+    movement_pattern: mobility
+  butterfly-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  cat-cow-stretch:
+    modality: mobility
+    movement_pattern: mobility
+    muscle_targets:
+      - { muscle_key: erector_spinae, role: primary }
+      - { muscle_key: rectus_abdominis, role: secondary }
+  childs-pose:
+    modality: mobility
+    movement_pattern: mobility
+  cross-body-shoulder-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  doorway-chest-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  hamstring-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  inchworm:
+    modality: mobility
+    movement_pattern: mobility
+  kneeling-hip-flexor-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  leg-swings-stretch:
+    modality: mobility
+    movement_pattern: mobility
+    muscle_targets:
+      - { muscle_key: hip_flexors, role: primary }
+      - { muscle_key: hamstrings, role: secondary }
+      - { muscle_key: quadriceps, role: secondary }
+  seated-forward-fold-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  standing-quad-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  torso-twist-stretch:
+    modality: mobility
+    movement_pattern: mobility
+    muscle_targets:
+      - { muscle_key: obliques, role: primary }
+      - { muscle_key: erector_spinae, role: secondary }
+  wall-calf-stretch:
+    modality: mobility
+    movement_pattern: mobility
+  worlds-greatest-stretch:
+    modality: mobility
+    movement_pattern: mobility
+    muscle_targets:
+      - { muscle_key: hip_flexors, role: primary }
+      - { muscle_key: hamstrings, role: secondary }
+      - { muscle_key: glutes, role: secondary }
+
+  # balance
+  hip-airplane:
+    modality: balance
+    movement_pattern: balance
+
+  # other
+  banded-clamshell:
+    modality: strength
+    movement_pattern: other
+  banded-donkey-kick:
+    modality: strength
+    movement_pattern: other
+  banded-fire-hydrant:
+    modality: strength
+    movement_pattern: other
+  banded-kickback:
+    modality: strength
+    movement_pattern: other
+  banded-lateral-walk:
+    modality: strength
+    movement_pattern: other
+  banded-monster-walk:
+    modality: strength
+    movement_pattern: other
+  banded-seated-hip-abduction:
+    modality: strength
+    movement_pattern: other
+  banded-standing-hip-abduction:
+    modality: strength
+    movement_pattern: other
+  bicep-curl:
+    modality: strength
+    movement_pattern: other
+  cable-curl:
+    modality: strength
+    movement_pattern: other
+  cable-front-raise:
+    modality: strength
+    movement_pattern: other
+  cable-kickback:
+    modality: strength
+    movement_pattern: other
+  cable-lateral-raise:
+    modality: strength
+    movement_pattern: other
+  cable-standing-hip-abduction:
+    modality: strength
+    movement_pattern: other
+  cable-standing-hip-adduction:
+    modality: strength
+    movement_pattern: other
+  calf-raise:
+    modality: strength
+    movement_pattern: other
+  clamshell:
+    modality: strength
+    movement_pattern: other
+  concentration-curl:
+    modality: strength
+    movement_pattern: other
+  crab-walk:
+    modality: strength
+    movement_pattern: other
+  dead-hang:
+    modality: strength
+    movement_pattern: other
+  donkey-calf-raise:
+    modality: strength
+    movement_pattern: other
+  donkey-kick:
+    modality: strength
+    movement_pattern: other
+  drag-curl:
+    modality: strength
+    movement_pattern: other
+  dumbbell-overhead-tricep-extension:
+    modality: strength
+    movement_pattern: other
+  dumbbell-shrug:
+    modality: strength
+    movement_pattern: other
+  dumbbell-skull-crusher:
+    modality: strength
+    movement_pattern: other
+  ez-bar-curl:
+    modality: strength
+    movement_pattern: other
+  fire-hydrant:
+    modality: strength
+    movement_pattern: other
+  front-raise:
+    modality: strength
+    movement_pattern: other
+  hammer-curl:
+    modality: strength
+    movement_pattern: other
+  hip-abduction-machine:
+    modality: strength
+    movement_pattern: other
+  hip-adduction-machine:
+    modality: strength
+    movement_pattern: other
+  incline-dumbbell-curl:
+    modality: strength
+    movement_pattern: other
+  lateral-raise:
+    modality: strength
+    movement_pattern: other
+  leg-curl:
+    modality: strength
+    movement_pattern: other
+  leg-extension:
+    modality: strength
+    movement_pattern: other
+  leg-press-calf-raise:
+    modality: strength
+    movement_pattern: other
+  lying-leg-curl:
+    modality: strength
+    movement_pattern: other
+  machine-glute-kickback:
+    modality: strength
+    movement_pattern: other
+  machine-lateral-raise:
+    modality: strength
+    movement_pattern: other
+  overhead-tricep-extension:
+    modality: strength
+    movement_pattern: other
+  plate-front-raise:
+    modality: strength
+    movement_pattern: other
+  preacher-curl:
+    modality: strength
+    movement_pattern: other
+  reverse-curl:
+    modality: strength
+    movement_pattern: other
+  rope-hammer-curl:
+    modality: strength
+    movement_pattern: other
+  rope-tricep-pushdown:
+    modality: strength
+    movement_pattern: other
+  scapular-push-up:
+    modality: strength
+    movement_pattern: other
+  seated-calf-raise:
+    modality: strength
+    movement_pattern: other
+  seated-leg-curl:
+    modality: strength
+    movement_pattern: other
+  shrug:
+    modality: strength
+    movement_pattern: other
+  side-lying-hip-abduction:
+    modality: strength
+    movement_pattern: other
+  side-lying-leg-raise:
+    modality: strength
+    movement_pattern: other
+  single-arm-dumbbell-tricep-extension:
+    modality: strength
+    movement_pattern: other
+  single-dumbbell-skullcrusher:
+    modality: strength
+    movement_pattern: other
+  single-leg-calf-raise:
+    modality: strength
+    movement_pattern: other
+  skull-crusher:
+    modality: strength
+    movement_pattern: other
+  spider-curl:
+    modality: strength
+    movement_pattern: other
+  standing-calf-raise:
+    modality: strength
+    movement_pattern: other
+  tricep-kickback:
+    modality: strength
+    movement_pattern: other
+  tricep-pushdown:
+    modality: strength
+    movement_pattern: other
+  wrist-curl:
+    modality: strength
+    movement_pattern: other
+  wrist-extension:
+    modality: strength
+    movement_pattern: other
+
+muscle_aliases:
+  Adductors: adductors
+  Biceps: biceps
+  Calves: calves
+  Chest: chest
+  Forearms: forearms
+  Glutes: glutes
+  Groin: groin
+  Hamstrings: hamstrings
+  Lats: lats
+  Quads: quadriceps
+  Rear Delts: rear_delts
+  Shoulders: shoulders
+  Triceps: triceps
+
+muscle_compounds:
+  Back:
+    as_primary:
+      - { muscle_key: lats, role: primary }
+      - { muscle_key: trapezius, role: secondary }
+      - { muscle_key: rhomboids, role: secondary }
+    as_secondary:
+      - { muscle_key: lats, role: secondary }
+      - { muscle_key: trapezius, role: stabilizer }
+      - { muscle_key: rhomboids, role: stabilizer }
+  Core:
+    as_primary:
+      - { muscle_key: rectus_abdominis, role: primary }
+      - { muscle_key: obliques, role: primary }
+      - { muscle_key: erector_spinae, role: secondary }
+    as_secondary:
+      - { muscle_key: rectus_abdominis, role: secondary }
+      - { muscle_key: obliques, role: secondary }
+      - { muscle_key: erector_spinae, role: stabilizer }
+  Grip:
+    as_primary:
+      - { muscle_key: forearms, role: primary }
+    as_secondary:
+      - { muscle_key: forearms, role: secondary }
+  Hips:
+    as_primary:
+      - { muscle_key: glutes, role: primary }
+      - { muscle_key: hip_flexors, role: primary }
+      - { muscle_key: adductors, role: secondary }
+    as_secondary:
+      - { muscle_key: glutes, role: secondary }
+      - { muscle_key: hip_flexors, role: secondary }
+      - { muscle_key: adductors, role: stabilizer }
+  Legs:
+    as_primary:
+      - { muscle_key: quadriceps, role: primary }
+      - { muscle_key: glutes, role: primary }
+      - { muscle_key: hamstrings, role: secondary }
+    as_secondary:
+      - { muscle_key: quadriceps, role: secondary }
+      - { muscle_key: glutes, role: secondary }
+      - { muscle_key: hamstrings, role: stabilizer }
+  Lower Back:
+    as_primary:
+      - { muscle_key: erector_spinae, role: primary }
+      - { muscle_key: glutes, role: secondary }
+      - { muscle_key: hamstrings, role: secondary }
+    as_secondary:
+      - { muscle_key: erector_spinae, role: secondary }
+      - { muscle_key: glutes, role: stabilizer }
+      - { muscle_key: hamstrings, role: stabilizer }
+  Posterior Chain:
+    as_primary:
+      - { muscle_key: glutes, role: primary }
+      - { muscle_key: hamstrings, role: primary }
+      - { muscle_key: erector_spinae, role: secondary }
+    as_secondary:
+      - { muscle_key: glutes, role: secondary }
+      - { muscle_key: hamstrings, role: secondary }
+      - { muscle_key: erector_spinae, role: stabilizer }
+  Upper Back:
+    as_primary:
+      - { muscle_key: trapezius, role: primary }
+      - { muscle_key: rhomboids, role: primary }
+      - { muscle_key: rear_delts, role: secondary }
+    as_secondary:
+      - { muscle_key: trapezius, role: secondary }
+      - { muscle_key: rhomboids, role: secondary }
+      - { muscle_key: rear_delts, role: stabilizer }
+
+muscle_unmapped:
+  - Cardio
+  - Mobility

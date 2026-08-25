@@ -43,7 +43,15 @@ class ShoppingList < ApplicationRecord
   end
 
   def display_items
-    items.includes(shopping_list_item_sources: [ :planned_meal_ingredient, { planned_meal: :recipe } ]).to_a
+    @display_items ||= items.includes(shopping_list_item_sources: [ :planned_meal_ingredient, { planned_meal: :recipe } ]).to_a
+  end
+
+  def remaining_items
+    display_items.reject(&:completed?)
+  end
+
+  def completed_items
+    display_items.select(&:completed?)
   end
 
   def reconcile!

@@ -9,11 +9,12 @@ class TodaysControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "#today-nutrition-heading", text: "Nutrition"
       assert_select "section", text: /Protein.*9\.26 g/m
-      assert_select "p", text: /not medical advice/i
+      assert_select "p", text: /not medical advice/i, count: 0
       assert_select "[data-today-section='up-next']"
       assert_select "h2#today-up-next-heading", text: "Still to do"
       assert_select "h2 #today-completed-heading", text: "Completed"
-      assert_select "h2 #today-details-heading", text: "Day details"
+      assert_select "h2#today-details-heading", text: "Day details"
+      assert_select "el-disclosure#today-details", count: 0
     end
   end
 
@@ -122,6 +123,10 @@ class TodaysControllerTest < ActionDispatch::IntegrationTest
 
       assert_response :success
       assert_select "#today-empty-heading", text: "Nothing planned today"
+      assert_select "#today-nutrition-heading", text: "Nutrition"
+      assert_select "h3", text: "No nutrition logged yet"
+      assert_select "a[href=?]", new_meal_path(date: "2026-08-02"), text: "Log a meal"
+      assert_select "body", text: /Nutrition unavailable/i, count: 0
     end
   end
 

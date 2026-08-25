@@ -1,0 +1,85 @@
+<% planned_meals = meal_week.planned_meals_for(day) %>
+<% meals = meal_week.meals_for(day) %>
+<% today = day == Date.current %>
+
+<section aria-labelledby="day-<%= day.iso8601 %>" class="px-4 py-5 sm:px-6 <%= "bg-primary-50/60 dark:bg-primary-500/10" if today %>">
+  <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <h3 id="day-<%= day.iso8601 %>" class="text-lg font-semibold text-gray-900 dark:text-white">
+      <span><%= day.strftime("%A") %></span>
+      <% if today %><span class="ml-1 text-primary-700 dark:text-primary-300">Today</span><% end %>
+    </h3>
+    <p class="tabular-nums text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= day.to_fs(:long) %></p>
+  </div>
+
+  <% if planned_meals.empty? && meals.empty? %>
+    <p class="mt-3 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">No meals planned or logged.</p>
+  <% else %>
+    <div class="mt-4 grid gap-5 sm:grid-cols-2">
+      <div>
+        <h4 class="font-semibold text-gray-900 dark:text-white">Planned</h4>
+        <% if planned_meals.any? %>
+          <ul role="list" class="mt-2 grid gap-2">
+            <% planned_meals.each do |planned_meal| %>
+              <% readiness = meal_week.readiness_for(planned_meal) %>
+              <li class="rounded-lg bg-primary-50 p-3 ring-1 ring-primary-600/10 dark:bg-primary-500/10 dark:ring-primary-400/15">
+                <div class="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div class="min-w-0">
+                    <p class="font-medium"><%= link_to planned_meal.recipe.title, planned_meal.recipe, class: "text-primary-800 underline underline-offset-2 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200" %></p>
+                    <p class="mt-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
+                    <p class="mt-2"><%= render "shared/readiness_badge", readiness: readiness %></p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <%= link_to "Review ingredients", planned_meal_ingredient_review_path(planned_meal), class: "text-sm font-semibold text-primary-800 underline hover:no-underline dark:text-primary-300" %>
+                    <% if (meal = meal_week.converted_meal_for(planned_meal)) %>
+                      <%= link_to "View logged meal", meal, class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+                    <% elsif planned_meal.convertible_by?(meal_week.person) %>
+                      <%= button_to "Log as eaten", planned_meal_meal_path(planned_meal), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+                    <% end %>
+                    <% if planned_meal.meals.empty? %>
+                      <%= button_to planned_meal_path(planned_meal), method: :delete,
+                        params: { date: meal_week.to_param },
+                        form: { data: { turbo_confirm: "Remove #{planned_meal.recipe.title} from the plan?" } },
+                        class: yass(btn: [ :base, { md: :base }, { danger: :ghost } ]),
+                        aria: { label: "Remove #{planned_meal.recipe.title} from the plan" } do %>
+                        Remove
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% else %>
+          <p class="mt-2 text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Nothing planned.</p>
+        <% end %>
+      </div>
+
+      <div>
+        <h4 class="font-semibold text-gray-900 dark:text-white">Eaten</h4>
+        <% if meals.any? %>
+          <ul role="list" class="mt-2 grid gap-2">
+            <% meals.each do |meal| %>
+              <li class="rounded-lg bg-gray-50 p-3 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
+                <div class="flex min-w-0 items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="font-medium"><%= link_to meal.description, meal, class: "text-primary-800 underline underline-offset-2 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200" %></p>
+                    <p class="mt-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400"><%= pluralize(meal.meal_items.size, "item") %></p>
+                  </div>
+                  <%= button_to meal_path(meal), method: :delete,
+                    params: { date: meal_week.to_param },
+                    form: { data: { turbo_confirm: "Remove #{meal.description}?" } },
+                    class: yass(btn: [ :base, { md: :base }, { danger: :ghost } ]),
+                    aria: { label: "Remove #{meal.description} from logged meals" } do %>
+                    Remove
+                  <% end %>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% else %>
+          <p class="mt-2 text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Nothing logged.</p>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</section>

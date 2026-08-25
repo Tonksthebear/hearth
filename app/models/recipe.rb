@@ -3,10 +3,9 @@ class Recipe < ApplicationRecord
   COVER_MAX_BYTES = 10.megabytes
   IMPORT_ATTRIBUTES = %w[
     import_key title description yield serving_count source_name source_url provenance_status
-    recipe_ingredients_attributes recipe_instructions_attributes recipe_nutrient_values_attributes
+    recipe_ingredients_attributes recipe_instructions_attributes
   ].freeze
   INGREDIENT_IMPORT_ATTRIBUTES = %w[amount unit name notes key gram_weight].freeze
-  NUTRIENT_IMPORT_ATTRIBUTES = %w[key amount].freeze
   INSTRUCTION_IMPORT_ATTRIBUTES = %w[
     body ingredient_keys duration_amount duration_unit temperature_amount temperature_unit
   ].freeze
@@ -38,10 +37,6 @@ class Recipe < ApplicationRecord
 
   accepts_nested_attributes_for :recipe_ingredients, allow_destroy: true, reject_if: :all_blank
   accepts_nested_attributes_for :recipe_instructions, allow_destroy: true, reject_if: :all_blank
-  accepts_nested_attributes_for :recipe_nutrient_values,
-    allow_destroy: true,
-    reject_if: ->(attributes) { attributes["amount"].blank? }
-
   enum :provenance_status, {
     personal: "personal",
     verified: "verified",
@@ -103,11 +98,9 @@ class Recipe < ApplicationRecord
           recipe = household.recipes.find_or_initialize_by(import_key:)
           ingredient_attributes = import_attributes.delete("recipe_ingredients_attributes") || []
           instruction_attributes = import_attributes.delete("recipe_instructions_attributes") || []
-          nutrient_attributes = import_attributes.delete("recipe_nutrient_values_attributes") || []
           recipe.assign_attributes(import_attributes)
           reconcile_import_rows(recipe.recipe_ingredients, ingredient_attributes)
           reconcile_import_rows(recipe.recipe_instructions, instruction_attributes)
-          reconcile_nutrient_rows(recipe.recipe_nutrient_values, nutrient_attributes)
           recipe.save!
           recipe
         end
@@ -135,7 +128,6 @@ class Recipe < ApplicationRecord
         normalize_import_children!(normalized, "recipe_instructions_attributes", INSTRUCTION_IMPORT_ATTRIBUTES) do |child, _position|
           child.merge("ingredient_reference_keys" => Array(child.delete("ingredient_keys")))
         end
-        normalize_import_nutrients!(normalized)
         normalized
       end
 
@@ -162,21 +154,6 @@ class Recipe < ApplicationRecord
         raise ArgumentError, "Unknown #{context} import attributes: #{unknown_attributes.sort.join(", ")}."
       end
 
-      def normalize_import_nutrients!(attributes)
-        return unless attributes.key?("recipe_nutrient_values_attributes")
-
-        values = attributes["recipe_nutrient_values_attributes"]
-        raise ArgumentError, "recipe_nutrient_values_attributes must be an array of hashes." unless values.is_a?(Array)
-
-        attributes["recipe_nutrient_values_attributes"] = values.map do |value|
-          raise ArgumentError, "recipe_nutrient_values_attributes must be an array of hashes." unless value.is_a?(Hash)
-
-          normalized = value.deep_stringify_keys
-          reject_unknown_import_attributes!(normalized, NUTRIENT_IMPORT_ATTRIBUTES, "recipe_nutrient_values_attributes")
-          normalized.merge("nutrient_id" => Nutrient.find_by!(key: normalized.delete("key")).id)
-        end
-      end
-
       def reconcile_import_rows(association, attributes)
         existing_rows = association.to_a.sort_by(&:position)
 
@@ -184,16 +161,6 @@ class Recipe < ApplicationRecord
         attributes.each.with_index do |row_attributes, index|
           row = existing_rows[index] || association.build
           row.assign_attributes(row_attributes)
-        end
-      end
-
-
-      def reconcile_nutrient_rows(association, attributes)
-        by_nutrient_id = attributes.index_by { |attributes| attributes.fetch("nutrient_id") }
-        association.each { |value| value.mark_for_destruction unless by_nutrient_id.key?(value.nutrient_id) }
-        attributes.each do |value_attributes|
-          value = association.detect { |candidate| candidate.nutrient_id == value_attributes.fetch("nutrient_id") } || association.build
-          value.assign_attributes(value_attributes)
         end
       end
   end

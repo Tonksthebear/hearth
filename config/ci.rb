@@ -6,6 +6,7 @@ demo_database_env = [
   "SECRET_KEY_BASE=release-gate-secret",
   "HEARTH_DEMO_DATA=1",
   "HEARTH_DEMO_PASSWORD=release-gate-password",
+  "HEARTH_STORAGE_ROOT=#{release_root}/demo_storage",
   "DATABASE_URL=sqlite3:#{release_root}/demo.sqlite3",
   "CACHE_DATABASE_URL=sqlite3:#{release_root}/demo_cache.sqlite3",
   "QUEUE_DATABASE_URL=sqlite3:#{release_root}/demo_queue.sqlite3",
@@ -24,20 +25,44 @@ production_database_env = [
 demo_assertion = <<~'RUBY'
   expected = {
     households: 1, people: 2, users: 1, recipes: 2, recipe_ingredients: 8,
-    recipe_instructions: 4, planned_meals: 2, meals: 2, meal_items: 2,
-    recipe_feedbacks: 0, nutrients: 6, ingredient_nutrient_values: 6,
-    recipe_nutrient_values: 0, meal_item_nutrient_values: 0, exercises: 2,
-    workout_templates: 1, workout_blocks: 2, exercise_prescriptions: 2,
-    training_sessions: 1, training_session_blocks: 2,
-    training_session_exercises: 2, training_sets: 3, habits: 2,
-    habit_metrics: 2, person_habits: 3, person_habit_metrics: 3,
-    habit_check_ins: 2, habit_check_in_measurements: 2
+    recipe_instructions: 4, recipe_instruction_ingredients: 8, ingredients: 8,
+    planned_meals: 3, meals: 2, meal_items: 4, recipe_feedbacks: 2,
+    nutrients: 6, ingredient_nutrient_values: 24, recipe_nutrient_values: 0,
+    meal_item_nutrient_values: 12, shopping_lists: 1, shopping_list_items: 9,
+    shopping_list_item_sources: 12, exercises: 5, workout_templates: 2,
+    workout_blocks: 4, exercise_prescriptions: 5, planned_workouts: 3,
+    training_sessions: 2, training_session_blocks: 4,
+    training_session_exercises: 5, training_sets: 12, habits: 3,
+    habit_metrics: 2, person_habits: 4, person_habit_metrics: 3,
+    habit_check_ins: 3, habit_check_in_measurements: 3,
+    active_storage_blobs: 2, active_storage_attachments: 2
   }
   actual = expected.keys.index_with do |table|
     ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{table}").to_i
   end
   raise "Unexpected demo counts: #{actual.inspect}" unless actual == expected
-  raise "Unexpected demo identity" unless User.find_by!(email_address: "demo@hearth.local").person.household.name == "Hearth Demo"
+  alex = User.find_by!(email_address: "demo@example.com").person
+  household = alex.household
+  raise "Unexpected demo identity" unless household.name == "Hearth Demo"
+  raise "Demo storage root escaped release isolation" unless
+    Pathname.new(ActiveStorage::Blob.service.root).expand_path == Rails.root.join("tmp/release-gate/demo_storage")
+  raise "Recipe covers missing" unless household.recipes.all? { |recipe| recipe.cover.attached? }
+  raise "Recipe source presentation missing" unless household.recipes.pluck(:provenance_status).sort == %w[adapted personal]
+  raise "Exercise performance kinds missing" unless ExercisePrescription.distinct.pluck(:performance_kind).sort == %w[count distance duration interval reps]
+  raise "Workout lifecycle missing" unless household.planned_workouts.map(&:status).sort_by(&:to_s) == %i[completed in_progress planned]
+
+  alex_meal = alex.meals.find_by!(eaten_on: Date.current)
+  raise "Complete meal event missing" unless alex_meal.meal_items.size == 3 && alex_meal.meal_items.recipe.exists?
+  raise "Recipe feedback missing" unless alex_meal.meal_items.recipe.first.recipe_feedback&.body.present?
+  raise "Nutrition states missing" unless alex_meal.meal_items.map(&:nutrition_status).sort == [ "complete", "estimated", "unavailable" ]
+
+  shopping_list = ShoppingList.existing_for(household:, date: Date.current)
+  raise "Shopping lifecycle missing" unless shopping_list&.items&.any?(&:manual?) &&
+    shopping_list.items.any?(&:completed?) && shopping_list.items.any?(&:user_managed?)
+  raise "Shopping aggregation missing" unless shopping_list.items.any? { |item| item.shopping_list_item_sources.size == 2 }
+
+  today = Person::Today.current(household:, person: alex)
+  raise "Today workflow missing" unless today.sections.index_by(&:key).values_at(:up_next, :in_progress, :done).all? { |section| section.items.any? }
   puts "Demo graph verified: #{actual.inspect}"
 RUBY
 production_database_assertion = <<~'RUBY'

@@ -111,10 +111,12 @@
           summary: @today.nutrition_summary,
           id: "today-nutrition-heading",
           title: "Nutrition",
-          description: "Known totals from logged meal snapshots; missing data is not counted as zero." %>
+          description: "Known totals from logged meal snapshots; missing data is not counted as zero.",
+          empty_title: "No nutrition logged yet",
+          empty_description: "Log a meal with ingredient amounts to see nutrition totals for today.",
+          empty_action_label: "Log a meal",
+          empty_action_path: new_meal_path(date: @today.date) %>
       </div>
     <% end %>
   <% end %>
 </section>
-
-<p class="mt-8 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Hearth provides tracking and planning tools, not medical advice.</p>

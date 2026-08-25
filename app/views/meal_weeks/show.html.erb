@@ -1,15 +1,52 @@
 <% content_for :title, "Meals · Hearth" %>
 <%= render "layouts/meals_navigation" %>
 
+<div class="max-w-7xl">
 <section aria-labelledby="meal-week-heading">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= @meal_week.person.name %>'s weekly review</p>
-      <h1 id="meal-week-heading" class="mt-2 text-3xl font-semibold tracking-tight">Meals</h1>
-      <p class="mt-2 text-gray-600 dark:text-gray-400">
-        <%= @meal_week.start_date.to_fs(:long) %>–<%= @meal_week.end_date.to_fs(:long) %>.
-        Household plans and <%= @meal_week.person.name %>'s own meals are kept separate.
+      <h1 id="meal-week-heading" class="text-balance text-3xl font-semibold tracking-tight">Meals</h1>
+      <p class="mt-2 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">
+        <%= @meal_week.start_date.to_fs(:long) %>–<%= @meal_week.end_date.to_fs(:long) %>
       </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <%= render Elements::DisclosureComponent.new(id: "plan-meal", hidden: @meal_week.planned_meal.errors.empty?) do |disclosure| %>
+        <%= disclosure.button("Plan meal", class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ])) %>
+        <%= link_to "Log meal", new_meal_path(date: @meal_week.logging_date), class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
+
+        <%= disclosure.panel do %>
+          <section aria-labelledby="plan-meal-heading" class="mt-5 w-full rounded-xl bg-white p-5 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+            <h2 id="plan-meal-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Plan a meal</h2>
+            <p class="mt-1 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">Add a recipe for the household or one person.</p>
+
+            <% if @meal_week.planned_meal.errors.any? %>
+              <%= render "layouts/alert", id: "planned-meal-errors", title: "The planned meal could not be saved:", messages: @meal_week.planned_meal.errors.full_messages, class: "mt-4" %>
+            <% end %>
+
+            <%= form_with model: @meal_week.planned_meal, class: "mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto] lg:items-end" do |form| %>
+              <%= hidden_field_tag :date, @meal_week.to_param %>
+              <div>
+                <%= form.label :planned_on, "Date", class: :label %>
+                <%= form.date_field :planned_on, class: :text_field %>
+              </div>
+              <div>
+                <%= form.label :recipe_id, "Recipe", class: :label %>
+                <%= form.elements_autocomplete :recipe_id, @recipe_options,
+                  { value: @meal_week.planned_meal.recipe_id },
+                  { placeholder: "Choose a recipe", required: true } %>
+              </div>
+              <div>
+                <%= form.label :person_id, "Plan for", class: :label %>
+                <%= form.elements_autocomplete :person_id, @person_options,
+                  { value: @meal_week.planned_meal.person_id },
+                  { placeholder: "Whole household" } %>
+              </div>
+              <%= form.submit "Add to plan", class: class_names(yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]), "justify-self-start") %>
+            <% end %>
+          </section>
+        <% end %>
+      <% end %>
     </div>
   </div>
 
@@ -18,130 +55,100 @@
     date: @meal_week,
     class: "mt-6" %>
 
-  <nav aria-label="Meal week" class="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-4">
-    <%= link_to "Previous week", meal_week_path(date: @meal_week.previous_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
-    <%= link_to "Next week", meal_week_path(date: @meal_week.next_date), class: "font-medium text-primary-800 dark:text-primary-300 underline hover:no-underline" %>
+  <nav aria-label="Meal week" class="mt-6 flex flex-wrap items-center gap-2">
+    <%= link_to "Previous", meal_week_path(date: @meal_week.previous_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+    <%= link_to "Current week", meal_week_path, aria: ({ current: "page" } if @meal_week.current_week?), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+    <%= link_to "Next", meal_week_path(date: @meal_week.next_date), class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
   </nav>
 
-  <div class="mt-8">
-    <%= render "shared/nutrition_summary",
-      summary: @meal_week.nutrition_summary,
-      id: "week-nutrition-heading",
-      title: "Known nutrition this week",
-      description: "Selected-person totals from historical meal snapshots; incomplete values stay visibly partial." %>
-  </div>
-
-  <div class="mt-8 grid gap-6 lg:grid-cols-2">
-    <section aria-labelledby="plan-meal-heading" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
-      <h2 id="plan-meal-heading" class="text-xl font-semibold">Plan a meal</h2>
-      <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Choose whether this plan is shared or assigned to one person.</p>
-
-      <% if @meal_week.planned_meal.errors.any? %>
-        <%= render "layouts/alert", id: "planned-meal-errors", title: "The planned meal could not be saved:", messages: @meal_week.planned_meal.errors.full_messages, class: "mt-4" %>
-      <% end %>
-
-      <%= form_with model: @meal_week.planned_meal, class: "mt-5 grid gap-4" do |form| %>
-        <%= hidden_field_tag :date, @meal_week.to_param %>
+  <div class="mt-8 space-y-8">
+    <section aria-labelledby="meal-agenda-heading">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <%= form.label :planned_on, "Date", class: :label %>
-          <%= form.date_field :planned_on, class: :text_field %>
+          <h2 id="meal-agenda-heading" class="text-balance text-xl font-semibold"><%= @meal_week.current_week? ? "Today and upcoming" : "Week" %></h2>
+          <p class="mt-1 text-pretty text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">See what is planned and record what was eaten.</p>
         </div>
-        <div>
-          <%= form.label :recipe_id, "Planned recipe", class: :label %>
-          <%= form.elements_autocomplete :recipe_id, @recipe_options,
-            { value: @meal_week.planned_meal.recipe_id },
-            { placeholder: "Choose a recipe", required: true } %>
-        </div>
-        <div>
-          <%= form.label :person_id, "Plan for", class: :label %>
-          <%= form.elements_autocomplete :person_id, @person_options,
-            { value: @meal_week.planned_meal.person_id },
-            { placeholder: "Whole household" } %>
-        </div>
-        <%= form.submit "Add to plan", class: { btn: [ :base, { lg: :base }, { primary: :solid }, "justify-self-start" ] } %>
-      <% end %>
-    </section>
-
-    <section aria-labelledby="log-meal-heading" class="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50">
-      <h2 id="log-meal-heading" class="text-xl font-semibold">Log what was eaten</h2>
-      <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Record a complete meal with recipes, ingredients, free text, portions, and notes for <%= @meal_week.person.name %>.</p>
-      <%= link_to "Log meal", new_meal_path(date: @meal_week.logging_date), class: yass(btn: [ :base, { lg: :base }, { primary: :solid }, "mt-5" ]) %>
-    </section>
-  </div>
-
-  <div class="mt-8 grid gap-4">
-    <% @meal_week.days.each do |day| %>
-      <section aria-labelledby="day-<%= day.iso8601 %>" class="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5">
-        <h2 id="day-<%= day.iso8601 %>" class="text-lg font-semibold"><%= day.to_fs(:long) %></h2>
-        <% day_nutrition = @meal_week.nutrition_for(day) %>
-        <% if day_nutrition.totals.any? %>
-          <dl class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
-            <% day_nutrition.totals.each do |total| %><div><dt class="inline font-medium"><%= total.name %></dt> <dd class="inline"><%= total.formatted_amount %></dd></div><% end %>
-            <div><dt class="sr-only">Nutrition status</dt><dd class="inline font-medium"><%= day_nutrition.status.humanize %></dd></div>
-          </dl>
+      </div>
+      <div class="mt-4 divide-y divide-gray-950/5 overflow-hidden rounded-xl bg-white ring-1 ring-gray-950/10 dark:divide-white/10 dark:bg-gray-800/50 dark:ring-white/10">
+        <% if @meal_week.agenda_days.any? %>
+          <% @meal_week.agenda_days.each do |day| %>
+            <%= render "meal_weeks/day", meal_week: @meal_week, day: day %>
+          <% end %>
+          <% if @meal_week.current_week? && @meal_week.agenda_days.one? %>
+            <div class="px-4 py-4 sm:px-6">
+              <p class="text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Nothing else is planned this week.</p>
+            </div>
+          <% end %>
+        <% else %>
+          <div class="px-4 py-8 text-center sm:px-6">
+            <h3 class="text-balance font-semibold text-gray-900 dark:text-white">No meals this week</h3>
+            <p class="mx-auto mt-1 max-w-[48ch] text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400">Plan a recipe or log what was eaten to start this week.</p>
+          </div>
         <% end %>
-        <div class="mt-4 grid gap-5 sm:grid-cols-2">
-          <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Planned</h3>
-            <% if @meal_week.planned_meals_for(day).any? %>
-              <ul class="mt-2 grid gap-2">
-                <% @meal_week.planned_meals_for(day).each do |planned_meal| %>
-                  <% readiness = @meal_week.readiness_for(planned_meal) %>
-                  <li class="rounded-lg bg-primary-50 p-3 dark:bg-primary-500/10">
-                    <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <p class="font-medium"><%= link_to planned_meal.recipe.title, planned_meal.recipe, class: "underline" %></p>
-                        <p class="text-sm text-gray-600 dark:text-gray-400"><%= planned_meal.person ? planned_meal.person.name : "Whole household" %></p>
-                        <p class="mt-2"><%= render "shared/readiness_badge", readiness: readiness %></p>
-                      </div>
-                      <div class="flex flex-col items-end gap-2">
-                        <%= link_to "Review ingredients", planned_meal_ingredient_review_path(planned_meal), class: "text-sm font-semibold text-primary-800 underline hover:no-underline dark:text-primary-300" %>
-                        <% if (meal = @meal_week.converted_meal_for(planned_meal)) %>
-                          <%= link_to "View logged meal", meal, class: "text-sm font-semibold text-primary-800 underline dark:text-primary-300" %>
-                        <% elsif planned_meal.convertible_by?(@meal_week.person) %>
-                          <%= button_to "Log as eaten", planned_meal_meal_path(planned_meal), class: yass(btn: [ :base, { sm: :base }, { primary: :solid } ]) %>
-                        <% end %>
-                        <% if planned_meal.meals.empty? %>
-                          <%= button_to "Remove", planned_meal_path(planned_meal), method: :delete,
-                            params: { date: @meal_week.to_param },
-                            form: { data: { turbo_confirm: "Remove this meal from the plan?" } },
-                            class: "text-sm font-medium text-gray-700 underline hover:no-underline dark:text-gray-300" %>
-                        <% end %>
-                      </div>
-                    </div>
-                  </li>
-                <% end %>
-              </ul>
-            <% else %>
-              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nothing planned.</p>
-            <% end %>
-          </div>
+      </div>
+    </section>
 
-          <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Eaten</h3>
-            <% if @meal_week.meals_for(day).any? %>
-              <ul class="mt-2 grid gap-2">
-                <% @meal_week.meals_for(day).each do |meal| %>
-                  <li class="rounded-lg bg-gray-100 dark:bg-white/5 p-3">
-                    <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <p class="font-medium"><%= link_to meal.description, meal, class: "underline" %></p>
-                        <p class="text-sm text-gray-600 dark:text-gray-400"><%= pluralize(meal.meal_items.size, "item") %></p>
-                      </div>
-                      <%= button_to "Remove", meal_path(meal), method: :delete,
-                        params: { date: @meal_week.to_param },
-                        form: { data: { turbo_confirm: "Remove this meal?" } },
-                        class: "text-sm font-medium text-gray-700 dark:text-gray-300 underline hover:no-underline" %>
-                    </div>
-                  </li>
-                <% end %>
-              </ul>
-            <% else %>
-              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nothing logged.</p>
+    <% if @meal_week.earlier_days.any? %>
+      <section aria-labelledby="earlier-meals-heading">
+        <%= render Elements::DisclosureComponent.new(id: "earlier-meals", hidden: !@meal_week.earlier_days_need_attention?) do |disclosure| %>
+          <h2>
+            <%= disclosure.button(class: "flex w-full items-center justify-between gap-4 rounded-lg py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:focus-visible:outline-primary-500") do %>
+              <span class="flex items-baseline gap-2">
+                <span id="earlier-meals-heading" class="text-xl font-semibold text-gray-900 dark:text-white"><%= @meal_week.earlier_days_need_attention? ? "Earlier plans need attention" : "Earlier this week" %></span>
+                <span class="tabular-nums text-base text-gray-500 sm:text-sm dark:text-gray-400"><%= @meal_week.earlier_days.size %></span>
+              </span>
+              <span class="flex items-center gap-2 text-base/7 font-semibold text-primary-700 sm:text-sm/6 dark:text-primary-300">
+                <span class="in-aria-expanded:hidden">Show</span>
+                <span class="hidden in-aria-expanded:block">Hide</span>
+                <%= icon "chevron-down", variant: :micro, class: "size-4 shrink-0 transition-transform in-aria-expanded:rotate-180" %>
+              </span>
             <% end %>
-          </div>
-        </div>
+          </h2>
+          <%= disclosure.panel do %>
+            <div class="mt-3 divide-y divide-gray-950/5 overflow-hidden rounded-xl bg-white ring-1 ring-gray-950/10 dark:divide-white/10 dark:bg-gray-800/50 dark:ring-white/10">
+              <% @meal_week.earlier_days.each do |day| %>
+                <%= render "meal_weeks/day", meal_week: @meal_week, day: day %>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
       </section>
     <% end %>
   </div>
 </section>
+
+<section aria-labelledby="meal-week-details-heading" class="mt-10 border-t border-gray-950/10 pt-6 dark:border-white/10">
+  <%= render Elements::DisclosureComponent.new(id: "meal-week-details") do |disclosure| %>
+    <h2>
+      <%= disclosure.button(class: "flex w-full items-start justify-between gap-4 rounded-lg py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:focus-visible:outline-primary-500") do %>
+        <span class="block">
+          <span id="meal-week-details-heading" class="block text-xl font-semibold text-gray-900 dark:text-white">Week details</span>
+          <span class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-base/7 text-gray-600 sm:text-sm/6 dark:text-gray-400">
+            <span>Nutrition<% if @meal_week.nutrition_summary.totals.any? %> <%= @meal_week.nutrition_summary.status.humanize.downcase %><% end %></span>
+            <% if @meal_week.unchecked_shopping_count.positive? %><span><%= pluralize(@meal_week.unchecked_shopping_count, "shopping item") %></span><% end %>
+          </span>
+        </span>
+        <%= icon "chevron-down", variant: :micro, class: "mt-1 size-4 shrink-0 transition-transform in-aria-expanded:rotate-180" %>
+      <% end %>
+    </h2>
+    <%= disclosure.panel do %>
+      <div class="mt-5 space-y-6">
+        <% if @meal_week.unchecked_shopping_count.positive? %>
+          <%= link_to "Open shopping list (#{@meal_week.unchecked_shopping_count})", shopping_list_path(date: @meal_week),
+            data: { turbo_prefetch: false },
+            class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]) %>
+        <% end %>
+        <%= render "shared/nutrition_summary",
+          summary: @meal_week.nutrition_summary,
+          id: "week-nutrition-heading",
+          title: "Nutrition",
+          description: "Known totals from logged meal snapshots; missing data is not counted as zero.",
+          empty_title: "No nutrition logged this week",
+          empty_description: "Log a meal with ingredient amounts to see nutrition totals for this week.",
+          empty_action_label: "Log a meal",
+          empty_action_path: new_meal_path(date: @meal_week.logging_date) %>
+      </div>
+    <% end %>
+  <% end %>
+</section>
+</div>

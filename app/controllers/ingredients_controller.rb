@@ -2,7 +2,9 @@ class IngredientsController < ApplicationController
   before_action :set_ingredient, only: %i[ edit update ]
 
   def index
+    @query = params[:q].to_s
     @ingredients = Current.household.ingredients
+      .matching(@query)
       .includes(ingredient_nutrient_values: :nutrient)
       .order(:name)
     @nutrients = Nutrient.displayed

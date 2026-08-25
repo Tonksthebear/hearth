@@ -18,13 +18,12 @@ class AgentGrokLiveTest < ApplicationSystemTestCase
 
     visit "/agent/profiles"
     within "#agent_provider_grok" do
-      click_button "Re-check availability"
-      assert_text "Available", wait: 30
-      click_button "Enable"
-      assert_text "Choose and approve an authentication method", wait: 30
+      click_button "Connect"
+      assert_text "Authentication required", wait: 30
       first("input[name='setup_request[authentication_method_id]']", visible: :all).choose
-      click_button "Approve authentication"
-      assert_text "Authentication: authenticated", wait: 45
+      click_button "Finish connection"
+      assert_text "Connected", wait: 45
+      assert_no_button "Re-check availability"
     end
 
     visit "/agent/conversations/new"

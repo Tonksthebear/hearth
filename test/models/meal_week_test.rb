@@ -37,7 +37,26 @@ class MealWeekTest < ActiveSupport::TestCase
       earlier = MealWeek.for(household: households(:home), person: people(:one), date: "2026-07-20")
 
       assert_equal Date.new(2026, 7, 30), current.logging_date
+      assert_equal Date.new(2026, 7, 30), current.planned_meal.planned_on
       assert_equal Date.new(2026, 7, 20), earlier.logging_date
+      assert_equal Date.new(2026, 7, 20), earlier.planned_meal.planned_on
+    end
+  end
+
+  test "separates earlier days from today and upcoming days in the current week" do
+    travel_to Date.new(2026, 7, 30) do
+      current = MealWeek.for(household: households(:home), person: people(:one), date: "2026-07-27")
+      earlier = MealWeek.for(household: households(:home), person: people(:one), date: "2026-07-20")
+
+      assert current.current_week?
+      assert_equal [ Date.new(2026, 7, 30) ], current.agenda_days
+      assert_equal [ Date.new(2026, 7, 27), Date.new(2026, 7, 28) ], current.earlier_days
+      assert current.earlier_days_need_attention?
+
+      refute earlier.current_week?
+      assert_equal [], earlier.agenda_days
+      assert_empty earlier.earlier_days
+      refute earlier.earlier_days_need_attention?
     end
   end
 

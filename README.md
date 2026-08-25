@@ -37,9 +37,11 @@ The importer records USDA attribution, accepts only recognized nutrient identifi
 Choose one first-run path:
 
 - **Setup-first (recommended):** start with an empty database, open Hearth, and create your household and first user.
-- **Demo:** opt in with `HEARTH_DEMO_DATA=1` and `HEARTH_DEMO_PASSWORD`. This loads a generic, PII-free household and representative meal, training, and habit history.
+- **Demo:** opt in with `HEARTH_DEMO_DATA=1` and `HEARTH_DEMO_PASSWORD`. This loads a generic, PII-free household with recipe covers and structured instructions, planned and logged multi-item meals, complete and incomplete nutrition snapshots, recipe feedback, a persistent shopping checklist, planned/in-progress/completed workouts spanning every performance kind, and simple plus measured habits.
 
 Hearth permits exactly one household. Demo data therefore consumes the installation's only household slot and disables first-run setup. To return to setup-first, use a new empty database or Docker volume; do not run demo seeds against a real household. Re-running the demo seed is safe and updates the same recognized demo graph.
+
+The demo seed does not fabricate a Coach installation or conversation. Coach requires a real certified ACP adapter and its external authentication, so configure that separately after the demo household exists.
 
 For the directory-scoped source launcher, initialize an explicit empty directory and
 run Hearth from that same instance root:
@@ -209,7 +211,7 @@ unset HEARTH_DEMO_PASSWORD
 bin/dev
 ```
 
-Sign in as `demo@hearth.local`.
+Sign in as `demo@example.com`.
 
 ## Run the production image with Docker
 
@@ -431,6 +433,22 @@ It runs style and refreshed dependency/security scans, Rails and browser system 
 - No built-in SMTP delivery, TLS termination, public-host hardening, or automated off-host backups.
 - Verified image platform is Linux amd64; native arm64 and remote Kamal deployment remain unverified.
 - Hearth is a tracking and automation tool, not medical advice, a diagnostic product, or regulated medical-device software.
+
+## Workout Guide catalog
+
+Hearth vendors the pinned [Workout Guide](https://github.com/bryllim/workout-guide) release as an offline exercise catalog. The normative contract is [docs/workout-guide-catalog-contract.md](docs/workout-guide-catalog-contract.md). Runtime import belongs to a later ticket.
+
+Pinned release: `v1.0.0`.
+
+Refresh the vendor bundle with an explicit GitHub release tag:
+
+```bash
+bin/sync-workout-guide v1.0.0
+```
+
+The command rejects a branch name and a bare commit SHA. Application runtime does not request GitHub. A clean checkout already contains every file required for an offline import under `vendor/workout_guide/`.
+
+Frame assets are licensed CC BY-SA 4.0. That license is separate from Hearth's O'Saasy license. Keep `vendor/workout_guide/LICENSE-ASSETS` and `vendor/workout_guide/ATTRIBUTION.md` beside the frames.
 
 ## License
 

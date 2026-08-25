@@ -17,18 +17,18 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     get recipes_path
     assert_response :success
-    assert_select "h2", text: recipes(:porridge).title
-    assert_select "h2", text: recipes(:salad).title
+    assert_select "h3", text: recipes(:porridge).title
+    assert_select "h3", text: recipes(:salad).title
 
     get recipes_path, params: { q: "blueberries" }
     assert_response :success
-    assert_select "h2", text: recipes(:porridge).title
-    assert_select "h2", text: recipes(:salad).title, count: 0
+    assert_select "h3", text: recipes(:porridge).title
+    assert_select "h3", text: recipes(:salad).title, count: 0
 
     get recipes_path, params: { status: "adapted" }
     assert_response :success
-    assert_select "h2", text: recipes(:salad).title
-    assert_select "h2", text: recipes(:porridge).title, count: 0
+    assert_select "h3", text: recipes(:salad).title
+    assert_select "h3", text: recipes(:porridge).title, count: 0
   end
 
   test "index does not load ingredient autocomplete options" do
@@ -55,9 +55,7 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
     cards_position = response.body.index(%(role="list"))
     source_details_position = response.body.index("Source details")
     assert_operator cards_position, :<, source_details_position
-    %w[Personal Verified Adapted Observed].each do |label|
-      assert_operator response.body.index(label), :>, cards_position
-    end
+    assert_select "el-disclosure#recipe-source-details[hidden]"
 
     get recipe_path(recipes(:porridge))
 
@@ -85,20 +83,22 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
   end
 
 
-  test "recipe forms capture servings grams and explicit facts while show labels data quality" do
+  test "recipe forms capture serving and gram inputs while show derives nutrition from ingredients" do
     sign_in_as users(:one)
 
     get edit_recipe_path(recipes(:salad))
     assert_response :success
     assert_select "input[name='recipe[serving_count]'][value='2.0']"
     assert_select "input[name*='recipe_ingredients_attributes'][name$='[gram_weight]'][value='125.0']"
-    assert_select "input[name*='recipe_nutrient_values_attributes'][name$='[amount]']", count: 6
+    assert_select "input[name*='recipe_nutrient_values_attributes']", count: 0
 
     get recipe_path(recipes(:salad))
     assert_response :success
     assert_select "#recipe-nutrition-heading", text: "Nutrition per serving"
-    assert_select "table[data-nutrition-table]", text: /Protein.*complete estimate.*6\.18 g/m
-    assert_select "table[data-nutrition-table]", text: /Energy.*complete estimate.*0 kcal/m
+    assert_select "table[data-nutrition-table] thead th", count: 2
+    assert_select "table[data-nutrition-table]", text: /Protein.*6\.18 g/m
+    assert_select "table[data-nutrition-table]", text: /Energy.*0 kcal/m
+    assert_select "table[data-nutrition-table]", text: /explicit fact|estimate/i, count: 0
   end
 
   test "recipe feedback history links to another household person's readable meal" do
@@ -147,7 +147,7 @@ class RecipesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     Recipe.provenance_statuses.each_key do |status|
-      assert_select "dt", text: "#{status.humanize}:"
+      assert_select "dt", text: status.humanize
       assert_select "dd", text: Recipe::PROVENANCE_DESCRIPTIONS.fetch(status)
     end
     assert_select ".bg-primary-50", text: /About provenance/, count: 0

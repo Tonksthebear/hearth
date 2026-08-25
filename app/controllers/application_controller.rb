@@ -30,7 +30,7 @@ class ApplicationController < ActionController::Base
         meal_weeks planned_meals planned_meal/meals planned_meal/ingredient_reviews
         planned_meal/on_hand_confirmations planned_meal_ingredient/decisions
         planned_meal_ingredient/replacement_decisions planned_meal_ingredient/substitutions
-        meals recipes shopping_lists
+        meals recipes ingredients shopping_lists
         shopping_list_items shopping_list_item/completions shopping_list_item/pantry_confirmations
       ].include?(controller_path)
       return :activities if %w[
@@ -53,7 +53,7 @@ class ApplicationController < ActionController::Base
             planned_meal/on_hand_confirmations planned_meal_ingredient/decisions
             planned_meal_ingredient/replacement_decisions planned_meal_ingredient/substitutions meals
           ] ],
-          [ "Recipes", recipes_path, %w[recipes] ],
+          [ "Recipes", recipes_path, %w[recipes ingredients] ],
           [ "Shopping", shopping_list_path, %w[shopping_lists shopping_list_items shopping_list_item/completions shopping_list_item/pantry_confirmations], { turbo_prefetch: false } ]
         ]
       when :activities

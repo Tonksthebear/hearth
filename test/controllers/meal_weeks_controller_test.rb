@@ -1,15 +1,15 @@
 require "test_helper"
 
 class MealWeeksControllerTest < ActionDispatch::IntegrationTest
-  test "renders selected-person weekly and daily snapshot totals" do
+  test "renders weekly snapshot totals in the week details disclosure" do
     sign_in_as users(:one)
 
     get meal_week_path(date: "2026-07-27")
 
     assert_response :success
-    assert_select "#week-nutrition-heading", text: "Known nutrition this week"
-    assert_select "section", text: /Protein.*9\.26 g/m
-    assert_select "section[aria-labelledby='day-2026-07-27']", text: /Protein.*9\.26 g.*Estimated/m
+    assert_select "el-disclosure#meal-week-details[hidden] #week-nutrition-heading", text: "Nutrition"
+    assert_select "el-disclosure#meal-week-details", text: /Protein.*9\.26 g/m
+    assert_select "section[aria-labelledby='day-2026-07-27']", text: /Protein/, count: 0
   end
 
   test "renders the selected person's planned and eaten week" do
@@ -19,18 +19,15 @@ class MealWeeksControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", text: "Meals"
-    assert_select "section[aria-labelledby='day-2026-07-27'] > div > div:first-child li",
-      text: /#{Regexp.escape(recipes(:salad).title)}/
-    assert_select "section[aria-labelledby='day-2026-07-28'] > div > div:first-child li",
-      text: /#{Regexp.escape(recipes(:alex_only).title)}/
-    assert_select "section[aria-labelledby='day-2026-07-28'] > div > div:nth-child(2) li",
-      text: /Dinner with friends/
+    assert_select "section[aria-labelledby='day-2026-07-27'] li", text: /#{Regexp.escape(recipes(:salad).title)}/
+    assert_select "section[aria-labelledby='day-2026-07-28'] li", text: /#{Regexp.escape(recipes(:alex_only).title)}/
+    assert_select "section[aria-labelledby='day-2026-07-28'] li", text: /Dinner with friends/
     assert_select "section[aria-labelledby='day-2026-07-29'] li p",
       text: people(:two).name,
       count: 0
     assert_select "form[action='#{planned_meals_path}']"
     assert_select "a[href^='#{new_meal_path}?date=']", text: "Log meal"
-    assert_select "section[aria-labelledby='log-meal-heading'] form", count: 0
+    assert_select "a", text: "Current week"
   end
 
   test "invalid date inputs safely render the current week" do
@@ -42,7 +39,7 @@ class MealWeeksControllerTest < ActionDispatch::IntegrationTest
 
         assert_response :success
         assert_select "p", text: /July 27, 2026/
-        assert_select "h2", text: "July 27, 2026"
+        assert_select "section[aria-labelledby='day-2026-07-27']", text: /Monday.*July 27, 2026/m
       end
     end
   end

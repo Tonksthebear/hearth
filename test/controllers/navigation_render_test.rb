@@ -1,6 +1,8 @@
 require "test_helper"
 
 class NavigationRenderTest < ActionDispatch::IntegrationTest
+  include Classy::Yaml::Helpers
+
   test "shared shell exposes the four primary destinations and relocates administration" do
     sign_in_as users(:one)
 
@@ -34,11 +36,8 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     get recipe_path(recipes(:porridge))
     assert_select "nav[aria-label='Primary'] a[aria-current='page']", text: "Meals"
     assert_select "nav[aria-label='Meals'] a[href=?][data-turbo-prefetch='false']", shopping_list_path
-    assert_select "nav[aria-label='Meals'] > div[class=?]",
-      ApplicationController.helpers.yass(nav_tabs: :list)
-    assert_select "nav[aria-label='Meals'] a[class=?]",
-      ApplicationController.helpers.yass(nav_tabs: :tab),
-      minimum: 1
+    assert_select "nav[aria-label='Meals'] > div[class=?]", yass(nav_pills: :list)
+    assert_select "nav[aria-label='Meals'] a[class=?]", yass(nav_pills: :tab), minimum: 1
 
     get recovery_day_path
     assert_select "nav[aria-label='Primary'] a[aria-current='page']", text: "Activities"
@@ -109,6 +108,12 @@ class NavigationRenderTest < ActionDispatch::IntegrationTest
     get new_recipe_path
 
     assert_response :success
+    assert_select "nav[aria-label='Meals'] a[aria-current='page']", text: "Recipes"
+
+    get ingredients_path
+
+    assert_response :success
+    assert_select "nav[aria-label='Primary'] a[aria-current='page']", text: "Meals"
     assert_select "nav[aria-label='Meals'] a[aria-current='page']", text: "Recipes"
   end
 end

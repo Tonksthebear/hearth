@@ -1,0 +1,216 @@
+#!/bin/sh
+set -eu
+
+REPO="bryllim/workout-guide"
+APP_ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+VENDOR_DIR="$APP_ROOT/vendor/workout_guide"
+TMP_ROOT="$APP_ROOT/tmp/workout-guide"
+API="https://api.github.com/repos/$REPO"
+ARCHIVE_URL="https://github.com/$REPO/archive/refs/tags"
+
+usage() {
+  echo "Usage: bin/sync-workout-guide <release-tag>" >&2
+  exit 1
+}
+
+require_tool() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required tool: $1" >&2
+    exit 1
+  fi
+}
+
+is_hex_sha() {
+  case "$1" in
+    *[!0-9a-fA-F]*) return 1 ;;
+  esac
+
+  len=$(printf '%s' "$1" | wc -c | tr -d ' ')
+  [ "$len" -ge 7 ] && [ "$len" -le 40 ]
+}
+
+github_http() {
+  url=$1
+  dest=$2
+  curl --location --silent --show-error \
+    -H "Accept: application/vnd.github+json" \
+    -H "User-Agent: hearth-sync-workout-guide" \
+    --output "$dest" \
+    --write-out '%{http_code}' \
+    "$url"
+}
+
+json_field() {
+  file=$1
+  field=$2
+  ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0])).fetch(ARGV[1])' "$file" "$field"
+}
+
+write_checksums() {
+  dest=$1
+  (
+    CDPATH= cd -- "$VENDOR_DIR"
+    find . -type f ! -name CHECKSUMS | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r path; do
+      if [ "$SHA_TOOL" = "shasum" ]; then
+        shasum -a 256 "$path"
+      else
+        sha256sum "$path"
+      fi
+    done
+  ) > "$dest"
+}
+
+count_itemize() {
+  report=$1
+  added=0
+  changed=0
+  removed=0
+  while IFS= read -r line; do
+    case "$line" in
+      "*deleting"*)
+        removed=$((removed + 1))
+        continue
+        ;;
+    esac
+    code=${line%% *}
+    case "$code" in
+      ">"f*)
+        rest=${code#??}
+        case "$rest" in
+          *[!+]*)
+            case "$rest" in
+              *[sc]*) changed=$((changed + 1)) ;;
+            esac
+            ;;
+          *) added=$((added + 1)) ;;
+        esac
+        ;;
+    esac
+  done < "$report"
+  printf '%s %s %s\n' "$added" "$changed" "$removed"
+}
+
+[ $# -eq 1 ] || usage
+TAG=$1
+
+if is_hex_sha "$TAG"; then
+  echo "not a release tag: $TAG" >&2
+  exit 1
+fi
+
+require_tool curl
+require_tool tar
+require_tool rsync
+
+if command -v shasum >/dev/null 2>&1; then
+  SHA_TOOL="shasum"
+elif command -v sha256sum >/dev/null 2>&1; then
+  SHA_TOOL="sha256sum"
+else
+  echo "Missing required tool: shasum or sha256sum" >&2
+  exit 1
+fi
+
+mkdir -p "$TMP_ROOT"
+WORK=$(mktemp -d "$TMP_ROOT/${TAG}.XXXXXX")
+trap 'rm -rf "$WORK"; rmdir "$TMP_ROOT" 2>/dev/null || true' EXIT HUP INT TERM
+
+RELEASE_JSON="$WORK/release.json"
+RELEASE_CODE=$(github_http "$API/releases/tags/$TAG" "$RELEASE_JSON")
+if [ "$RELEASE_CODE" != "200" ]; then
+  BRANCH_JSON="$WORK/branch.json"
+  BRANCH_CODE=$(github_http "$API/branches/$TAG" "$BRANCH_JSON")
+  if [ "$BRANCH_CODE" = "200" ]; then
+    echo "not a release tag: $TAG" >&2
+  else
+    echo "no such release: $TAG" >&2
+  fi
+  exit 1
+fi
+
+COMMIT_JSON="$WORK/commit.json"
+COMMIT_CODE=$(github_http "$API/commits/$TAG" "$COMMIT_JSON")
+if [ "$COMMIT_CODE" != "200" ]; then
+  echo "Unable to resolve release tag $TAG to a commit." >&2
+  exit 1
+fi
+COMMIT_SHA=$(json_field "$COMMIT_JSON" sha)
+case "$COMMIT_SHA" in
+  [0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+    len=$(printf '%s' "$COMMIT_SHA" | wc -c | tr -d ' ')
+    [ "$len" -eq 40 ] || {
+      echo "Resolved commit SHA for $TAG was not 40 characters." >&2
+      exit 1
+    }
+    ;;
+  *)
+    echo "Resolved commit SHA for $TAG was not 40 characters." >&2
+    exit 1
+    ;;
+esac
+
+ARCHIVE="$WORK/source.tar.gz"
+curl --fail --location --silent --show-error \
+  --output "$ARCHIVE" \
+  "$ARCHIVE_URL/$TAG.tar.gz"
+
+EXTRACT="$WORK/extract"
+mkdir -p "$EXTRACT"
+tar -xzf "$ARCHIVE" -C "$EXTRACT"
+
+BUNDLE=$(find "$EXTRACT" -path '*/packages/workout-guide/manifest.json' -print | head -n 1)
+if [ -z "$BUNDLE" ]; then
+  echo "Unexpected archive layout: packages/workout-guide/manifest.json is missing." >&2
+  exit 1
+fi
+BUNDLE_DIR=$(dirname "$BUNDLE")
+if [ ! -d "$BUNDLE_DIR/assets" ]; then
+  echo "Unexpected archive layout: packages/workout-guide/assets is missing." >&2
+  exit 1
+fi
+
+STAGING="$WORK/staging"
+mkdir -p "$STAGING/assets"
+cp -p "$BUNDLE_DIR/manifest.json" "$STAGING/manifest.json"
+cp -p "$BUNDLE_DIR/LICENSE-ASSETS" "$STAGING/LICENSE-ASSETS"
+cp -p "$BUNDLE_DIR/ATTRIBUTION.md" "$STAGING/ATTRIBUTION.md"
+rsync -a --include='*/' --include='*.png' --exclude='*' "$BUNDLE_DIR/assets/" "$STAGING/assets/"
+
+mkdir -p "$VENDOR_DIR"
+RSYNC_FLAGS="-a --checksum --delete --exclude=/VERSION --exclude=/CHECKSUMS"
+ITEMIZE="$WORK/itemize"
+# The destination copy uses no include rules. rsync --delete does not remove
+# destination files that filter rules exclude, so the staging tree is already
+# filtered and this command only excludes VERSION and CHECKSUMS.
+# --checksum compares content. Equal size and modification time are not enough.
+rsync $RSYNC_FLAGS --dry-run --itemize-changes "$STAGING/" "$VENDOR_DIR/" | tee "$ITEMIZE"
+rsync $RSYNC_FLAGS "$STAGING/" "$VENDOR_DIR/"
+
+PREVIOUS_PIN="none"
+if [ -s "$VENDOR_DIR/VERSION" ]; then
+  PREVIOUS_PIN=$(tr '\n' ' ' < "$VENDOR_DIR/VERSION" | sed 's/[[:space:]]*$//')
+fi
+
+{
+  echo "repository: $REPO"
+  echo "release_tag: $TAG"
+  echo "commit_sha: $COMMIT_SHA"
+} > "$VENDOR_DIR/VERSION"
+
+write_checksums "$VENDOR_DIR/CHECKSUMS"
+
+NEW_PIN="repository: $REPO release_tag: $TAG commit_sha: $COMMIT_SHA"
+COUNTS=$(count_itemize "$ITEMIZE")
+ADDED=$(printf '%s\n' "$COUNTS" | awk '{print $1}')
+CHANGED=$(printf '%s\n' "$COUNTS" | awk '{print $2}')
+REMOVED=$(printf '%s\n' "$COUNTS" | awk '{print $3}')
+
+if [ "$ADDED" -eq 0 ] && [ "$CHANGED" -eq 0 ] && [ "$REMOVED" -eq 0 ]; then
+  echo "no source changes"
+else
+  echo "previous pin: $PREVIOUS_PIN"
+  echo "new pin: $NEW_PIN"
+  echo "added: $ADDED"
+  echo "changed: $CHANGED"
+  echo "removed: $REMOVED"
+fi

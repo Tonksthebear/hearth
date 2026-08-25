@@ -5,8 +5,8 @@ if ! gem list foreman -i --silent; then
   gem install foreman
 fi
 
-# Default to port 3000 if not specified
-export PORT="${PORT:-3000}"
+# Default to port 3001 if not specified
+export PORT="${PORT:-3001}"
 export HEARTH_MCP_URL="${HEARTH_MCP_URL:-http://127.0.0.1:${PORT}/mcp}"
 
 # Let the debug gem allow remote connections,

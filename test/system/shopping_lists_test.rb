@@ -18,11 +18,12 @@ class ShoppingListsTest < ApplicationSystemTestCase
       assert_equal 390, page.evaluate_script("window.innerWidth")
       assert page.document.has_css?("html[data-elements-ready='true']", visible: :all, wait: 5)
 
+      click_button "Add item"
       fill_in_and_wait_for_value "Name", "Bananas"
       fill_in_and_wait_for_value "Quantity", "6"
       fill_in_and_wait_for_value "Unit", "pieces"
       fill_in_and_wait_for_value "Notes", "Still green"
-      click_button_and_wait_for_text "Add item", "Item was added."
+      click_button_and_wait_for_text "Add to list", "Item was added."
       manual = ShoppingListItem.find_by!(name: "Bananas")
 
       edit_link = within("#shopping-list-item-#{manual.id}") { find_link("Edit") }
@@ -33,6 +34,8 @@ class ShoppingListsTest < ApplicationSystemTestCase
 
       check_button = within("#shopping-list-item-#{manual.id}") { find("button[aria-label='Check Ripe bananas']") }
       check_button.click
+      assert_selector "#shopping-list-item-#{manual.id}[data-completed='true']", visible: :all, wait: 5
+      click_button "Completed"
       assert_selector "#shopping-list-item-#{manual.id}[data-completed='true']", wait: 5
       uncheck_button = within("#shopping-list-item-#{manual.id}") { find("button[aria-label='Uncheck Ripe bananas']") }
       uncheck_button.click
@@ -52,7 +55,11 @@ class ShoppingListsTest < ApplicationSystemTestCase
         assert_selector "[data-ownership-role='short']", minimum: 1
         find("button[aria-label='Check Lettuce']").click
       end
-      assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']", wait: 5
+      completed_lettuce = "#shopping-list-item-#{lettuce.id}[data-completed='true']"
+      assert_selector completed_lettuce, visible: :all, wait: 5
+      completed_button = find_button "Completed"
+      completed_button.click if completed_button["aria-expanded"] == "false"
+      assert_selector completed_lettuce, wait: 5
       assert_predicate pantry_items(:out_lettuce).reload, :out?
       assert_nil pantry_items(:out_lettuce).quantity
 
@@ -65,15 +72,19 @@ class ShoppingListsTest < ApplicationSystemTestCase
       assert_text "was removed from the plan", wait: 5
       click_link_and_wait_for_path "Shopping", shopping_list_path
 
-      assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']"
+      completed_button = find_button "Completed"
+      completed_button.click if completed_button["aria-expanded"] == "false"
+      assert_selector completed_lettuce
       assert_equal 1, lettuce.reload.shopping_list_item_sources.count
       assert_equal 1, ShoppingListItem.where(shopping_list: lettuce.shopping_list, generated_key: lettuce.generated_key).count
 
       sign_in_as_person_via_browser people(:two)
       click_link_and_wait_for_path "Meals", meal_week_path
       click_link_and_wait_for_path "Shopping", shopping_list_path
-      assert_selector "#shopping-list-item-#{lettuce.id}[data-completed='true']"
-      assert_text(/Household-wide plan/i)
+      completed_button = find_button "Completed"
+      completed_button.click if completed_button["aria-expanded"] == "false"
+      assert_selector completed_lettuce
+      assert_text(/shared household list/i)
       assert_equal 390, page.evaluate_script("window.innerWidth")
     end
   ensure

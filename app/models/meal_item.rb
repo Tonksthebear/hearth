@@ -22,6 +22,7 @@ class MealItem < ApplicationRecord
 
   before_validation :remove_blank_recipe_feedback, prepend: true
   before_validation :capture_snapshot_label
+  # Nutrition is historical: upstream recipe or ingredient edits do not rewrite what was recorded at mealtime.
   after_save :refresh_nutrition_snapshot, if: :nutrition_snapshot_refresh_required?
 
   def source_id
@@ -86,7 +87,7 @@ class MealItem < ApplicationRecord
             amount: result.amount * BigDecimal(portion_amount.to_s),
             source_name: result.source_name,
             provenance_status: result.provenance_status,
-            calculation_kind: result.estimated ? "estimated" : "explicit"
+            calculation_kind: "estimated"
           }
         end
         [ values, results.all?(&:complete) ]

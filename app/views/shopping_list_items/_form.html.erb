@@ -27,7 +27,8 @@
   </div>
 
   <div class="mt-6 flex items-center gap-4">
-    <%= form.submit shopping_list_item.persisted? ? "Save item" : "Add item", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+    <% submit_tone = local_assigns.fetch(:primary_submit, true) ? { primary: :solid } : { neutral: :outline } %>
+    <%= form.submit shopping_list_item.persisted? ? "Save item" : "Add to list", class: { btn: [ :base, { lg: :base }, submit_tone ] } %>
     <% if shopping_list_item.persisted? %>
       <%= link_to "Cancel", shopping_list_path(date: shopping_list.week_start),
         data: { turbo_prefetch: false },

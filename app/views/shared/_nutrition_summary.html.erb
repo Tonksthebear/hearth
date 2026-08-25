@@ -1,17 +1,16 @@
 <section aria-labelledby="<%= id %>">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h2 id="<%= id %>" class="text-base/7 font-semibold text-gray-900 dark:text-white"><%= title %></h2>
-      <% if local_assigns[:description].present? %><p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400"><%= description %></p><% end %>
-    </div>
-    <% tone = summary.status.to_sym %>
-    <span class="<%= yass(nutrition_badge: [ :base, :sm, tone ]) %>">
-      <span aria-hidden="true" class="<%= yass(nutrition_badge_dot: [ :base, tone ]) %>"></span>
-      <span class="sr-only">Nutrition status:</span> <%= summary.status.humanize %>
-    </span>
-  </div>
-
   <% if summary.totals.any? %>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 id="<%= id %>" class="text-base/7 font-semibold text-gray-900 dark:text-white"><%= title %></h2>
+        <% if local_assigns[:description].present? %><p class="mt-1 text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= description %></p><% end %>
+      </div>
+      <% tone = summary.status.to_sym %>
+      <span class="<%= yass(nutrition_badge: [ :base, :sm, tone ]) %>">
+        <span aria-hidden="true" class="<%= yass(nutrition_badge_dot: [ :base, tone ]) %>"></span>
+        <span class="sr-only">Nutrition status:</span> <%= summary.status.humanize %>
+      </span>
+    </div>
     <dl class="mt-5 <%= yass(nutrition_stats: :container) %>">
       <% summary.totals.each do |total| %>
         <div class="<%= yass(nutrition_stats: :item) %>">
@@ -21,6 +20,15 @@
       <% end %>
     </dl>
   <% else %>
-    <p class="mt-4 text-sm/6 text-gray-500 dark:text-gray-400">No calculable nutrition is available. Missing data is not counted as zero.</p>
+    <h2 id="<%= id %>" class="text-base/7 font-semibold text-gray-900 dark:text-white"><%= title %></h2>
+    <div class="mt-4 rounded-xl border border-dashed border-gray-950/15 px-6 py-8 text-center dark:border-white/15">
+      <h3 class="text-balance font-semibold text-gray-900 dark:text-white"><%= local_assigns.fetch(:empty_title, "No nutrition calculated yet") %></h3>
+      <p class="mx-auto mt-1 max-w-[48ch] text-pretty text-base/7 text-gray-500 sm:text-sm/6 dark:text-gray-400"><%= local_assigns.fetch(:empty_description, "Add ingredient amounts to calculate nutrition totals.") %></p>
+      <% if local_assigns[:empty_action_label].present? && local_assigns[:empty_action_path].present? %>
+        <div class="mt-5">
+          <%= link_to empty_action_label, empty_action_path, class: yass(btn: [ :base, { md: :base }, { primary: :solid } ]) %>
+        </div>
+      <% end %>
+    </div>
   <% end %>
 </section>

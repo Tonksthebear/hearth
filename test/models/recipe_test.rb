@@ -246,32 +246,31 @@ class RecipeTest < ActiveSupport::TestCase
   end
 
 
-  test "imports canonical grams servings and explicit nutrient facts" do
+  test "imports canonical grams and servings" do
     recipe = Recipe.import!(household: households(:home), attributes: valid_import_attributes.deep_merge(
       import_key: "meals:nutrition-import",
       serving_count: 2,
-      recipe_ingredients_attributes: [ { name: "First", amount: "1", gram_weight: 125 } ],
-      recipe_nutrient_values_attributes: [ { key: "protein", amount: 6.175 } ]
+      recipe_ingredients_attributes: [ { name: "First", amount: "1", gram_weight: 125 } ]
     ))
 
     assert_equal BigDecimal("2"), recipe.serving_count
     assert_equal BigDecimal("125"), recipe.recipe_ingredients.sole.gram_weight
-    assert_equal BigDecimal("6.175"), recipe.recipe_nutrient_values.sole.amount
 
     updated = Recipe.import!(household: households(:home), attributes: valid_import_attributes.deep_merge(
       import_key: "meals:nutrition-import",
       serving_count: 4,
-      recipe_ingredients_attributes: [ { name: "First", amount: "1", gram_weight: 250 } ],
-      recipe_nutrient_values_attributes: [ { key: "energy", amount: 300 } ]
+      recipe_ingredients_attributes: [ { name: "First", amount: "1", gram_weight: 250 } ]
     ))
     assert_equal recipe, updated
-    assert_equal [ "energy" ], updated.reload.recipe_nutrient_values.includes(:nutrient).map { |value| value.nutrient.key }
+    assert_equal BigDecimal("4"), updated.reload.serving_count
+    assert_equal BigDecimal("250"), updated.recipe_ingredients.sole.gram_weight
   end
 
   test "rejects malformed imports atomically" do
     malformed_payloads = [
       nil,
       valid_import_attributes.merge(unexpected: true),
+      valid_import_attributes.merge(recipe_nutrient_values_attributes: [ { key: "protein", amount: 6 } ]),
       valid_import_attributes.merge(recipe_ingredients_attributes: "not an array"),
       valid_import_attributes.merge(recipe_instructions_attributes: [ "not a hash" ]),
       valid_import_attributes.deep_merge(recipe_ingredients_attributes: [ { name: "First", position: 8 } ])
