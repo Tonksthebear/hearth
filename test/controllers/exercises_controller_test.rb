@@ -47,6 +47,20 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     assert_select "el-select[name='exercise[movement_pattern]']"
   end
 
+  test "visuals fieldset exposes a direct-child legend" do
+    sign_in_as users(:one)
+
+    get new_exercise_path
+    assert_response :success
+    assert_select "fieldset > legend", text: "Visuals"
+    assert_select "fieldset legend", text: "Visuals", count: 1
+
+    get edit_exercise_path(exercises(:squat))
+    assert_response :success
+    assert_select "fieldset > legend", text: "Visuals"
+    assert_select "fieldset legend", text: "Visuals", count: 1
+  end
+
   test "does not render or load an exercise belonging to another household" do
     connection = ActiveRecord::Base.connection
     connection.execute("PRAGMA ignore_check_constraints = ON")
