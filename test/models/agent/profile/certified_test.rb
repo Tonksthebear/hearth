@@ -57,6 +57,59 @@ class Agent::Profile::CertifiedTest < ActiveSupport::TestCase
     assert_equal "Sibling ACP runtime online", state.runtime_heading
   end
 
+  test "an authenticated enabled profile is a persistent connection" do
+    state = Agent::Profile::Certified.fetch("grok").state_for(households(:home))
+
+    assert_predicate state, :configured?
+    assert_not_predicate state, :authentication_required?
+    assert_equal :connected, state.connection_state
+    assert_equal "Connected", state.connection_status
+  end
+
+  test "failed and expired setup requests need attention before authentication" do
+    installation = agent_installations(:local)
+    installation.update!(authentication_status: "failed")
+
+    %w[ failed expired ].each do |status|
+      Agent::SetupRequest.create!(household: households(:home), requested_by: users(:two), certified_key: "grok",
+        action: "authenticate", authentication_method_id: "cached_token",
+        idempotency_key: "#{status}-status", origin: "web", status: status,
+        error_category: "authentication_failed", error_message: "Provider authentication did not complete.")
+
+      state = Agent::Profile::Certified.fetch("grok").state_for(households(:home))
+
+      assert_predicate state, :setup_failed?
+      assert_equal :failed, state.connection_state
+      assert_equal "Needs attention", state.connection_status
+    end
+  end
+
+  test "a cancelled setup request has an explicit connection status" do
+    agent_profiles(:hearth).update!(enabled: false)
+    Agent::SetupRequest.create!(household: households(:home), requested_by: users(:two), certified_key: "grok",
+      action: "enable", idempotency_key: "cancelled-status", origin: "web", status: "cancelled")
+
+    state = Agent::Profile::Certified.fetch("grok").state_for(households(:home))
+
+    assert_predicate state, :setup_cancelled?
+    assert_equal :cancelled, state.connection_state
+    assert_equal "Setup cancelled", state.connection_status
+  end
+
+  test "connection details keep the latest successful adapter detection" do
+    successful = Agent::SetupRequest.create!(household: households(:home), requested_by: users(:two), certified_key: "grok",
+      action: "enable", idempotency_key: "successful-adapter-detection", origin: "web", status: "succeeded",
+      cli_available: true, cli_version: "grok 1.0", adapter_available: true, adapter_version: "1.0")
+    Agent::SetupRequest.create!(household: households(:home), requested_by: users(:two), certified_key: "grok",
+      action: "detect", idempotency_key: "missing-adapter-detection", origin: "web", status: "succeeded",
+      cli_available: true, cli_version: "grok 1.1", adapter_available: false)
+
+    state = Agent::Profile::Certified.fetch("grok").state_for(households(:home))
+
+    assert_equal successful, state.detection
+    assert_predicate state.detection, :adapter_available?
+  end
+
   test "legacy named profile is projected and claimed under its certified identity" do
     profile = agent_profiles(:hearth)
     profile.update!(certified_key: nil, name: "Grok Build")

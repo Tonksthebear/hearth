@@ -55,7 +55,11 @@ bin/hearth-acp-runtime \
 
 ## Authenticated web setup
 
-Once the instance and first household user exist, `/agent/profiles` is the primary certified-agent setup surface. Browser controllers only authorize and enqueue household-owned `Agent::SetupRequest` rows. They never probe executables, construct `Acp::Supervisor`, spawn a process, write ACP stdio, or accept runtime configuration.
+Once the instance and first household user exist, `/agent/profiles` is the primary certified-agent setup surface.
+The user connects an agent once. The enabled profile and approved authentication method persist across restarts.
+The sibling runtime restores active sessions automatically. It starts new agent processes when conversations need them.
+Browser controllers only authorize and enqueue household-owned `Agent::SetupRequest` rows.
+They never probe executables, construct `Acp::Supervisor`, spawn a process, write ACP stdio, or accept runtime configuration.
 
 The sibling runtime atomically claims `detect`, `enable`, `authenticate`, `reauthenticate`, and `disable` requests. Authentication always requires an explicitly selected advertised method ID, including when only one method is advertised. Persisted method snapshots contain only `id` and `name`; provider descriptions, credentials, OAuth artifacts, paths, argv, and environment values are excluded.
 

@@ -26,6 +26,47 @@ class Agent::Profile::Certified
     def runtime_online? = runtime_status&.online? || false
     def runtime_state = runtime_status&.state || "never_started"
 
+    def configured?
+      enabled? && authentication_status.in?(%w[ authenticated not_required ])
+    end
+
+    def authentication_required?
+      enabled? && authentication_methods.any? && !configured?
+    end
+
+    def setup_in_progress?
+      request&.status.in?(%w[ pending running ]) || false
+    end
+
+    def setup_failed?
+      request&.status.in?(%w[ failed expired ]) || false
+    end
+
+    def setup_cancelled?
+      request&.status == "cancelled"
+    end
+
+    def connection_state
+      return :connected if configured?
+      return :failed if setup_failed?
+      return :in_progress if setup_in_progress?
+      return :cancelled if setup_cancelled?
+      return :authentication_required if authentication_required?
+
+      :not_connected
+    end
+
+    def connection_status
+      {
+        connected: "Connected",
+        failed: "Needs attention",
+        in_progress: "Setting up",
+        cancelled: "Setup cancelled",
+        authentication_required: "Authentication required",
+        not_connected: "Not connected"
+      }.fetch(connection_state)
+    end
+
     def runtime_heading
       {
         "never_started" => "Hearth supervisor has not started ACP yet",
@@ -127,7 +168,7 @@ class Agent::Profile::Certified
       profile: profile,
       installation: profile&.installations&.order(last_seen_at: :desc)&.first,
       request: household.agent_setup_requests.where(certified_key: definition.key).order(created_at: :desc, id: :desc).first,
-      detection: household.agent_setup_requests.where(certified_key: definition.key).where.not(adapter_available: nil).order(created_at: :desc, id: :desc).first,
+      detection: household.agent_setup_requests.where(certified_key: definition.key, adapter_available: true).order(created_at: :desc, id: :desc).first,
       runtime_status: household.agent_runtime_status
     )
   end

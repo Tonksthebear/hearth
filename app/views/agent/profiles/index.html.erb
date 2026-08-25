@@ -4,14 +4,14 @@
 
 <div class="mx-auto max-w-5xl">
   <div class="border-b border-gray-200 pb-5 dark:border-white/10">
-    <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Settings</p>
-    <h1 class="mt-1 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Agents</h1>
-    <p class="mt-2 max-w-3xl text-sm/6 text-gray-600 dark:text-gray-400">Certified ACP agents can read the household context you authorize. Provider credentials stay in the provider-owned credential store; Hearth saves only setup status and the authentication method identity you explicitly approve.</p>
+    <p class="font-mono text-sm font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-400">Settings</p>
+    <h1 class="mt-1 text-3xl font-semibold tracking-tight text-balance text-gray-900 dark:text-white">Agents</h1>
+    <p class="mt-2 max-w-[70ch] text-base/7 text-pretty text-gray-600 sm:text-sm/6 dark:text-gray-400">Connect an agent once. Hearth keeps it enabled and restores active conversations after each restart. The provider keeps all credentials.</p>
   </div>
 
   <div class="mt-8 space-y-5">
     <%= render partial: "provider", collection: @providers %>
   </div>
 
-  <p class="mt-8 text-sm text-gray-500 dark:text-gray-400">Conversation permissions are separate from installation and authentication. Hearth asks again before any operational write.</p>
+  <p class="mt-8 max-w-[70ch] text-base/7 text-pretty text-gray-500 sm:text-sm/6 dark:text-gray-400">Hearth asks for separate approval before an agent changes household data.</p>
 </div>
