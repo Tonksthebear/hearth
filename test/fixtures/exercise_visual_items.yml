@@ -1,0 +1,2 @@
+# Visual items are assembled in tests so Active Storage files stay explicit.
+--- {}
