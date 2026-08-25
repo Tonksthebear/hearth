@@ -100,7 +100,7 @@ This ticket validates structure, completeness, closed vocabularies, and role leg
 bin/sync-workout-guide v1.0.0
 ```
 
-The command requires an explicit GitHub release tag. It rejects a branch name and a bare commit SHA. It downloads the release archive, copies `manifest.json`, PNG frames, `LICENSE-ASSETS`, and `ATTRIBUTION.md` through a filtered staging tree, then synchronizes `vendor/workout_guide/` with deletion. `VERSION` and `CHECKSUMS` are excluded from that copy so they survive and are rewritten after the sync.
+The command requires an explicit GitHub release tag. It rejects a branch name and a bare commit SHA. It downloads the release archive, copies `manifest.json`, PNG frames, `LICENSE-ASSETS`, and `ATTRIBUTION.md` through a filtered staging tree, then synchronizes `vendor/workout_guide/` with deletion and content comparison. Equal size and modification time are not enough to keep a destination file. `VERSION` and `CHECKSUMS` are excluded from that copy so they survive and are rewritten after the sync. `CHECKSUMS` path order is `LC_ALL=C` sort.
 
 A later change to the copy rules must be re-proved by placing a stale destination file, including a stale `.svg`, and confirming the sync removes it.
 

@@ -107,13 +107,52 @@ class WorkoutGuideBundleContractTest < ActiveSupport::TestCase
   end
 
   test "checksums cover every bundle file except CHECKSUMS and match current digests" do
-    listed = checksums.keys.sort
+    listed = checksums.keys
     expected = bundle_files - [ "CHECKSUMS" ]
     assert_includes listed, "VERSION"
-    assert_equal expected, listed
+    assert_equal expected, listed.sort
+    assert_equal listed, listed.sort, "CHECKSUMS must use LC_ALL=C path order"
 
     checksums.each do |path, digest|
       assert_equal digest, Digest::SHA256.hexdigest(BUNDLE.join(path).binread), path
+    end
+  end
+
+  test "checksum generation stays stable when the process locale is not C" do
+    script = Rails.root.join("bin/sync-workout-guide").read
+    assert_includes script, "LC_ALL=C sort"
+
+    command = <<~SH
+      export LC_ALL=en_US.UTF-8
+      CDPATH= cd -- #{BUNDLE}
+      find . -type f ! -name CHECKSUMS | sed 's|^\\./||' | LC_ALL=C sort | while IFS= read -r path; do
+        shasum -a 256 "$path"
+      done
+    SH
+    generated = `#{command}`
+    assert_equal 0, $?.exitstatus
+    assert_equal BUNDLE.join("CHECKSUMS").read, generated
+  end
+
+  test "destination rsync restores equal-size files whose bytes changed" do
+    script = Rails.root.join("bin/sync-workout-guide").read
+    assert_includes script, "-a --checksum --delete"
+
+    Dir.mktmpdir("workout-guide-rsync-") do |dir|
+      source = Pathname(dir).join("source")
+      destination = Pathname(dir).join("destination")
+      source.mkpath
+      destination.mkpath
+      source.join("frame.png").binwrite("AAAA")
+      destination.join("frame.png").binwrite("BBBB")
+      stamp = Time.utc(2026, 1, 1)
+      File.utime(stamp, stamp, source.join("frame.png"), destination.join("frame.png"))
+
+      assert system(
+        "rsync", "-a", "--checksum", "--delete",
+        "#{source}/", "#{destination}/"
+      )
+      assert_equal "AAAA", destination.join("frame.png").binread
     end
   end
 
