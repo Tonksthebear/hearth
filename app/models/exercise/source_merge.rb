@@ -109,7 +109,7 @@ class Exercise::SourceMerge
         end
 
         Result.new(
-          status: result_status(changes, reasons),
+          status: result_status(changes),
           exercise: exercise.reload,
           reasons: reasons.uniq,
           changes: changes.uniq
@@ -117,15 +117,9 @@ class Exercise::SourceMerge
       end
     end
 
-    def result_status(changes, reasons)
+    def result_status(changes)
       applied = Array(changes).reject { |change| change.to_s.start_with?("snapshot.") }
-      if applied.any?
-        "updated"
-      elsif reasons.include?("name_conflict")
-        "preserved"
-      else
-        "preserved"
-      end
+      applied.any? ? "updated" : "preserved"
     end
 
     def parse_record!
@@ -324,7 +318,7 @@ class Exercise::SourceMerge
       current = current_source_visuals(exercise)
 
       base_visuals.each_key do |key|
-        next unless current[key].nil? && incoming_by_key[key]
+        next unless current[key].nil?
         next if tombstones.include?(key)
 
         tombstones << key

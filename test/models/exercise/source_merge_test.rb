@@ -222,6 +222,20 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
     assert_includes second.exercise.source_snapshot.fetch("removed_visual_keys"), "hinge-start"
   end
 
+  test "records a household visual tombstone when the next merge omits the visual" do
+    created = merge_source!(source_record.merge(visuals: [ image_visual ]))
+    created.exercise.exercise_visuals.sole.destroy!
+
+    omitted = merge_source!(source_record.merge(visuals: []))
+    restored = merge_source!(source_record.merge(visuals: [ image_visual ]))
+
+    assert_equal 0, omitted.exercise.exercise_visuals.count
+    assert_includes omitted.exercise.source_snapshot.fetch("removed_visual_keys"), "hinge-start"
+    assert_equal 0, restored.exercise.exercise_visuals.count
+    assert_not_includes restored.exercise.exercise_visuals.map(&:source_key), "hinge-start"
+    assert_includes restored.exercise.source_snapshot.fetch("removed_visual_keys"), "hinge-start"
+  end
+
   test "visual lifecycle B destroys an untouched upstream-removed visual without a tombstone" do
     merge_source!(source_record.merge(visuals: [ image_visual ]))
     result = merge_source!(source_record.merge(visuals: []))
