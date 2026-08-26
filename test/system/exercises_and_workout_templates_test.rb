@@ -297,4 +297,3 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     assert_equal "Barbell", exercise.reload.equipment
   end
 end
-

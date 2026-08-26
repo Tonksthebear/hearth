@@ -51,12 +51,12 @@ class Exercise::SourceMerge
       snapshot["scalars"] = SCALAR_FIELDS.index_with { |field| parsed[field.to_sym] }
       exercise.source_snapshot = snapshot
       persist!(exercise)
-    end
 
-    result = update_record!(exercise.reload, parsed)
-    extra = []
-    extra << "guidance" if exercise.guidance.present?
-    extra.empty? ? result : result.with(preserved: (result.preserved + extra).uniq)
+      result = update_record!(exercise.reload, parsed)
+      extra = []
+      extra << "guidance" if exercise.guidance.present?
+      extra.empty? ? result : result.with(preserved: (result.preserved + extra).uniq)
+    end
   end
 
   def replace_record!(exercise)
@@ -83,12 +83,12 @@ class Exercise::SourceMerge
       snapshot["removed_visual_keys"] = []
       exercise.source_snapshot = snapshot
       persist!(exercise)
-    end
 
-    result = update_record!(exercise.reload, parsed)
-    extra = []
-    extra << "guidance" if exercise.guidance.present?
-    extra.empty? ? result : result.with(preserved: (result.preserved + extra).uniq)
+      result = update_record!(exercise.reload, parsed)
+      extra = []
+      extra << "guidance" if exercise.guidance.present?
+      extra.empty? ? result : result.with(preserved: (result.preserved + extra).uniq)
+    end
   end
 
   def merge_record!

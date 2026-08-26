@@ -12,6 +12,8 @@ class Exercise::SourceReplacementsController < ApplicationController
 
     record = WorkoutGuide::Import.new(household: Current.household).record_for(@exercise.source_key)
     result = @exercise.replace_from_source!(record)
+    return render_active_run_conflict if WorkoutGuide::ImportRun.active_refusal?(result)
+
     @catalog_result = {
       "status" => result.status,
       "changes" => result.changes,

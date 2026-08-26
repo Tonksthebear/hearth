@@ -138,14 +138,33 @@ class Exercise < ApplicationRecord
   end
 
   def link_source_record!(record)
-    SourceMerge.new(household:, record:).link_record!(self)
+    household.with_lock do
+      reload
+      return import_run_active_result if WorkoutGuide::ImportRun.active?(household)
+
+      SourceMerge.new(household:, record:).link_record!(self)
+    end
   end
 
   def replace_from_source!(record)
-    SourceMerge.new(household:, record:).replace_record!(self)
+    household.with_lock do
+      reload
+      return import_run_active_result if WorkoutGuide::ImportRun.active?(household)
+
+      SourceMerge.new(household:, record:).replace_record!(self)
+    end
   end
 
   private
+    def import_run_active_result
+      SourceMerge::Result.new(
+        status: "failed",
+        exercise: self,
+        reasons: [ WorkoutGuide::ImportRun::ACTIVE_REFUSAL_REASON ],
+        changes: []
+      )
+    end
+
     def normalize_source_identity
       self.source_key = source_key.presence
       self.source_version = source_version.presence

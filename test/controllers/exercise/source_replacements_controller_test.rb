@@ -18,6 +18,31 @@ class Exercise::SourceReplacementsControllerTest < ActionDispatch::IntegrationTe
     assert_response :not_found
   end
 
+  test "foreign household exercise ids are not found and remain unchanged" do
+    foreign_id = insert_foreign_exercise(source_key: "workout_guide:foreign")
+    sign_in_as users(:one)
+
+    assert_no_changes -> { Exercise.find(foreign_id).attributes.slice("source_key", "equipment", "name") } do
+      post exercise_source_replacement_path(foreign_id)
+    end
+    assert_response :not_found
+  end
+
+  test "replace refuses without mutation when an import starts after the availability check" do
+    sign_in_as users(:one)
+    exercise = import_and_edit_bench_press
+
+    assert_no_changes -> { exercise.reload.equipment } do
+      with_import_started_during_record_for do
+        post exercise_source_replacement_path(exercise), as: :turbo_stream
+      end
+    end
+
+    assert_response :conflict
+    assert_match(/already running/, response.body)
+    assert WorkoutGuide::ImportRun.active?(households(:home))
+  end
+
   test "replace returns a turbo stream naming changed and preserved values" do
     sign_in_as users(:one)
     exercise = import_and_edit_bench_press

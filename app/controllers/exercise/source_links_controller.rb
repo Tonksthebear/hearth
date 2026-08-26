@@ -20,7 +20,10 @@ class Exercise::SourceLinksController < ApplicationController
     end
 
     record = catalog_import.record_for(source_key_param)
-    @catalog_result = catalog_result_hash(@exercise.link_source_record!(record))
+    result = @exercise.link_source_record!(record)
+    return render_active_run_conflict if WorkoutGuide::ImportRun.active_refusal?(result)
+
+    @catalog_result = catalog_result_hash(result)
     respond_with_catalog_result
   end
 

@@ -3,6 +3,7 @@ class WorkoutGuide::ImportRun < ApplicationRecord
   ACTIVE_STATUSES = %w[queued running].freeze
   SAFE_FAILURE_MESSAGE = "The import could not be completed."
   SAFE_ENQUEUE_FAILURE_MESSAGE = "The import could not be queued."
+  ACTIVE_REFUSAL_REASON = "import_run_active"
 
   StartResult = Data.define(:run, :refused) do
     def refused? = refused
@@ -35,19 +36,25 @@ class WorkoutGuide::ImportRun < ApplicationRecord
       end
     end
 
+    def active_refusal?(result)
+      result.respond_to?(:reasons) && Array(result.reasons).include?(ACTIVE_REFUSAL_REASON)
+    end
+
     def start!(household:)
-      existing = active_for(household)
-      return StartResult.new(run: existing, refused: true) if existing
+      household.with_lock do
+        existing = active_for(household)
+        return StartResult.new(run: existing, refused: true) if existing
 
-      run = create!(household:, status: "queued")
-      begin
-        WorkoutGuide::ImportJob.perform_later(run.id)
-      rescue StandardError
-        run.mark_failed!(SAFE_ENQUEUE_FAILURE_MESSAGE)
-        return StartResult.new(run:, refused: true)
+        run = create!(household:, status: "queued")
+        begin
+          WorkoutGuide::ImportJob.perform_later(run.id)
+        rescue StandardError
+          run.mark_failed!(SAFE_ENQUEUE_FAILURE_MESSAGE)
+          return StartResult.new(run:, refused: true)
+        end
+
+        StartResult.new(run:, refused: false)
       end
-
-      StartResult.new(run:, refused: false)
     rescue ActiveRecord::RecordNotUnique
       StartResult.new(run: active_for(household), refused: true)
     end

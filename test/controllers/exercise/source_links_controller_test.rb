@@ -21,6 +21,36 @@ class Exercise::SourceLinksControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "foreign household exercise ids are not found and remain unchanged" do
+    foreign_id = insert_foreign_exercise
+    sign_in_as users(:one)
+
+    get new_exercise_source_link_path(foreign_id)
+    assert_response :not_found
+
+    assert_no_changes -> { Exercise.find(foreign_id).source_key } do
+      post exercise_source_link_path(foreign_id), params: { source_link: { source_key: "workout_guide:bench-press" } }
+    end
+    assert_response :not_found
+  end
+
+  test "link refuses without mutation when an import starts after the availability check" do
+    sign_in_as users(:one)
+    exercise = exercises(:squat)
+
+    assert_no_changes -> { exercise.reload.source_key } do
+      with_import_started_during_record_for do
+        post exercise_source_link_path(exercise),
+          params: { source_link: { source_key: "workout_guide:bench-press" } },
+          as: :turbo_stream
+      end
+    end
+
+    assert_response :conflict
+    assert_match(/already running/, response.body)
+    assert WorkoutGuide::ImportRun.active?(households(:home))
+  end
+
   test "links a household exercise and returns applied and preserved values" do
     sign_in_as users(:one)
     exercise = exercises(:squat)
