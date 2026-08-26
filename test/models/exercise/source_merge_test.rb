@@ -54,9 +54,22 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
 
     result = merge_source!(source_record.merge(equipment: "Trap bar"))
 
-    assert_equal "updated", result.status
+    assert_equal "preserved", result.status
     assert_equal "Household bar", result.exercise.equipment
     assert_equal "Trap bar", result.exercise.source_snapshot.dig("scalars", "equipment")
+  end
+
+  test "does not report name_conflict when the upstream name did not change" do
+    created = merge_source!(source_record)
+    created.exercise.update!(name: "Household hinge")
+    exercises(:bike).update!(name: "Catalog hinge")
+
+    result = merge_source!(source_record)
+
+    assert_equal "preserved", result.status
+    assert_not_includes result.reasons, "name_conflict"
+    assert_equal "Household hinge", result.exercise.name
+    assert_equal "Catalog hinge", result.exercise.source_snapshot.dig("scalars", "name")
   end
 
   test "applies a free upstream rename" do
@@ -303,18 +316,22 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
     assert_equal "preserved", unchanged.status
     assert_equal blob_id, unchanged.exercise.exercise_visuals.sole.exercise_visual_items.sole.file.blob.id
 
-    replaced = merge_source!(source_record.merge(visuals: [ image_visual(filename: "photo.jpg", content_type: "image/jpeg", checksum: "sum-b") ]))
+    original_digest = created.exercise.source_snapshot.dig("visuals", "hinge-start", "items", 0, "content_digest")
+    replaced = merge_source!(source_record.merge(visuals: [ image_visual(filename: "icon.svg", content_type: "image/svg+xml", checksum: "sum-b") ]))
     item = replaced.exercise.exercise_visuals.sole.exercise_visual_items.sole
     digest = replaced.exercise.source_snapshot.dig("visuals", "hinge-start", "items", 0, "content_digest")
+    assert_equal "updated", replaced.status
+    assert_equal "sum-b", item.source_checksum
     assert_equal item.file.blob.checksum, digest
+    assert_not_equal original_digest, digest
     assert_not_equal blob_id, item.file.blob.id
 
-    follow_up = merge_source!(source_record.merge(visuals: [ image_visual(filename: "photo.jpg", content_type: "image/jpeg", checksum: "sum-b") ]))
+    follow_up = merge_source!(source_record.merge(visuals: [ image_visual(filename: "icon.svg", content_type: "image/svg+xml", checksum: "sum-b") ]))
     assert_equal "preserved", follow_up.status
 
     applied = merge_source!(source_record.merge(visuals: [ image_visual(
-      filename: "photo.jpg",
-      content_type: "image/jpeg",
+      filename: "icon.svg",
+      content_type: "image/svg+xml",
       checksum: "sum-b",
       alt_text: "After refresh"
     ) ]))

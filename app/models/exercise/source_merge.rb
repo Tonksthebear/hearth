@@ -28,6 +28,7 @@ class Exercise::SourceMerge
   def initialize(household:, record:)
     @household = household
     @record = record
+    @applied_visual_keys = Set.new
   end
 
   def merge_record!
@@ -81,6 +82,7 @@ class Exercise::SourceMerge
         changes = []
         snapshot = snapshot_for(exercise)
         original_visuals = snapshot["visuals"].deep_dup
+        @applied_visual_keys = Set.new
 
         if exercise.source_removed_at.present?
           exercise.source_removed_at = nil
@@ -100,7 +102,7 @@ class Exercise::SourceMerge
         exercise.source_snapshot = snapshot
         exercise.normalize_positions
         persist!(exercise)
-        refreshed = snapshot_after_apply(exercise.reload, parsed, snapshot, original_visuals)
+        refreshed = snapshot_after_apply(exercise.reload, parsed, snapshot, original_visuals, @applied_visual_keys)
         if exercise.source_snapshot != refreshed
           exercise.source_snapshot = refreshed
           persist!(exercise)
@@ -116,7 +118,8 @@ class Exercise::SourceMerge
     end
 
     def result_status(changes, reasons)
-      if changes.any?
+      applied = Array(changes).reject { |change| change.to_s.start_with?("snapshot.") }
+      if applied.any?
         "updated"
       elsif reasons.include?("name_conflict")
         "preserved"
@@ -232,7 +235,7 @@ class Exercise::SourceMerge
         current = exercise.public_send(field)
         base = snapshot["scalars"][field]
 
-        if field == "name" && !values_equal?(incoming, current) && name_taken_by_other?(exercise, incoming)
+        if field == "name" && !values_equal?(incoming, current) && !values_equal?(incoming, base) && name_taken_by_other?(exercise, incoming)
           reasons << "name_conflict"
           next
         end
@@ -244,7 +247,6 @@ class Exercise::SourceMerge
 
         unless values_equal?(snapshot["scalars"][field], incoming)
           snapshot["scalars"][field] = incoming
-          changes << "snapshot.#{field}" unless changes.include?(field)
         end
       end
     end
@@ -359,6 +361,7 @@ class Exercise::SourceMerge
         next unless upstream_changed_visual?(incoming, base)
 
         apply_visual_update!(visual, incoming, base)
+        @applied_visual_keys << incoming[:source_key]
         changes << "visuals.updated"
       end
 
@@ -367,13 +370,16 @@ class Exercise::SourceMerge
 
     def next_visual_base(base_visuals, incoming_by_key, current, tombstones)
       next_base = {}
+      applied = Array(@applied_visual_keys)
 
       incoming_by_key.each do |key, incoming|
         visual = current[key]
         next unless visual
         next if tombstones.include?(key)
 
-        if !visual.new_record? && household_changed_visual?(visual, base_visuals[key])
+        if applied.include?(key) || visual.new_record?
+          next_base[key] = incoming_visual_base(visual, incoming)
+        elsif household_changed_visual?(visual, base_visuals[key])
           next_base[key] = base_visuals[key]
         else
           next_base[key] = incoming_visual_base(visual, incoming)
@@ -516,8 +522,9 @@ class Exercise::SourceMerge
       changes << "attribution"
     end
 
-    def snapshot_after_apply(exercise, parsed, snapshot, original_visuals = nil)
+    def snapshot_after_apply(exercise, parsed, snapshot, original_visuals = nil, applied_visual_keys = nil)
       original_visuals ||= snapshot["visuals"] || {}
+      applied = Array(applied_visual_keys || @applied_visual_keys)
       next_snapshot = empty_snapshot.merge(deep_hash(snapshot))
       next_snapshot["scalars"] = if snapshot["scalars"].blank?
         SCALAR_FIELDS.index_with { |field| parsed[field.to_sym] }
@@ -542,7 +549,9 @@ class Exercise::SourceMerge
         next unless visual
         next if next_snapshot["removed_visual_keys"].include?(key)
 
-        if household_changed_visual?(visual, original_visuals[key])
+        if applied.include?(key) || visual.id_previously_changed? || original_visuals[key].blank?
+          next_visuals[key] = incoming_visual_base(visual, incoming)
+        elsif household_changed_visual?(visual, original_visuals[key])
           next_visuals[key] = original_visuals[key]
         else
           next_visuals[key] = incoming_visual_base(visual, incoming)
