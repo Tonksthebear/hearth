@@ -461,6 +461,40 @@ class Agent::MutationManagementOperationsTest < ActiveSupport::TestCase
     )
   end
 
+  test "preview order follows persisted muscle display positions not catalog defaults" do
+    exercise = execute("create_exercise", {
+      name: "Persisted order hinge",
+      modality: "strength",
+      movement_pattern: "hinge",
+      muscle_targets: [
+        { muscle_key: "glutes", role: "primary" },
+        { muscle_key: "hamstrings", role: "secondary" }
+      ]
+    }, "persisted-order-create")
+    muscles(:hamstrings).update!(display_position: 999)
+    muscles(:glutes).update!(display_position: 1000)
+    before = Agent::Mutation::ManagementOperations.snapshot(exercise.reload)
+    assert_equal %w[hamstrings glutes], before.fetch("muscle_targets").map { |row| row["muscle_key"] }
+
+    proposal, token = stage("update_exercise", {
+      id: exercise.id,
+      muscle_targets: [
+        { muscle_key: "glutes", role: "primary" },
+        { muscle_key: "hamstrings", role: "secondary" }
+      ]
+    }, "persisted-order-noop")
+    diff = proposal.preview.dig("children", "muscle_targets")
+
+    assert_empty diff.fetch("added")
+    assert_empty diff.fetch("removed")
+    assert_empty diff.fetch("updated")
+    assert_empty diff.fetch("reordered")
+
+    execution = proposal.decide!(outcome: "approved", by: users(:two), token: token)
+    assert_equal before.fetch("muscle_targets"), execution.after_state.fetch("muscle_targets")
+    assert_equal before.fetch("muscle_targets"), Agent::Mutation::ManagementOperations.snapshot(exercise.reload).fetch("muscle_targets")
+  end
+
   test "recipe ingredient preview identities stay unchanged after the muscle_key fallback" do
     recipe = execute("create_recipe", {
       title: "Identity soup", provenance_status: "personal",

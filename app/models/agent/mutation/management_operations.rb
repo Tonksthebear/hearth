@@ -279,7 +279,8 @@ module Agent::Mutation::ManagementOperations
       def canonical_child_order(type, name, rows)
         return rows unless type == "exercise" && name == "muscle_targets"
 
-        positions = Muscle::DEFAULTS.to_h { |row| [ row.fetch(:key), row.fetch(:display_position) ] }
+        keys = rows.map { |row| row.deep_stringify_keys["muscle_key"].to_s }
+        positions = Muscle.where(key: keys).pluck(:key, :display_position).to_h
         rows.sort_by.with_index do |row, index|
           key = row.deep_stringify_keys["muscle_key"].to_s
           [ positions.fetch(key, Float::INFINITY), index ]
