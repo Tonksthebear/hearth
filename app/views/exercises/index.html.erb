@@ -8,6 +8,7 @@
       <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Shared household catalog</p>
       <h1 id="exercises-heading" class="mt-2 text-3xl font-semibold tracking-tight">Exercises</h1>
       <p class="mt-2 text-gray-600 dark:text-gray-400">Reusable structured movements for templates and workout logs.</p>
+      <%= render "exercises/tracking_disclaimer" %>
     </div>
     <%= link_to "Add exercise", new_exercise_path, class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
   </div>
@@ -17,6 +18,7 @@
           import_run: @import_run,
           import_action_label: @import_action_label,
           catalog_import_available: @catalog_import_available %>
+    <%= render "workout_guide_imports/credits", catalog_credits: @catalog_credits %>
   </div>
 
   <div class="mt-8 grid gap-4 sm:grid-cols-2">

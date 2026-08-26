@@ -23,7 +23,9 @@
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= number_with_precision(block.actual_duration_seconds.to_f / 60, precision: 1, strip_insignificant_zeros: true) %> actual minutes</p>
         <div class="mt-4 space-y-3">
           <% block.training_session_exercises.each do |exercise| %>
-            <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/5">
+            <div class="flex items-start gap-3 rounded-lg bg-gray-50 p-4 dark:bg-white/5">
+              <%= render "exercises/thumbnail", exercise: exercise.exercise %>
+              <div class="min-w-0 flex-1">
               <h3 class="font-semibold"><%= exercise.snapshot_name %></h3>
               <p class="text-sm text-gray-600 dark:text-gray-400"><%= exercise.snapshot_modality.humanize %> · <%= exercise.snapshot_movement_pattern.humanize %></p>
               <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= exercise.target_summary %><% if exercise.cue_summary.present? %> · <%= exercise.cue_summary %><% end %><% if exercise.completed_at %> · completed <%= l exercise.completed_at, format: :short %><% end %></p>
@@ -37,6 +39,7 @@
                 <% end %>
               </ol>
               <% if exercise.feedback_summary.present? %><p class="mt-3 text-sm text-gray-600 dark:text-gray-400"><%= exercise.feedback_summary %></p><% end %>
+              </div>
             </div>
           <% end %>
         </div>

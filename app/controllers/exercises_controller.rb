@@ -7,6 +7,9 @@ class ExercisesController < ApplicationController
     @import_run = WorkoutGuide::ImportRun.latest_for(Current.household)
     @import_action_label = WorkoutGuide::ImportRun.action_label(Current.household)
     @catalog_import_available = !WorkoutGuide::ImportRun.active?(Current.household)
+    @catalog_credits = Current.household.exercises
+      .from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE)
+      .catalog_credits
   end
 
   def show

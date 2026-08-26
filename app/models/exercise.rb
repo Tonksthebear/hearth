@@ -39,6 +39,19 @@ class Exercise < ApplicationRecord
     def mark_sources_removed!(household:, present_source_keys:, source_namespace:)
       SourceMerge.mark_removed!(household:, present_source_keys:, source_namespace:)
     end
+
+    def catalog_credits
+      all.filter_map { |exercise|
+        attribution = exercise.source_attribution
+        next if attribution.blank?
+
+        row = SourceMerge::ATTRIBUTION_FIELDS.each_with_object({}) { |field, hash|
+          value = attribution[field]
+          hash[field] = value if value.present?
+        }
+        row.presence
+      }.uniq
+    end
   end
 
   def add_muscle_target
@@ -108,6 +121,24 @@ class Exercise < ApplicationRecord
     end
     exercise_muscle_targets.reset
     self
+  end
+
+  def thumbnail_visual
+    exercise_visuals.reject(&:marked_for_destruction?).min_by { |visual|
+      [ visual.position || Float::INFINITY, visual.object_id ]
+    }
+  end
+
+  def thumbnail_item
+    thumbnail_visual&.thumbnail_item
+  end
+
+  def thumbnail_rendering
+    thumbnail_item&.thumbnail_rendering || :placeholder
+  end
+
+  def thumbnail_dark_surface?
+    thumbnail_visual&.unmodified_source_art? || false
   end
 
   def source_attribution

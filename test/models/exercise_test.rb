@@ -410,6 +410,74 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_equal "Household bar", exercise.reload.equipment
   end
 
+  test "thumbnail_item uses the first item of the first visual by position" do
+    exercise = create_catalog_exercise(name: "Out of order thumbs")
+    add_image_visual(exercise, filename: "photo.jpg", content_type: "image/jpeg", alt_text: "Later visual", position: 2)
+    earlier = add_frame_sequence(
+      exercise,
+      files: [ [ "photo.webp", "image/webp" ], [ "frame-a.png", "image/png" ] ],
+      alt_text: "Earlier visual",
+      position: 1
+    )
+    earlier.exercise_visual_items.first.position = 2
+    earlier.exercise_visual_items.last.position = 1
+    exercise.save!
+
+    assert_equal earlier.reload, exercise.thumbnail_visual
+    assert_equal earlier.exercise_visual_items.find_by!(position: 1), exercise.thumbnail_item
+    assert_equal :variant, exercise.thumbnail_rendering
+  end
+
+  test "thumbnail_rendering is placeholder without a visual" do
+    exercise = create_catalog_exercise(name: "No visual thumb")
+
+    assert_nil exercise.thumbnail_visual
+    assert_nil exercise.thumbnail_item
+    assert_equal :placeholder, exercise.thumbnail_rendering
+    assert_not exercise.thumbnail_dark_surface?
+  end
+
+  test "thumbnail_dark_surface? is true only for unmodified Workout Guide source art" do
+    source = create_workout_guide_sequence_exercise(name: "Unmodified thumb art")
+    personal = create_catalog_exercise(name: "Personal thumb art")
+    add_image_visual(personal, filename: "frame-a.png", content_type: "image/png", alt_text: "Personal")
+    personal.save!
+    modified = create_workout_guide_sequence_exercise(name: "Modified thumb art")
+    modified.thumbnail_item.update!(source_identifier: "household-edit.png")
+
+    assert source.thumbnail_dark_surface?
+    assert_not personal.thumbnail_dark_surface?
+    assert_not modified.reload.thumbnail_dark_surface?
+  end
+
+  test "catalog_credits excludes other households and other namespaces and includes household Workout Guide rows" do
+    # Household isolation is a model-tier claim. Household restricts installation_key
+    # to 1, so this is not a two-household runtime proof.
+    home = create_source_exercise(
+      name: "Home credit row",
+      source_key: "workout_guide:home-credit",
+      attribution: catalog_attribution(creator: "Home Creator", license: "CC BY-SA 4.0")
+    )
+    create_source_exercise(
+      name: "Other namespace credit",
+      source_key: "other_catalog:row",
+      attribution: catalog_attribution(creator: "Other Catalog")
+    )
+    foreign_id = insert_foreign_exercise(name: "Foreign credit", source_key: "workout_guide:foreign-credit")
+    Exercise.where(id: foreign_id).update_all(
+      source_snapshot: { "attribution" => catalog_attribution(creator: "Foreign Creator") }
+    )
+
+    credits = households(:home).exercises
+      .from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE)
+      .catalog_credits
+
+    assert credits.any? { |row| row["creator"] == "Home Creator" }
+    assert credits.none? { |row| row["creator"] == "Other Catalog" }
+    assert credits.none? { |row| row["creator"] == "Foreign Creator" }
+    assert_includes home.source_attribution["creator"], "Home Creator"
+  end
+
   private
     def with_injected_merge_failure
       original_new = Exercise::SourceMerge.method(:new)

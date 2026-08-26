@@ -16,7 +16,7 @@ Due meals, workouts, and simple habits can be recorded directly from Today. A me
 
 Today never mixes another person's operational rows into the selected person's list. Historical records may remain household-readable where the UI says so, while edits and daily mutations stay scoped to the selected/current person. Records from another installation are not readable or mutable.
 
-Recipe and nutrition screens retain source/provenance status. Nutrition totals describe only known snapshot data: incomplete or unavailable details are not treated as zero, and later catalog edits do not rewrite a logged meal. Recipe cover files live with all four SQLite databases in the mounted storage directory, so restart, backup, and restore procedures must preserve the complete volume.
+Recipe and nutrition screens retain source/provenance status. Nutrition totals describe only known snapshot data: incomplete or unavailable details are not treated as zero, and later catalog edits do not rewrite a logged meal. Recipe cover files and exercise visual files live with all four SQLite databases in the mounted storage directory, so restart, backup, and restore procedures must preserve the complete volume.
 
 ## Nutrition tracking
 
@@ -288,7 +288,7 @@ The single `/rails/storage` mount contains:
 - `production_cache.sqlite3` — Solid Cache
 - `production_queue.sqlite3` — Solid Queue
 - `production_cable.sqlite3` — Solid Cable
-- Active Storage originals and generated variants, including recipe cover images
+- Active Storage originals and generated variants, including recipe cover images and exercise visual originals and generated thumbnails
 
 Keep the whole directory together when backing up or restoring.
 
@@ -374,7 +374,7 @@ Before every upgrade:
 2. Back up the entire storage volume.
 3. Build or pull the new image.
 4. Recreate the container with the same secret and volume.
-5. Check `/up`, sign in, and inspect a representative meal, session, habit entry, and recipe cover image.
+5. Check `/up`, sign in, and inspect a representative meal, session, habit entry, recipe cover image, and exercise visual.
 
 The entrypoint runs `db:prepare`, which applies forward migrations. A code rollback after a schema change may not be safe; restore the pre-upgrade whole-volume backup together with the prior image.
 

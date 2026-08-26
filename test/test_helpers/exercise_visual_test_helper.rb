@@ -103,6 +103,67 @@ module ExerciseVisualTestHelper
     exercise.reload
   end
 
+  def create_workout_template_with(exercises, title:)
+    template = households(:home).workout_templates.create!(
+      title: title,
+      provenance_status: "personal"
+    )
+    block = template.workout_blocks.create!(
+      title: "Work",
+      block_kind: "strength",
+      dose_class: "strength",
+      position: 1
+    )
+    Array(exercises).each.with_index(1) do |exercise, position|
+      block.exercise_prescriptions.create!(
+        exercise: exercise,
+        position: position,
+        performance_kind: "reps",
+        sets_count: 1,
+        rep_min: 5,
+        rep_max: 5,
+        dose_class: "strength"
+      )
+    end
+    template
+  end
+
+  def start_training_session_from(template)
+    TrainingSession.start_from(template: template, person: people(:one))
+  end
+
+  def catalog_attribution(**fields)
+    {
+      "creator" => fields[:creator],
+      "creator_url" => fields[:creator_url],
+      "license" => fields[:license],
+      "license_url" => fields[:license_url],
+      "source_name" => fields[:source_name],
+      "source_url" => fields[:source_url],
+      "change_note" => fields[:change_note]
+    }.compact
+  end
+
+  def create_source_exercise(name:, source_key:, attribution: {})
+    households(:home).exercises.create!(
+      name: name,
+      modality: "strength",
+      movement_pattern: "hinge",
+      source_key: source_key,
+      source_snapshot: { "attribution" => attribution }
+    )
+  end
+
+  def uncached_sql_count
+    ActiveRecord::Base.uncached do
+      ActiveRecord::Base.connection.clear_query_cache
+      count = 0
+      callback = lambda { |*| count += 1 }
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { yield }
+      count
+    end
+  end
+
   def attach_item(visual, filename, content_type, **attributes)
     item = visual.exercise_visual_items.build({
       position: visual.exercise_visual_items.size + 1

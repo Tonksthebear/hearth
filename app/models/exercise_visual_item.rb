@@ -2,11 +2,14 @@ class ExerciseVisualItem < ApplicationRecord
   IMAGE_CONTENT_TYPES = %w[image/png image/jpeg image/webp image/gif image/svg+xml].freeze
   VIDEO_CONTENT_TYPES = %w[video/mp4 video/webm].freeze
   INLINE_IMAGE_CONTENT_TYPES = %w[image/png image/jpeg image/webp image/gif].freeze
+  THUMBNAIL_VARIANT_CONTENT_TYPES = %w[image/png image/jpeg image/webp].freeze
   IMAGE_MAX_BYTES = 10.megabytes
   VIDEO_MAX_BYTES = 50.megabytes
 
   belongs_to :exercise_visual, inverse_of: :exercise_visual_items
-  has_one_attached :file
+  has_one_attached :file do |attachable|
+    attachable.variant :thumb, resize_to_limit: [ 160, 160 ]
+  end
 
   attr_accessor :file_reference_invalid
 
@@ -16,6 +19,19 @@ class ExerciseVisualItem < ApplicationRecord
 
   def inline_renderable?
     file.attached? && INLINE_IMAGE_CONTENT_TYPES.include?(file.content_type)
+  end
+
+  def thumbnail_rendering
+    return :placeholder unless file.attached?
+
+    case file.content_type
+    when *THUMBNAIL_VARIANT_CONTENT_TYPES
+      :variant
+    when "image/gif"
+      :original
+    else
+      :placeholder
+    end
   end
 
   def preserve_file_for_form
