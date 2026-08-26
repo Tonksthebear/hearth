@@ -1,0 +1,7 @@
+<%= turbo_stream.replace "exercise_show",
+      partial: "exercises/show",
+      locals: {
+        exercise: @exercise.reload,
+        catalog_result: @catalog_result,
+        source_panel_notice: nil
+      } %>

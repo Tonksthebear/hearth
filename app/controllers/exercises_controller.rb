@@ -4,9 +4,14 @@ class ExercisesController < ApplicationController
 
   def index
     @exercises = Current.household.exercises.order(:name)
+    @import_run = WorkoutGuide::ImportRun.latest_for(Current.household)
+    @import_action_label = WorkoutGuide::ImportRun.action_label(Current.household)
+    @catalog_import_available = !WorkoutGuide::ImportRun.active?(Current.household)
   end
 
   def show
+    @catalog_result = flash[:catalog_result]
+    @source_panel_notice = flash[:source_panel_notice]
   end
 
   def new

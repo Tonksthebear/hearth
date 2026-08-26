@@ -26,7 +26,11 @@ Rails.application.routes.draw do
   resources :people, only: %i[ index show new create edit update ]
   resources :recipes, only: %i[ index show new create edit update ]
   resources :ingredients, only: %i[ index edit update ]
-  resources :exercises, except: :destroy
+  resources :exercises, except: :destroy do
+    resource :source_link, only: %i[ new create ], module: :exercise
+    resource :source_replacement, only: :create, module: :exercise
+  end
+  resource :workout_guide_import, only: :create
   resources :workout_templates, except: :destroy
   resources :training_sessions, only: %i[ new create show edit update destroy ]
   resource :training_week, only: :show

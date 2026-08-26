@@ -1,0 +1,27 @@
+<% content_for :title, "Link #{@exercise.name} · Hearth" %>
+<%= render "layouts/activities_navigation" %>
+
+<section aria-labelledby="source-link-heading">
+  <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">Catalog source</p>
+  <h1 id="source-link-heading" class="mt-2 text-3xl font-semibold tracking-tight">Link to catalog exercise</h1>
+  <p class="mt-2 text-gray-600 dark:text-gray-400">
+    Choose a Workout Guide record for <%= @exercise.name %>. Household name, guidance, and other authored values stay in place.
+  </p>
+
+  <%= form_with url: exercise_source_link_path(@exercise), scope: :source_link, class: "mt-6", data: { turbo: false } do |form| %>
+    <div class="sm:max-w-md">
+      <%= form.label :source_key, "Catalog exercise", class: :label %>
+      <div class="mt-2">
+        <%= elements_autocomplete_tag "source_link[source_key]", @catalog_options,
+              id: "source_link_source_key",
+              placeholder: "Choose a catalog exercise",
+              required: true %>
+      </div>
+    </div>
+
+    <div class="mt-6 flex items-center gap-4">
+      <%= form.submit "Link to catalog exercise", class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>
+      <%= link_to "Cancel", exercise_path(@exercise), class: "text-sm font-semibold text-gray-900 underline dark:text-white" %>
+    </div>
+  <% end %>
+</section>

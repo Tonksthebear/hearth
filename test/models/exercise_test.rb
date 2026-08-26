@@ -1,6 +1,10 @@
 require "test_helper"
+require_relative "../test_helpers/exercise_visual_test_helper"
+require_relative "../test_helpers/workout_guide_import_test_helper"
 
 class ExerciseTest < ActiveSupport::TestCase
+  include ExerciseVisualTestHelper
+  include WorkoutGuideImportTestHelper
   test "requires catalog taxonomy and exposes exact enums" do
     exercise = households(:home).exercises.build
 
@@ -231,6 +235,98 @@ class ExerciseTest < ActiveSupport::TestCase
       keys = preloaded.ordered_muscle_targets.map { |target| target.muscle.key }
     end
     assert_equal %w[glutes quadriceps calves], keys
+  end
+
+  test "link_source_record! preserves household scalars content and adds source children" do
+    exercise = exercises(:squat)
+    add_image_visual(exercise, alt_text: "Household photo")
+    exercise.exercise_muscle_targets.create!(muscle: muscles(:calves), role: :stabilizer)
+    exercise.save!
+    household_visual_ids = exercise.exercise_visuals.map(&:id)
+    household_positions = exercise.exercise_visuals.map(&:position)
+
+    record = fixture_workout_guide_import.record_for("workout_guide:bench-press")
+    result = exercise.link_source_record!(record)
+    exercise.reload
+
+    assert_equal "updated", result.status
+    assert_equal "workout_guide:bench-press", exercise.source_key
+    assert_equal "Goblet squat", exercise.name
+    assert_equal "Keep the torso tall.", exercise.guidance
+    assert_equal "Dumbbell", exercise.equipment
+    assert_includes result.preserved, "name"
+    assert_includes result.preserved, "guidance"
+    assert_includes result.preserved, "visuals.household"
+    assert_includes result.preserved, "targets.calves"
+    assert_includes exercise.exercise_muscle_targets.map { |target| target.muscle.key }, "calves"
+    assert_includes exercise.exercise_visuals.map(&:id), household_visual_ids.first
+    assert_equal household_positions, exercise.exercise_visuals.select { |visual| household_visual_ids.include?(visual.id) }.map(&:position)
+    assert exercise.exercise_visuals.any? { |visual| visual.source_key.present? }
+  end
+
+  test "link is refused when another household exercise already holds the source key" do
+    fixture_workout_guide_import.run
+    exercise = exercises(:squat)
+
+    result = exercise.link_source_record!(fixture_workout_guide_import.record_for("workout_guide:bench-press"))
+    assert_equal "failed", result.status
+    assert_nil exercise.reload.source_key
+  end
+
+  test "link never matches by name without an explicit source key" do
+    exercise = households(:home).exercises.create!(
+      name: "Bench Press",
+      modality: "strength",
+      movement_pattern: "horizontal_push"
+    )
+
+    fixture_workout_guide_import.run
+    assert_nil exercise.reload.source_key
+  end
+
+  test "replace_from_source! resets source owned fields and restores tombstoned visuals" do
+    report = fixture_workout_guide_import.run
+    exercise = report.results.find { |result| result.exercise&.source_key == "workout_guide:bench-press" }.exercise
+    exercise.update!(equipment: "Household bar", name: "Household bench")
+    exercise.exercise_muscle_targets.create!(muscle: muscles(:calves), role: :stabilizer)
+    household_visual = add_image_visual(exercise, alt_text: "Household extra")
+    exercise.save!
+    source_visual = exercise.exercise_visuals.find { |visual| visual.source_key.present? }
+    source_visual.destroy!
+
+    record = fixture_workout_guide_import.record_for("workout_guide:bench-press")
+    first = exercise.replace_from_source!(record)
+    exercise.reload
+
+    assert_equal "updated", first.status
+    assert_equal "Bench Press", exercise.name
+    assert_equal "Barbell", exercise.equipment
+    assert_includes exercise.exercise_muscle_targets.map { |target| target.muscle.key }, "calves"
+    assert exercise.exercise_visuals.exists?(id: household_visual.id)
+    restored = exercise.exercise_visuals.find { |visual| visual.source_key.present? }
+    assert_not_nil restored
+    assert restored.sorted_items.all? { |item| item.file.attached? }
+    assert_empty exercise.source_snapshot.fetch("removed_visual_keys")
+
+    second = exercise.replace_from_source!(record)
+    assert_equal "preserved", second.status
+  end
+
+  test "replace is unavailable while source_removed_at is present" do
+    exercise = exercises(:squat)
+    exercise.update!(source_key: "workout_guide:bench-press", source_removed_at: Time.current)
+
+    assert_not exercise.replace_from_source_available?
+    assert exercise.link_to_source_available? == false
+  end
+
+  test "catalog actions are unavailable while a run is active and return after failure" do
+    exercise = exercises(:squat)
+    run = WorkoutGuide::ImportRun.create!(household: households(:home), status: "queued")
+
+    assert_not exercise.link_to_source_available?
+    run.update!(status: "failed", finished_at: Time.current)
+    assert exercise.reload.link_to_source_available?
   end
 
   private

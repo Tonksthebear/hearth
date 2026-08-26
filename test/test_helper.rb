@@ -101,6 +101,7 @@ module ActiveSupport
         ExerciseVisualItem.delete_all
         ExerciseVisual.delete_all
         ExerciseMuscleTarget.delete_all
+        WorkoutGuide::ImportRun.delete_all
         Exercise.delete_all
         RecipeInstructionIngredient.delete_all
         RecipeInstruction.delete_all

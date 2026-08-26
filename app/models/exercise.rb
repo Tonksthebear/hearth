@@ -129,6 +129,22 @@ class Exercise < ApplicationRecord
     source_linked? && !source_removed?
   end
 
+  def link_to_source_available?
+    !source_linked? && !WorkoutGuide::ImportRun.active?(household)
+  end
+
+  def replace_from_source_available?
+    source_linked? && !source_removed? && !WorkoutGuide::ImportRun.active?(household)
+  end
+
+  def link_source_record!(record)
+    SourceMerge.new(household:, record:).link_record!(self)
+  end
+
+  def replace_from_source!(record)
+    SourceMerge.new(household:, record:).replace_record!(self)
+  end
+
   private
     def normalize_source_identity
       self.source_key = source_key.presence

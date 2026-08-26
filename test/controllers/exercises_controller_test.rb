@@ -15,6 +15,8 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     get exercises_path
     assert_response :success
     assert_select "h2", text: exercises(:squat).name
+    assert_select "form[action='#{workout_guide_import_path}']"
+    assert_select "button", text: "Import Workout Guide"
 
     assert_difference "Exercise.count", 1 do
       post exercises_path, params: {

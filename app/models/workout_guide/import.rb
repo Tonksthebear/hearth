@@ -6,13 +6,25 @@ class WorkoutGuide::Import
 
   class Error < StandardError; end
 
-  Report = Data.define(:results) do
+  Report = Data.define(:results, :details) do
+    def initialize(results:, details: [])
+      super(results:, details:)
+    end
+
     def counts
       STATUSES.index_with { |status| results.count { |result| result.status == status } }
     end
 
     def failures
       results.select { |result| result.status == "failed" }
+    end
+
+    def skipped
+      details.select { |entry| entry["status"] == "skipped" }
+    end
+
+    def failure_summaries
+      failures.map { |result| { "message" => result.reasons.join("; ") } }
     end
   end
 
@@ -34,16 +46,34 @@ class WorkoutGuide::Import
   def run
     require_muscles!
 
-    results = @bundle.records.map { |source| import_record(source) }
+    details = []
+    results = @bundle.records.map { |source| import_record(source, details) }
     present_source_keys = @bundle.records.map { |source| source_key_for(source.fetch("slug")) }
-    results.concat(
-      Exercise.mark_sources_removed!(
-        household: @household,
-        present_source_keys:,
-        source_namespace: SOURCE_NAMESPACE
-      )
+    removed = Exercise.mark_sources_removed!(
+      household: @household,
+      present_source_keys:,
+      source_namespace: SOURCE_NAMESPACE
     )
-    Report.new(results:)
+    removed.each { |result| details << detail_for_removed(result) }
+    Report.new(results: results + removed, details:)
+  end
+
+  def record_for(source_key)
+    require_muscles!
+    source = @bundle.records.find { |record| source_key_for(record.fetch("slug")) == source_key }
+    raise Error, "Unknown catalog record: #{source_key}" if source.nil?
+
+    mapped_record(source)
+  end
+
+  def catalog_listing
+    linked = @household.exercises.where.not(source_key: nil).pluck(:source_key).to_set
+    @bundle.records.filter_map { |source|
+      key = source_key_for(source.fetch("slug"))
+      next if linked.include?(key)
+
+      { source_key: key, name: source.fetch("name") }
+    }
   end
 
   private
@@ -54,17 +84,47 @@ class WorkoutGuide::Import
       raise Error, "Required muscle rows are missing (#{missing.sort.join(", ")}). Run bin/rails db:seed."
     end
 
-    def import_record(source)
+    def import_record(source, details)
       slug = source.fetch("slug")
       record = mapped_record(source)
-      Exercise.merge_source_record!(household: @household, record:)
+      result = Exercise.merge_source_record!(household: @household, record:)
+      details << detail_for(source, result)
+      result
     rescue WorkoutGuide::Bundle::Error, ArgumentError, KeyError, TypeError => error
-      Exercise::SourceMerge::Result.new(
+      result = Exercise::SourceMerge::Result.new(
         status: "failed",
         exercise: nil,
         reasons: [ "#{slug}: #{error.message}" ],
         changes: []
       )
+      details << detail_for(source, result)
+      result
+    end
+
+    def detail_for(source, result)
+      entry = {
+        "source_key" => source_key_for(source.fetch("slug")),
+        "name" => source.fetch("name"),
+        "status" => result.status,
+        "changes" => Array(result.changes),
+        "preserved" => Array(result.preserved),
+        "reasons" => Array(result.reasons)
+      }
+      if result.status == "skipped"
+        entry["colliding_name"] = @household.exercises.find_by(name: source.fetch("name"))&.name
+      end
+      entry
+    end
+
+    def detail_for_removed(result)
+      {
+        "source_key" => result.exercise&.source_key,
+        "name" => result.exercise&.name,
+        "status" => result.status,
+        "changes" => Array(result.changes),
+        "preserved" => Array(result.preserved),
+        "reasons" => Array(result.reasons)
+      }
     end
 
     def mapped_record(source)
