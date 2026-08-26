@@ -34,4 +34,34 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_includes exercise.muscles, muscles(:quadriceps)
     refute_includes ExerciseMuscleTarget.column_names, "household_id"
   end
+
+  test "source predicates and from_source follow source_key and source_removed_at" do
+    household = households(:home)
+    linked = household.exercises.create!(
+      name: "Linked hinge",
+      modality: :strength,
+      movement_pattern: :hinge,
+      source_key: "linked-hinge"
+    )
+    removed = household.exercises.create!(
+      name: "Removed hinge",
+      modality: :strength,
+      movement_pattern: :hinge,
+      source_key: "removed-hinge",
+      source_removed_at: Time.current
+    )
+
+    assert linked.source_linked?
+    assert linked.merges_automatically?
+    assert_not linked.source_removed?
+    assert removed.source_removed?
+    assert_not removed.merges_automatically?
+    assert_includes Exercise.from_source, linked
+    assert_includes Exercise.from_source, removed
+    refute_includes Exercise.from_source, exercises(:squat)
+
+    removed.source_key = nil
+    assert_not removed.valid?
+    assert_includes removed.errors[:source_removed_at], "requires a source key"
+  end
 end

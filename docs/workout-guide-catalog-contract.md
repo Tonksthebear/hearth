@@ -106,6 +106,36 @@ A later change to the copy rules must be re-proved by placing a stale destinatio
 
 After a sync of an already-current pin, the command prints `no source changes`.
 
+## Source snapshot and merge results
+
+Runtime import belongs to a later ticket. That importer must call `Exercise.merge_source_record!` and `Exercise.mark_sources_removed!`. This ticket defines the snapshot shape and the shared result vocabulary those callers use.
+
+`exercises.source_snapshot` is the three-way merge base. It is one JSON object with these keys:
+
+| Key | Shape |
+| --- | --- |
+| `scalars` | `{ name, modality, movement_pattern, equipment }` |
+| `targets` | `{ <muscle_key>: <role> }` |
+| `removed_target_keys` | `[ <muscle_key> ]` |
+| `visuals` | `{ <visual_source_key>: { alt_text, caption, frame_interval_ms, items: [ { source_identifier, source_checksum, content_digest } ] } }` |
+| `removed_visual_keys` | `[ <visual_source_key> ]` — household deletion tombstones only |
+| `attribution` | `{ creator, creator_url, license, license_url, source_name, source_url, change_note }` |
+
+`content_digest` is the Active Storage blob checksum of the attached file. `source_checksum` is upstream provenance and is not evidence of the current attachment.
+
+Result values from `Exercise::SourceMerge::Result`:
+
+| Status | Meaning |
+| --- | --- |
+| `created` | No exercise with that source key existed, and the merge created one. |
+| `updated` | At least one source-driven scalar, target, visual item, attribution value, source version, or removal state changed. A source version change alone is `updated`. A name conflict plus any other applied change is `updated` with reason `name_conflict`. |
+| `preserved` | No source-driven change applied. `preserved` carries reason `name_conflict` only when a name conflict exists and nothing else changed. |
+| `skipped` | A household exercise already holds the source name and no exercise holds the source key. |
+| `source_removed` | The sweep set or retained `source_removed_at`. |
+| `failed` | Validation or mapping failed and this record's transaction rolled back. |
+
+Guidance is never imported. `exercise_visuals.provenance_status` is content provenance and is not merge state.
+
 ## License boundary
 
 Frame assets are licensed CC BY-SA 4.0. That license is separate from Hearth's O'Saasy license. Keep `LICENSE-ASSETS` and `ATTRIBUTION.md` beside the frames when the bundle is copied or redistributed.
