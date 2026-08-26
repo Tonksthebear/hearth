@@ -1,0 +1,15 @@
+<% attribution = exercise.source_attribution %>
+<% present_fields = Exercise::SourceMerge::ATTRIBUTION_FIELDS.select { |field| attribution[field].present? } %>
+<% if present_fields.any? %>
+  <section aria-label="Source attribution" class="mt-8">
+    <h2 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Source</h2>
+    <dl class="mt-4 grid gap-4 rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50 sm:grid-cols-2">
+      <% present_fields.each do |field| %>
+        <div>
+          <dt class="text-sm text-gray-500 dark:text-gray-400"><%= field.humanize %></dt>
+          <dd class="mt-1 text-gray-900 dark:text-white"><%= attribution[field] %></dd>
+        </div>
+      <% end %>
+    </dl>
+  </section>
+<% end %>

@@ -84,4 +84,20 @@ class Exercise::SourceLinksControllerTest < ActionDispatch::IntegrationTest
     assert_response :conflict
     assert_match(/already running/, response.body)
   end
+
+  test "the html conflict response renders the full show page" do
+    sign_in_as users(:one)
+    exercise = exercises(:squat)
+    WorkoutGuide::ImportRun.create!(household: households(:home), status: "running", started_at: Time.current)
+
+    assert_no_changes -> { exercise.reload.source_key } do
+      post exercise_source_link_path(exercise),
+        params: { source_link: { source_key: "workout_guide:bench-press" } }
+    end
+
+    assert_response :conflict
+    assert_match(/already running/, response.body)
+    assert_select "article#exercise_show"
+    assert_select "section[aria-label='Muscle map']"
+  end
 end

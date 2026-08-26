@@ -24,6 +24,7 @@ class Exercise::SourceLinksController < ApplicationController
     return render_active_run_conflict if WorkoutGuide::ImportRun.active_refusal?(result)
 
     @catalog_result = catalog_result_hash(result)
+    @muscle_map = MuscleMap.new(@exercise.reload)
     respond_with_catalog_result
   end
 
@@ -67,6 +68,7 @@ class Exercise::SourceLinksController < ApplicationController
     def render_active_run_conflict
       @source_panel_notice = "A Workout Guide import is already running. Link and Replace are unavailable until it finishes."
       @catalog_result = nil
+      @muscle_map = MuscleMap.new(@exercise)
       respond_to do |format|
         format.turbo_stream { render :conflict, status: :conflict }
         format.html { render "exercises/show", status: :conflict }

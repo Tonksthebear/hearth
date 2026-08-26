@@ -1,6 +1,7 @@
 <% content_for :title, "#{@exercise.name} · Hearth" %>
 <%= render "layouts/activities_navigation" %>
-<%= render "show",
+<%= render "exercises/show",
       exercise: @exercise,
       catalog_result: @catalog_result,
-      source_panel_notice: @source_panel_notice %>
+      source_panel_notice: @source_panel_notice,
+      muscle_map: @muscle_map %>

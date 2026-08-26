@@ -205,6 +205,8 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     assert_selector "a[href='#{svg_path}']"
     assert_no_selector "img[src='#{svg_path}']"
     assert_selector "[data-frame-sequence-target='frame']", visible: :all, count: 1
+    assert_selector "[data-controller='frame-sequence'][data-playing='false']"
+    assert_no_selector "[role='group'][aria-label='Mixed frames playback controls']"
   end
 
   test "adds and saves a muscle target through the real browser form" do

@@ -12,6 +12,7 @@ class ExercisesController < ApplicationController
   def show
     @catalog_result = flash[:catalog_result]
     @source_panel_notice = flash[:source_panel_notice]
+    @muscle_map = MuscleMap.new(@exercise)
   end
 
   def new
@@ -55,7 +56,10 @@ class ExercisesController < ApplicationController
     def set_exercise
       scope = Current.household.exercises
       if action_name == "show"
-        scope = scope.includes(exercise_visuals: { exercise_visual_items: { file_attachment: :blob } })
+        scope = scope.includes(
+          exercise_visuals: { exercise_visual_items: { file_attachment: :blob } },
+          exercise_muscle_targets: :muscle
+        )
       end
       @exercise = scope.find(params[:id])
     end

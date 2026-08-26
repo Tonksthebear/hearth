@@ -49,6 +49,60 @@ module ExerciseVisualTestHelper
     visual
   end
 
+  def create_workout_guide_sequence_exercise(
+    name: "Imported hinge",
+    files: [ [ "frame-a.png", "image/png" ], [ "frame-b.png", "image/png" ], [ "photo.jpg", "image/jpeg" ] ],
+    frame_interval_ms: 700,
+    targets: []
+  )
+    slug = name.parameterize
+    exercise = households(:home).exercises.create!(
+      name: name,
+      modality: "strength",
+      movement_pattern: "hinge",
+      source_key: "workout_guide:#{slug}",
+      source_version: "v1",
+      source_snapshot: {
+        "attribution" => {
+          "creator" => "Workout Guide",
+          "license" => "CC BY-SA 4.0",
+          "source_name" => "Workout Guide"
+        },
+        "visuals" => {}
+      }
+    )
+    visual = add_frame_sequence(
+      exercise,
+      files: files,
+      alt_text: "#{name} animation frames.",
+      frame_interval_ms: frame_interval_ms,
+      source_key: "workout_guide:#{slug}:frames",
+      provenance_status: "verified"
+    )
+    visual.sorted_items.each_with_index do |item, index|
+      item.source_identifier = files.fetch(index).first
+      item.source_checksum = "import-#{index}"
+    end
+    targets.each do |muscle, role|
+      exercise.exercise_muscle_targets.build(muscle: muscle, role: role)
+    end
+    exercise.save!
+    items_snapshot = visual.reload.sorted_items.map { |item|
+      {
+        "source_identifier" => item.source_identifier,
+        "content_digest" => item.file.blob.checksum
+      }
+    }
+    exercise.update!(
+      source_snapshot: exercise.source_snapshot.merge(
+        "visuals" => {
+          visual.source_key => { "items" => items_snapshot }
+        }
+      )
+    )
+    exercise.reload
+  end
+
   def attach_item(visual, filename, content_type, **attributes)
     item = visual.exercise_visual_items.build({
       position: visual.exercise_visual_items.size + 1

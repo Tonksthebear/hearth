@@ -68,6 +68,24 @@ class ExerciseVisual < ApplicationRecord
     active_items.sort_by { |item| [ item.position || Float::INFINITY, item.object_id ] }
   end
 
+  def unmodified_source_art?
+    return false unless source_key.present? && source_key.start_with?("workout_guide:")
+
+    snapshot = exercise&.source_snapshot
+    return false unless snapshot.is_a?(Hash)
+
+    base = snapshot.dig("visuals", source_key)
+    return false if base.blank?
+
+    current_pairs = sorted_items.map { |item|
+      [ item.source_identifier, item.file.attached? ? item.file.blob.checksum : nil ]
+    }
+    base_pairs = Array(base["items"]).map { |item|
+      [ item["source_identifier"], item["content_digest"] ]
+    }
+    current_pairs == base_pairs
+  end
+
   private
     def assign_default_frame_interval
       if frame_sequence?

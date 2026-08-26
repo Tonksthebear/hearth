@@ -25,5 +25,8 @@
       <% end %>
     </section>
   <% end %>
+  <%= render "exercises/muscle_map", muscle_map: muscle_map %>
+  <%= render "exercises/muscle_targets_list", muscle_map: muscle_map %>
+  <%= render "exercises/attribution", exercise: exercise %>
   <p class="mt-8"><%= link_to "Back to exercises", exercises_path, class: "font-medium text-primary-800 dark:text-primary-300 underline" %></p>
 </article>

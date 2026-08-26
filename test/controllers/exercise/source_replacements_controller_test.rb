@@ -81,6 +81,21 @@ class Exercise::SourceReplacementsControllerTest < ActionDispatch::IntegrationTe
     assert_match(/already running/, response.body)
   end
 
+  test "the html conflict response renders the full show page" do
+    sign_in_as users(:one)
+    exercise = import_and_edit_bench_press
+    WorkoutGuide::ImportRun.create!(household: households(:home), status: "running", started_at: Time.current)
+
+    assert_no_changes -> { exercise.reload.equipment } do
+      post exercise_source_replacement_path(exercise)
+    end
+
+    assert_response :conflict
+    assert_match(/already running/, response.body)
+    assert_select "article#exercise_show"
+    assert_select "section[aria-label='Muscle map']"
+  end
+
   private
     def import_and_edit_bench_press
       fixture_workout_guide_import.run

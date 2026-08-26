@@ -20,9 +20,12 @@ class ExerciseVisualRenderingTest < ActionDispatch::IntegrationTest
   include ExerciseVisualTestHelper
 
   test "rendering exercise visuals never calls preview representation or variant" do
-    exercise = create_catalog_exercise(name: "Rendered visuals")
-    add_image_visual(exercise, alt_text: "Rendered image")
-    add_frame_sequence(exercise, alt_text: "Rendered sequence")
+    exercise = create_workout_guide_sequence_exercise(
+      name: "Rendered visuals",
+      targets: [ [ muscles(:chest), :primary ] ]
+    )
+    add_image_visual(exercise, filename: "animated.gif", content_type: "image/gif", alt_text: "Rendered gif")
+    add_image_visual(exercise, filename: "icon.svg", content_type: "image/svg+xml", alt_text: "Rendered svg")
     add_video_visual(exercise, alt_text: "Rendered video")
     exercise.save!
 
@@ -30,6 +33,15 @@ class ExerciseVisualRenderingTest < ActionDispatch::IntegrationTest
     Thread.current[:exercise_visual_forbid_transforms] = true
     get exercise_path(exercise)
     assert_response :success
+    assert_select "[data-controller='frame-sequence']"
+    assert_select "[data-muscle-key='chest']"
+    assert_select "[role='group']"
+    gif_proxy = rails_storage_proxy_path(exercise.exercise_visuals.find_by!(alt_text: "Rendered gif").exercise_visual_items.sole.file)
+    svg_proxy = rails_storage_proxy_path(exercise.exercise_visuals.find_by!(alt_text: "Rendered svg").exercise_visual_items.sole.file)
+    assert_select "img[src='#{gif_proxy}']"
+    assert_select "a[href='#{svg_proxy}']"
+    assert_no_match %r{/rails/active_storage/representations/}, response.body
+    assert_no_match %r{/rails/active_storage/variants/}, response.body
   ensure
     Thread.current[:exercise_visual_forbid_transforms] = false
   end
