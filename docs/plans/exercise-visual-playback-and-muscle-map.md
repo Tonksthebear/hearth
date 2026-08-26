@@ -2,7 +2,7 @@
 
 Ticket: `ticket_1787683377_217672`
 Run: `run_1787764348_813657`
-Step: `hotwire_plan` (revision 2, after Plan Review `review_1787767470_929261`)
+Step: `hotwire_plan` (revision 3, after Plan Reviews `review_1787767470_929261` and `review_1787768203_574756`)
 
 ## 0. Response to Plan Review
 
@@ -13,6 +13,19 @@ Step: `hotwire_plan` (revision 2, after Plan Review `review_1787767470_929261`)
 | SVG geometry is assigned to the wrong layer | blocking | **Fixed.** All path geometry moves into the view layer. `app/views/exercises/_muscle_map.html.erb` holds the literal `<svg>` and `<path>` markup. The `MuscleMap` PORO keeps only role resolution and the allowlist and holds no geometry. The coverage invariant is now proven by rendering the partial and reading the emitted `data-muscle-key` values, which is stronger than comparing two constants. See section 3, D2. |
 | The player contract and acceptance checks need precise state rules | major | **Fixed.** Section 4 states the complete attribute vocabulary, the eight lifecycle rules, and the runtime assertions that prove each one. |
 | The plan omits required stack context and durable artifact linkage | major | **Fixed.** Section 1 now names the stack packet and the project overlay required by `hotwire-app-planner-playbook`. The plan artifact carries its committed path and commit SHA in its payload. |
+
+### Response to Plan Review `review_1787768203_574756` (revision 3)
+
+The reviewer confirmed that revision 2 closed the vault, Elements, map-policy, geometry-layer, and
+artifact findings. Four new findings remain, all of them correct.
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| The frame controls remain inside `role="img"` | blocking | **Fixed.** An element with `role="img"` is a leaf in the accessibility tree, so its descendants are presentational and the buttons would be unreachable to assistive technology. Section 4 now splits the DOM: the `role="img"` element wraps the frames only, the controls sit in a sibling `role="group"`, and the Stimulus controller moves to a new outer element that spans both. |
+| The unchanged source predicate permits deleted frames | major | **Fixed.** Revision 2 checked that every present item matched its recorded digest, so deleting a frame left the survivors matching and the predicate still returned true. Section 3 D3 now requires ordered pair-list equality between current and recorded items, mirroring `Exercise::SourceMerge#household_changed_visual?`. A deletion, an addition, and a reorder each make the lists differ, so each returns false. |
+| The Turbo timer check has an aliasing result | major | **Fixed.** With three frames and wrap-around, three advances and six advances both land on the starting frame, so the revision 2 endpoint comparison would have passed with a leaked interval. Section 7 replaces it with a pause-and-freeze assertion that samples no index at all. |
+| Animated GIF rendering lacks an explicit check | minor | **Fixed.** The ticket scope names animated GIFs as their own visual form. Section 7 adds an explicit check that an `image` visual holding `image/gif` renders one `img` pointing at the original blob proxy path, carries no player controls, and passes the existing transform guard so the animation is never frozen into a still variant. |
+
 
 ## 1. Context loaded
 
@@ -112,8 +125,10 @@ Every change lands on the exercise detail experience (`exercises#show`) and its 
 4. `app/views/exercises/_attribution.html.erb` — `Exercise#source_attribution` fields.
 5. `app/javascript/controllers/frame_sequence_controller.js` — `play`, `pause`, `previous`, `next`,
    reduced-motion start state, and timer clearing, under the contract in section 4.
-6. `app/views/exercises/_visual.html.erb` — four server-rendered control buttons using the existing
-   `yass(btn: ...)` axis, plus the dark surface for unchanged Workout Guide art.
+6. `app/views/exercises/_visual.html.erb` — restructure the frame-sequence markup per section 4 so the
+   Stimulus controller moves to a new outer element, `role="img"` narrows to the frames, and four
+   server-rendered control buttons sit in a sibling `role="group"` using the existing `yass(btn: ...)`
+   axis. Adds the dark surface for unchanged Workout Guide art.
 7. `app/models/exercise_visual.rb` — `unmodified_source_art?`.
 8. `app/controllers/exercises_controller.rb` — `show` builds `@muscle_map` and adds
    `exercise_muscle_targets: :muscle` to the existing eager load. The view renders only.
@@ -165,13 +180,22 @@ Every change lands on the exercise detail experience (`exercises#show`) and its 
   `Muscle::KEYS - rendered_keys - MuscleMap::UNMAPPED_KEYS` is empty and that no rendered key is
   outside `Muscle::KEYS`. This removes the previous model-layer geometry constant and proves the real
   markup, not a parallel list.
-- **D3 — Unchanged means the household has not replaced the file.**
-  `ExerciseVisual#unmodified_source_art?` is true when `source_key` is in the `workout_guide:`
-  namespace and, for every item, `item.file.blob.checksum` equals the `content_digest` recorded at
-  `exercise.source_snapshot["visuals"][source_key]["items"]` for that `source_identifier`. It never
-  reads `exercise_visual_items.source_checksum`, which records incoming provenance and is never
-  recalculated after a household replacement. A household that uploads its own frames gets the default
-  surface.
+- **D3 — Unchanged means the recorded item list still matches exactly.**
+  `ExerciseVisual#unmodified_source_art?` is true only when all of the following hold:
+  1. `source_key` is present and sits in the `workout_guide:` namespace;
+  2. the visual has a recorded base at `exercise.source_snapshot["visuals"][source_key]`, and that base
+     is not blank;
+  3. the ordered list of `[source_identifier, file.blob.checksum]` pairs built from
+     `visual.sorted_items` equals, element for element and in order, the ordered list of
+     `[source_identifier, content_digest]` pairs recorded in that base.
+  Rule 3 is deliberately an equality of whole ordered lists, not a per-item match over the items that
+  happen to be present. A deleted frame shortens the current list, an added frame lengthens it, and a
+  reorder permutes it; all three make the lists differ and the predicate false. This mirrors
+  `Exercise::SourceMerge#household_changed_visual?`, which already compares exactly these two ordered
+  pair lists, so the detail page and the merge agree on what "changed" means.
+  The predicate never reads `exercise_visual_items.source_checksum`, which records incoming provenance
+  and is never recalculated after a household replacement. A household that replaces, deletes, adds,
+  or reorders frames gets the default surface.
 - **D4 — The map is per-exercise.** The ticket scopes it to the exercise detail experience. No weekly
   or household coverage view is built.
 - **D5 — Front and back render as two SVGs on one page**, not a toggle, so every region is reachable
@@ -198,13 +222,41 @@ Every change lands on the exercise detail experience (`exercises#show`) and its 
 This section is the precise state specification Plan Review asked for. The Implementer must not
 deviate from it without a new plan revision.
 
+### DOM structure
+`role="img"` makes an element a leaf in the accessibility tree: its descendants are treated as
+presentational and are not exposed to assistive technology. Controls must therefore live outside it.
+The current markup puts `role="img"` and `data-controller="frame-sequence"` on the same `div`, so the
+controller moves outward and the image role narrows to the frames.
+
+```
+<figure>                                              <- existing figure, unchanged
+  <div data-controller="frame-sequence"               <- NEW outer element, owns the controller
+       data-frame-sequence-interval-value="700"
+       data-playing="true">
+    <div role="img" aria-label="{alt_text}">          <- frames only, stays a leaf node
+      <img data-frame-sequence-target="frame">        <- one per animated item
+    </div>
+    <div role="group"                                 <- controls, sibling of the image role
+         aria-label="{alt_text} playback controls">
+      <button>Play</button><button>Pause</button>
+      <button>Previous</button><button>Next</button>
+    </div>
+  </div>
+  <figcaption>...</figcaption>                        <- existing caption and attribution
+</figure>
+```
+
+Every Stimulus target and action still resolves, because the controller element now contains both the
+frames and the controls.
+
 ### Attribute vocabulary
 | Element | Attribute | Rule |
 |---|---|---|
-| Container `div[data-controller="frame-sequence"]` | `data-frame-sequence-interval-value` | Server-rendered from `visual.frame_interval_ms`. The controller defines no numeric fallback. |
-| Container | `data-playing` | Always present and explicit: `"true"` or `"false"`. Never absent-as-false. |
-| Container | `role="img"`, `aria-label` | Unchanged. `aria-label` is `visual.alt_text`. |
-| Frame `img[data-frame-sequence-target="frame"]` | `data-hidden` | Exactly one frame lacks it; every other frame carries it. Unchanged from the current implementation. |
+| Controller `div[data-controller="frame-sequence"]` | `data-frame-sequence-interval-value` | Server-rendered from `visual.frame_interval_ms`. The controller defines no numeric fallback. |
+| Controller `div` | `data-playing` | Always present and explicit: `"true"` or `"false"`. Never absent-as-false. |
+| Image `div[role="img"]` | `aria-label` | `visual.alt_text`. Contains frames only. Carries no controls and no interactive descendant. |
+| Frame `img[data-frame-sequence-target="frame"]` | `data-hidden` | Exactly one frame lacks it; every other frame carries it. Each frame keeps `alt=""` because the wrapper names the image. |
+| Controls `div[role="group"]` | `aria-label` | `"{alt_text} playback controls"`, so the group is named independently of the image. |
 | Play button | `aria-pressed` | `"true"` while playing, `"false"` while paused. |
 | Pause button | `aria-pressed` | `"false"` while playing, `"true"` while paused. |
 | All four buttons | `type="button"`, `aria-label` | Stable labels: "Play animation", "Pause animation", "Previous frame", "Next frame". |
@@ -216,7 +268,7 @@ toggle group, so `aria-pressed` conveys the current state without a live region.
 ### Lifecycle rules
 1. `connect()` clears any existing timer before doing anything else.
 2. If fewer than two frame targets exist, the controller starts no timer. The server also renders no
-   controls in that case.
+   controls and no `role="group"` in that case.
 3. `connect()` reads `window.matchMedia("(prefers-reduced-motion: reduce)")`. When it matches, the
    controller sets `data-playing="false"` and starts no timer. Otherwise it sets `data-playing="true"`
    and starts the timer from `intervalValue`.
@@ -250,7 +302,7 @@ toggle group, so `aria-pressed` conveys the current state without a live region.
 | `app/views/exercises/_visual.html.erb` | Four control buttons, `data-playing`, dark surface for unchanged source art |
 | `app/javascript/controllers/frame_sequence_controller.js` | The section 4 contract |
 | `app/models/exercise_visual.rb` | `unmodified_source_art?` |
-| `test/models/exercise_visual_test.rb` | Cover the predicate in both states |
+| `test/models/exercise_visual_test.rb` | Cover `unmodified_source_art?` across five states: pristine import (true), replaced file, deleted frame, added frame, reordered frames (all false) |
 | `test/controllers/exercises_controller_test.rb` | Render output per visual kind; query-count guard on the production entry point |
 | `test/integration/exercise_visual_rendering_test.rb` | Extend with map and control markup; keep the existing transform guard passing |
 
@@ -265,13 +317,15 @@ No migration. No route change. No `config/` change.
 | R3 | New markup could route an image through an Active Storage transform. | `test/integration/exercise_visual_rendering_test.rb` already prepends a raising guard for `variant`, `preview`, and `representation` on both `ActiveStorage::Attachment` and `ActiveStorage::Blob` and drives `get exercise_path`. That test must keep passing. |
 | R4 | Uploaded SVG could be rendered inline while adding map markup. | `ExerciseVisualItem#inline_renderable?` stays the single view gate. The integration test already asserts attachment disposition for SVG; a controller test asserts the rendered page yields an anchor and no `img` or inline `<svg>` built from blob content. |
 | R5 | Stimulus could mutate classes for playing or highlight state. | Section 4 rule 8. A system test captures the container and frame `class` attributes while playing, pauses by keyboard, and asserts the captured values are unchanged. |
-| R6 | A leaked interval after Turbo navigation would double playback speed. | Section 4 rule 4, proven by the cadence assertion in section 7. |
+| R6 | A leaked interval after Turbo navigation would keep advancing frames. | Section 4 rule 4. Proven by the pause-and-freeze assertion in section 7, which samples no frame index and so cannot alias three advances with six. |
 | R7 | Hearth parallel system tests flake and can look like a regression. | Classify with a serial `PARALLEL_WORKERS=1` full run, or matched base and head arms at the same seed, process count, browser, and driver. |
 | R8 | A fresh pipeline worktree has an empty `app/assets/builds`, so layout-rendering Rails tests fail on a missing `tailwind.css`. | Run `bin/rails tailwindcss:build` before every Rails test command, not only before system tests. |
 | R9 | Adding visual fixtures would break catalog destroy constraints. | Keep `test/fixtures/exercise_visuals.yml` and `exercise_visual_items.yml` empty; assemble visuals through `ExerciseVisualTestHelper`. |
 | R10 | Reading `Muscle::DEFAULTS` for display order produces wrong output after a household order change. | Order through `Exercise#ordered_muscle_targets`, which sorts loaded targets in memory by persisted `muscles.display_position`. |
 | R11 | White monochrome PNG art is invisible in light mode if the dark surface is missed. | A system test emulates `prefers-color-scheme: light` and asserts the frame container's computed background is dark for a Workout Guide sourced visual. |
 | R12 | This branch was behind `origin/main` and lacked the dependency work. | Resolved. `origin/main` is merged into the ticket branch. The Implementer must not re-derive dependency code. |
+| R13 | Placing controls inside `role="img"` would hide them from assistive technology while leaving them focusable, producing controls that pass a naive keyboard test but fail a real screen-reader path. | Section 4 fixes the DOM: `role="img"` wraps frames only, controls live in a sibling `role="group"`, and the controller moves to a new outer element. A system test asserts the `role="img"` element contains no `button` descendant. |
+| R14 | A subset-style unchanged check would treat a household frame deletion as unchanged and paint deleted-from art on the dark source surface. | Section 3 D3 requires ordered pair-list equality, matching `Exercise::SourceMerge#household_changed_visual?`. Model tests cover replacement, deletion, addition, and reorder, and assert `false` for each. |
 
 ## 7. Acceptance checks and tests
 
@@ -280,8 +334,9 @@ No migration. No route change. No `config/` change.
 |---|---|
 | Every seeded Muscle key has a map region or appears in the explicit allowlist | `test/views/exercises/muscle_map_coverage_test.rb` renders `_muscle_map` and asserts `Muscle::KEYS - rendered_keys - MuscleMap::UNMAPPED_KEYS` is empty, that no rendered key is outside `Muscle::KEYS`, and that `hip_flexors` and `groin` are both rendered and absent from the allowlist |
 | The three Workout Guide frames cycle as one animation | System test on an imported Workout Guide exercise: three frame targets in one container, exactly one without `data-hidden` at any moment, index advancing |
+| Render still images, animated GIFs, videos, and frame sequences (ticket scope line) | Each of the four forms gets its own explicit check. **Animated GIF:** an `image` visual holding `test/fixtures/files/exercises/animated.gif` at `image/gif` renders exactly one `img` whose `src` is the original blob proxy path, with no `/representations/` or `/variants/` segment, so the animation is never frozen into a still variant. It renders no player controls and no `role="group"`, because a GIF animates natively and `kind` is `image`, not `frame_sequence`. The request runs inside the existing transform guard, which raises if `variant`, `preview`, or `representation` is called |
 | Playback timing comes from the visual data attribute, not a JavaScript constant | Controller test asserts `data-frame-sequence-interval-value` equals the record's `frame_interval_ms`; a system test sets `frame_interval_ms` to 1500 and asserts the observed cadence matches, so no JS constant can satisfy both |
-| The player clears timers during Turbo disconnect | System test records the visible frame index, Turbo-navigates away and back, then asserts that over a window of three intervals the frame advances exactly three times, not six. It also asserts `data-playing="true"` after return and exactly one `[data-controller="frame-sequence"]` element |
+| The player clears timers during Turbo disconnect | **Pause-and-freeze, which samples no frame index and therefore cannot alias.** The system test Turbo-navigates away and back, asserts `data-playing="true"` and exactly one `[data-controller="frame-sequence"]` element, then activates Pause by keyboard. It records the `src` of the one frame lacking `data-hidden`, waits three full intervals, and asserts that the same `src` is still the only visible frame and that `data-playing` is still `"false"`. A leaked interval survives `pause()`, because `pause()` clears only the live controller's handle, so an orphaned timer would keep advancing frames and change the visible `src`. Counting advances is deliberately avoided: with three frames and wrap-around, three advances and six advances both land on the starting frame |
 | Reduced-motion users start with playback paused | System test emulates `prefers-reduced-motion: reduce` through `Emulation.setEmulatedMedia`, then asserts `data-playing="false"` and that the same frame still lacks `data-hidden` after three intervals |
 | All controls work by keyboard | System test tabs to each of Play, Pause, Previous, Next and activates each with `:enter` and `:space`, asserting the expected `data-playing` value, `aria-pressed` pair, and frame transition. It also asserts wrap-around in both directions and that no control is `disabled` |
 | The muscle list conveys all information without the SVG | Controller test asserts every target name and role appears in the list; system test asserts each SVG carries `aria-hidden="true"` and the list does not |
@@ -292,6 +347,9 @@ Additional checks not enumerated by the ticket but required by the loaded conven
 - The existing transform guard in `test/integration/exercise_visual_rendering_test.rb` keeps passing
   with the new markup (R3).
 - The query-count guard calls `get exercise_path(exercise)` (R2).
+- The `role="img"` element contains no `button` descendant (R13).
+- `unmodified_source_art?` returns false for a deleted frame, an added frame, and a reordered
+  sequence, not only for a replaced file (R14).
 
 ### Commands
 Run `bin/rails tailwindcss:build` first, in this worktree, before any Rails test command.
