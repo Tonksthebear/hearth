@@ -2,8 +2,9 @@
 
 Run `run_1787777641_557910`. Step `hotwire_plan`. Pipeline `hotwire_rails_app_pipeline`.
 
-Revision 2. It answers the eight open findings of review `review_1787779241_654325` and human answer
-`question_1787779055_423059`. Section 9 maps each finding to its change.
+Revision 3. Revision 2 answered the eight findings of review `review_1787779241_654325` and human answer
+`question_1787779055_423059`; section 9 maps those. Revision 3 answers the three findings of review
+`review_1787779890_852082`; section 10 maps those.
 
 ## 1. Context loaded
 
@@ -214,14 +215,26 @@ No query-count value is left unknown. Section 6 replaces absolute counts with a 
 `thumbnail_rendering` is one predicate behind the view gate. It keeps content-type branching out of ERB and out
 of every controller.
 
-### Household scoping rule for credits
+### Household and namespace scoping rule for credits
 
 `catalog_credits` is a relation-scoped class method. The only production caller is
-`Current.household.exercises.from_source`, in `ExercisesController#index`. The method never reads
-`Exercise.all` and never reaches `Current` itself, so the household boundary stays at the controller seam that
-`app/controllers/exercises_controller.rb` line 6 already uses for `@exercises`.
+`Current.household.exercises.from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE)`, in
+`ExercisesController#index`. The method never reads `Exercise.all` and never reaches `Current` itself, so the
+household boundary stays at the controller seam that `app/controllers/exercises_controller.rb` line 6 already
+uses for `@exercises`.
 
-It returns the distinct attribution hashes for the household's source-linked exercises, using the existing
+Two boundaries apply, not one.
+
+- Household. Supplied by `Current.household.exercises`.
+- Source namespace. Supplied by the existing `from_source_namespace` scope in `app/models/exercise.rb`, which
+  matches `source_key LIKE 'workout_guide:%'` with a `LIKE` escape.
+
+`from_source` alone is wrong here. It matches every source namespace, so a future non-Workout-Guide catalog
+would render its attribution under a Workout Guide credits heading. The human answer scopes credits to
+source-linked Workout Guide exercises specifically, so the namespace scope is required. The same namespace scope
+governs the inclusion, exclusion, and conditional-render tests in section 6.
+
+It returns the distinct attribution hashes for the household's Workout Guide exercises, using the existing
 `Exercise::SourceMerge::ATTRIBUTION_FIELDS` order and dropping fields whose value is blank.
 
 Per `hearth allows one household per installation so per-household isolation is a model tier claim`,
@@ -277,7 +290,7 @@ and no Elements preview tree is required.
   `training_session_blocks: { training_session_exercises: { exercise: { exercise_visuals: { exercise_visual_items: { file_attachment: :blob } } } } }`
   for `show` and `edit`.
 - `app/controllers/exercises_controller.rb` `index` — assign
-  `@catalog_credits = Current.household.exercises.from_source.catalog_credits`.
+  `@catalog_credits = Current.household.exercises.from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE).catalog_credits`.
 
 ### Test helpers
 
@@ -324,7 +337,7 @@ and no Elements preview tree is required.
 - R7. System test cost. The vendored bundle holds 302 records and 906 frames. The focused system test must use
   `with_fixture_workout_guide_import`, which points `WorkoutGuide::Import` at the three-record fixture bundle at
   `test/fixtures/files/workout_guide`.
-- R8. Credits payload. `catalog_credits` reads `source_snapshot` for every source-linked exercise, and those
+- R8. Credits payload. `catalog_credits` reads `source_snapshot` for every Workout Guide exercise, and those
   snapshots also hold visual checksums. This is one query with a real payload on the exercises index. A
   denormalized credits column is a larger change than this ticket justifies. Section 6 test 9 asserts constant
   query growth for the index so a later regression is observable.
@@ -354,6 +367,13 @@ Run `bin/rails tailwindcss:build` before every Rails test command.
    node per prescription; a raster thumbnail carries a representation URL; a GIF thumbnail carries the proxy URL
    for the original; SVG-first, video-first, and visual-free exercises each render the placeholder; the response
    contains no `img` without a `src`.
+
+   **Dark surface, rendered proof.** The same action asserts `bg-gray-950` is present on the thumbnail wrapper
+   for an exercise whose first visual is unmodified Workout Guide source art, and absent for a personal
+   exercise and for an exercise whose source art the household has modified. The model predicate test in item 2
+   is not sufficient on its own: a missing class in `app/views/exercises/_thumbnail.html.erb` would leave the
+   model test green while the user path renders white art on a white card. This assertion runs on a real
+   controller action, so it fails when the partial drops the class.
 4. `test/controllers/training_sessions_controller_test.rb` — the same thumbnail assertions on
    `GET /training_sessions/:id` and `GET /training_sessions/:id/edit`; a `training_session_exercise` whose
    `exercise_id` is `nil` renders the placeholder and returns success.
@@ -374,25 +394,43 @@ Run `bin/rails tailwindcss:build` before every Rails test command.
 8. **Constant query growth, per action.** Per `query count guards must call the production entry point` and
    `bounded query regressions need constant sql growth and rendered row caps`, call each production entry point
    twice with an uncached connection: once with one rendered exercise and once with several. Assert the SQL count
-   is equal across both arms for `GET /workout_templates/:id`, `GET /training_sessions/:id`,
-   `GET /training_sessions/:id/edit`, and `GET /exercises`. Also assert the rendered thumbnail node count equals
-   the rendered exercise count, so a constant query count cannot hide a missing thumbnail. No absolute count is
-   asserted, so the contract survives unrelated query changes.
+   is equal across both arms for all four actions: `GET /workout_templates/:id`, `GET /training_sessions/:id`,
+   `GET /training_sessions/:id/edit`, and `GET /exercises`. No absolute count is asserted, so the contract
+   survives unrelated query changes.
+
+   The paired rendered-row check differs by surface, because the exercises index grid deliberately has no
+   thumbnails.
+
+   - `workout_templates#show`, `training_sessions#show`, and `training_sessions#edit`: assert the rendered
+     thumbnail node count equals the rendered exercise count, so a constant query count cannot hide a missing
+     thumbnail.
+   - `exercises#index`: assert exactly one rendered disclaimer and the expected credit-row count. Asserting
+     thumbnail nodes here would contradict the non-scope rule in section 2.
 9. `test/controllers/exercises_controller_test.rb`, disclaimer and credits.
-   - The disclaimer sentence renders for an empty catalog, for a personal-only catalog, and for a source-linked
-     catalog. Three cases, per the human answer.
-   - Credits render only in the source-linked case, and render for neither of the first two.
+   - The disclaimer sentence renders exactly once for an empty catalog, for a personal-only catalog, and for a
+     catalog holding Workout Guide exercises. Three cases, per the human answer.
+   - Credits render only in the Workout Guide case, and render for neither of the first two.
+   - Namespace boundary: an exercise carrying a `source_key` in some other namespace does not render credits and
+     does not contribute a credit row, because the index scopes through
+     `from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE)`.
    - Credits presentation: `creator` links to `creator_url`; `source_name` links to `source_url`; `license` links
      to `license_url`; `change_note` renders as text with no link; a blank optional field renders neither a label
      nor an empty element; a URL whose paired text field is blank renders nothing; two exercises carrying
      identical attribution collapse to one rendered row. The test asserts the deduplicated row count.
-10. `test/models/exercise_test.rb`, household exclusion. Build a foreign source-linked exercise with the existing
-    `insert_foreign_exercise` helper, then assert `households(:home).exercises.from_source.catalog_credits`
-    excludes its attribution. Per `scope tests need both inclusion and exclusion fixtures to catch silent-filter
-    bugs`, the same test asserts a household-owned row is included, so a silent empty filter cannot pass.
+10. `test/models/exercise_test.rb`, household and namespace exclusion. All three assertions run against
+    `households(:home).exercises.from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE).catalog_credits`.
+    - Exclusion by household: build a foreign source-linked exercise with the existing `insert_foreign_exercise`
+      helper and assert its attribution is absent.
+    - Exclusion by namespace: build a household exercise whose `source_key` uses a different namespace and assert
+      its attribution is absent.
+    - Inclusion: assert a household-owned Workout Guide row is present, per
+      `scope tests need both inclusion and exclusion fixtures to catch silent-filter bugs`, so a silent empty
+      filter cannot pass.
+
     The test and any report must record the tier limit from
-    `hearth allows one household per installation so per-household isolation is a model tier claim`: this is a
-    model-tier claim, not a two-household runtime proof.
+    `hearth allows one household per installation so per-household isolation is a model tier claim`: the
+    household half is a model-tier claim, not a two-household runtime proof. The namespace half has no such
+    limit and is also proven at the request tier by test 9.
 11. `test/integration/offline_catalog_to_workout_test.rb` — new. It asserts the connection adapter is SQLite and
     `ActiveStorage::Blob.service` is a `Disk` service. It installs an outbound-network guard that raises on
     `TCPSocket.open` and `Net::HTTP#request`, in the same prepend style the shared transform guard uses. Per
@@ -439,7 +477,7 @@ Rules for the Implementer and Verifier.
 | `thumbnail_rendering` and the thumbnail partial | `GET /workout_templates/:id`, `GET /training_sessions/:id`, `GET /training_sessions/:id/edit` |
 | Preloads | The same three actions |
 | Disclaimer | `GET /exercises`, unconditionally |
-| `catalog_credits` | `GET /exercises`, through `Current.household.exercises.from_source` |
+| `catalog_credits` | `GET /exercises`, through `Current.household.exercises.from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE)` |
 | Offline import path | `GET /exercises`, then `POST /workout_guide_import` plus `WorkoutGuide::ImportJob` |
 | README backup documentation | Operator procedure, verified by review of the changed lines |
 
@@ -501,3 +539,13 @@ Every planned line traces to the ticket, a required convention, or cleanup force
 | `finding_1787779241_130009` Replace unknown query counts with a growth invariant | Section 6 test 8 replaces the deferred absolute counts with an equal-SQL-count invariant across one-row and several-row arms for all four actions, plus a rendered-node correspondence check. U1 no longer defers query counts. |
 | `finding_1787779241_101803` Prove a generated thumbnail is usable | Section 6 test 7 follows the representation URL against the Disk service and requires a successful image response, and test 12 adds the browser `naturalWidth` check. Section 1 records the measured 8685-byte variant. |
 | `finding_1787779241_543777` Load the required Rails Hotwire Hearth and Elements notes | Section 1 adds `rails-conventions`, `hotwire-patterns`, `hearth-overview`, and `hearth vendors elements locally and has no preview tree`, plus the verification notes now cited throughout, and names `app/views/recipes/index.html.erb` as the local implementation source. |
+
+## 10. Finding-to-change map for review `review_1787779890_852082`
+
+Revision 3 changes.
+
+| Finding | Change |
+| --- | --- |
+| `finding_1787779890_116176` Limit Workout Guide credits to the Workout Guide namespace | Section 4 renames the rule to "Household and namespace scoping rule for credits" and switches the caller to `Current.household.exercises.from_source_namespace(WorkoutGuide::Import::SOURCE_NAMESPACE)`. It states why `from_source` alone is wrong: it matches every namespace, so a future non-Workout-Guide catalog would render under a Workout Guide heading. Section 6 tests 9 and 10 add namespace inclusion and exclusion cases beside the household cases, and the runtime path table records the namespace scope. |
+| `finding_1787779890_307763` Do not require thumbnail nodes on the exercises index | Section 6 test 8 keeps the equal-SQL-growth check on all four actions but splits the paired rendered-row check: thumbnail-node equality applies only to `workout_templates#show`, `training_sessions#show`, and `training_sessions#edit`, while `exercises#index` asserts one rendered disclaimer and the expected credit-row count. This removes the contradiction with the non-scope rule in section 2. |
+| `finding_1787779890_685995` Prove the dark thumbnail surface on a production view | Section 6 test 3 adds a rendered assertion on `GET /workout_templates/:id`: `bg-gray-950` present for unmodified Workout Guide source art, absent for personal and for household-modified art. The plan states why the model predicate test alone is insufficient, because a missing class in the partial would leave it green while white art renders on a white card. |
