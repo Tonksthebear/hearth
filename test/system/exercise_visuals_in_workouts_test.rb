@@ -39,10 +39,26 @@ class ExerciseVisualsInWorkoutsTest < ApplicationSystemTestCase
     click_button_and_wait_for_text "Create Workout template", "Imported bench day"
 
     assert_selector "h1", text: "Imported bench day"
-    assert_operator page.evaluate_script("document.querySelector('[data-exercise-thumbnail] img').naturalWidth"), :>, 0
+    assert_decoded_thumbnail
 
-    click_button "Start workout"
+    click_button_and_wait_for_text "Start workout", "Workout started."
     assert_current_path %r{/training_sessions/\d+/edit}, wait: 5
-    assert_operator page.evaluate_script("document.querySelector('[data-exercise-thumbnail] img').naturalWidth"), :>, 0
+    assert_decoded_thumbnail
   end
+
+  private
+    def assert_decoded_thumbnail
+      assert_selector "[data-exercise-thumbnail] img", wait: 5
+
+      width = 0
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      while Process.clock_gettime(Process::CLOCK_MONOTONIC) - started < 5
+        width = page.evaluate_script("document.querySelector('[data-exercise-thumbnail] img')?.naturalWidth || 0").to_i
+        break if width.positive?
+
+        sleep 0.05
+      end
+
+      assert_operator width, :>, 0
+    end
 end
