@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_150200) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_210000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -629,8 +629,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_150200) do
     t.string "modality", null: false
     t.string "movement_pattern", null: false
     t.string "name", null: false
+    t.string "source_key"
+    t.datetime "source_removed_at"
+    t.json "source_snapshot", default: {}, null: false
+    t.string "source_version"
     t.datetime "updated_at", null: false
     t.index ["household_id", "name"], name: "index_exercises_on_household_id_and_name", unique: true
+    t.index ["household_id", "source_key"], name: "index_exercises_on_household_id_and_source_key", unique: true, where: "source_key IS NOT NULL"
     t.index ["household_id"], name: "index_exercises_on_household_id"
     t.check_constraint "modality IN ('strength', 'cardio', 'mobility', 'balance', 'recovery', 'mixed', 'other')", name: "exercises_modality"
     t.check_constraint "movement_pattern IN ('squat', 'hinge', 'lunge', 'horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'carry', 'core', 'locomotion_cardio', 'mobility', 'balance', 'other')", name: "exercises_movement_pattern"
