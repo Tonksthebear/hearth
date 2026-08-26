@@ -1,0 +1,7 @@
+<%= turbo_stream.replace "workout_guide_import",
+      partial: "workout_guide_imports/import",
+      locals: {
+        import_run: @import_run,
+        import_action_label: @import_action_label,
+        catalog_import_available: @catalog_import_available
+      } %>

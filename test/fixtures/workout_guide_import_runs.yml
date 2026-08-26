@@ -1,0 +1,1 @@
+# Tests create run rows explicitly so no fixture can block catalog actions.

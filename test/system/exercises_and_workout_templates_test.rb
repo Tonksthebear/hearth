@@ -1,8 +1,10 @@
 require "application_system_test_case"
 require_relative "../test_helpers/exercise_visual_test_helper"
+require_relative "../test_helpers/workout_guide_import_test_helper"
 
 class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
   include ExerciseVisualTestHelper
+  include WorkoutGuideImportTestHelper
 
   test "creates a structured exercise and attributed workout template through the real UI" do
     sign_in_via_browser users(:one)
@@ -246,5 +248,54 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     sign_in_via_browser users(:one)
     visit_and_wait_for_path exercise_path(exercise)
     assert_selector "video[controls][aria-label='Demo video']"
+  end
+
+  test "imports the workout guide from the exercises page and reads the broadcast summary" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path exercises_path
+
+    with_fixture_workout_guide_import do
+      click_button "Import Workout Guide"
+      assert_text(/queued|running/i, wait: 5)
+      assert_no_text "reclaim"
+      perform_enqueued_jobs
+      assert_text "Last import summary", wait: 10
+      assert_text "Created"
+    end
+  end
+
+  test "links an unlinked exercise and shows preserved household values" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path exercise_path(exercises(:squat))
+
+    with_fixture_workout_guide_import do
+      click_link "Link to catalog exercise"
+      catalog_control = find("[data-elements-autocomplete]", visible: :all)
+      choose_elements_option catalog_control, "Sumo Deadlift"
+      click_button "Link to catalog exercise"
+    end
+
+    assert_text "Goblet squat", wait: 5
+    assert_text "Preserved:"
+    assert_text "name"
+    assert_equal "workout_guide:sumo-deadlift", exercises(:squat).reload.source_key
+    assert_equal "Goblet squat", exercises(:squat).name
+  end
+
+  test "replace from source asks for confirmation and uses the danger treatment" do
+    fixture_workout_guide_import.run
+    exercise = households(:home).exercises.find_by!(source_key: "workout_guide:bench-press")
+    exercise.update!(equipment: "Household bar")
+
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path exercise_path(exercise)
+    button = find(:button, "Replace from source")
+    assert_includes button[:class], "text-danger-600"
+
+    accept_confirm("Replace this exercise from the catalog? Household edits to source-owned fields will be overwritten.") do
+      button.click
+    end
+    assert_text "Barbell", wait: 5
+    assert_equal "Barbell", exercise.reload.equipment
   end
 end

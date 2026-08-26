@@ -15,6 +15,8 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     get exercises_path
     assert_response :success
     assert_select "h2", text: exercises(:squat).name
+    assert_select "form[action='#{workout_guide_import_path}']"
+    assert_select "button", text: "Import Workout Guide"
 
     assert_difference "Exercise.count", 1 do
       post exercises_path, params: {
@@ -323,7 +325,7 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     get exercise_path(exercise)
     assert_response :success
     ActiveRecord::Base.connection.clear_query_cache
-    assert_queries_count(12) do
+    assert_queries_count(13) do
       get exercise_path(exercise)
     end
     assert_response :success

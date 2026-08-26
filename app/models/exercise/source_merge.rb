@@ -1,7 +1,11 @@
 class Exercise::SourceMerge
   class MappingError < StandardError; end
 
-  Result = Data.define(:status, :exercise, :reasons, :changes)
+  Result = Data.define(:status, :exercise, :reasons, :changes, :preserved) do
+    def initialize(status:, exercise:, reasons:, changes:, preserved: [])
+      super(status:, exercise:, reasons:, changes:, preserved:)
+    end
+  end
 
   SCALAR_FIELDS = %w[name modality movement_pattern equipment].freeze
   ATTRIBUTION_FIELDS = %w[creator creator_url license license_url source_name source_url change_note].freeze
@@ -29,6 +33,62 @@ class Exercise::SourceMerge
     @household = household
     @record = record
     @applied_visual_keys = Set.new
+  end
+
+  def link_record!(exercise)
+    parsed = parse_record!
+    if household.exercises.where.not(id: exercise.id).exists?(source_key: parsed.fetch(:source_key))
+      return Result.new(status: "failed", exercise:, reasons: [ "source_key is already linked" ], changes: [])
+    end
+    if exercise.source_linked?
+      return Result.new(status: "failed", exercise:, reasons: [ "exercise is already linked" ], changes: [])
+    end
+
+    Exercise.transaction do
+      exercise.source_key = parsed.fetch(:source_key)
+      exercise.source_version = parsed[:source_version]
+      snapshot = empty_snapshot
+      snapshot["scalars"] = SCALAR_FIELDS.index_with { |field| parsed[field.to_sym] }
+      exercise.source_snapshot = snapshot
+      persist!(exercise)
+
+      result = update_record!(exercise.reload, parsed)
+      extra = []
+      extra << "guidance" if exercise.guidance.present?
+      extra.empty? ? result : result.with(preserved: (result.preserved + extra).uniq)
+    end
+  end
+
+  def replace_record!(exercise)
+    parsed = parse_record!
+    if parsed.fetch(:source_key) != exercise.source_key
+      return Result.new(status: "failed", exercise:, reasons: [ "source_key does not match" ], changes: [])
+    end
+    if exercise.source_removed?
+      return Result.new(status: "failed", exercise:, reasons: [ "source is removed" ], changes: [])
+    end
+
+    Exercise.transaction do
+      snapshot = snapshot_for(exercise)
+      snapshot["scalars"] = SCALAR_FIELDS.index_with { |field| exercise.public_send(field) }
+      current = current_targets(exercise)
+      snapshot["targets"] = snapshot["targets"].each_with_object({}) { |(key, _role), next_base|
+        existing = current[key]
+        next_base[key] = existing.role if existing
+      }
+      snapshot["removed_target_keys"] = []
+      snapshot["visuals"] = current_source_visuals(exercise).transform_values { |visual|
+        current_visual_base(visual)
+      }
+      snapshot["removed_visual_keys"] = []
+      exercise.source_snapshot = snapshot
+      persist!(exercise)
+
+      result = update_record!(exercise.reload, parsed)
+      extra = []
+      extra << "guidance" if exercise.guidance.present?
+      extra.empty? ? result : result.with(preserved: (result.preserved + extra).uniq)
+    end
   end
 
   def merge_record!
@@ -80,6 +140,7 @@ class Exercise::SourceMerge
       Exercise.transaction do
         reasons = []
         changes = []
+        preserved = []
         snapshot = snapshot_for(exercise)
         original_visuals = snapshot["visuals"].deep_dup
         @applied_visual_keys = Set.new
@@ -89,9 +150,9 @@ class Exercise::SourceMerge
           changes << "source_removed_at"
         end
 
-        merge_scalars!(exercise, parsed, snapshot, reasons, changes)
-        merge_targets!(exercise, parsed.fetch(:targets), snapshot, changes)
-        merge_visuals!(exercise, parsed.fetch(:visuals), snapshot, changes)
+        merge_scalars!(exercise, parsed, snapshot, reasons, changes, preserved)
+        merge_targets!(exercise, parsed.fetch(:targets), snapshot, changes, preserved)
+        merge_visuals!(exercise, parsed.fetch(:visuals), snapshot, changes, preserved)
         merge_attribution!(snapshot, parsed.fetch(:attribution), changes)
 
         if exercise.source_version != parsed[:source_version]
@@ -108,11 +169,18 @@ class Exercise::SourceMerge
           persist!(exercise)
         end
 
+        if exercise.exercise_visuals.any? { |visual|
+          !visual.marked_for_destruction? && visual.source_key.blank?
+        }
+          preserved << "visuals.household"
+        end
+
         Result.new(
           status: result_status(changes),
           exercise: exercise.reload,
           reasons: reasons.uniq,
-          changes: changes.uniq
+          changes: changes.uniq,
+          preserved: preserved.uniq
         )
       end
     end
@@ -221,7 +289,7 @@ class Exercise::SourceMerge
       ATTRIBUTION_FIELDS.index_with { |field| data[field] }
     end
 
-    def merge_scalars!(exercise, parsed, snapshot, reasons, changes)
+    def merge_scalars!(exercise, parsed, snapshot, reasons, changes, preserved)
       snapshot["scalars"] ||= {}
 
       SCALAR_FIELDS.each do |field|
@@ -234,7 +302,9 @@ class Exercise::SourceMerge
           next
         end
 
-        if values_equal?(current, base) && !values_equal?(current, incoming)
+        if !values_equal?(current, base) && !values_equal?(current, incoming)
+          preserved << field
+        elsif values_equal?(current, base) && !values_equal?(current, incoming)
           exercise.public_send("#{field}=", incoming)
           changes << field
         end
@@ -245,7 +315,7 @@ class Exercise::SourceMerge
       end
     end
 
-    def merge_targets!(exercise, incoming_targets, snapshot, changes)
+    def merge_targets!(exercise, incoming_targets, snapshot, changes, preserved)
       snapshot["targets"] ||= {}
       snapshot["removed_target_keys"] ||= []
       base_targets = snapshot["targets"]
@@ -267,7 +337,10 @@ class Exercise::SourceMerge
           exercise.exercise_muscle_targets.build(muscle: Muscle.find_by!(key:), role:)
           changes << "targets.added"
         elsif base_targets.key?(key)
-          next if existing.role != base_targets[key]
+          if existing.role != base_targets[key]
+            preserved << "targets.#{key}"
+            next
+          end
           next if existing.role == role
 
           existing.role = role
@@ -281,10 +354,20 @@ class Exercise::SourceMerge
 
         existing = current[key]
         next unless existing
-        next if existing.role != base_role
+        if existing.role != base_role
+          preserved << "targets.#{key}"
+          next
+        end
 
         destroy_target!(existing)
         changes << "targets.obsolete"
+      end
+
+      current_targets(exercise).each do |key, _target|
+        next if incoming_targets.key?(key)
+        next if base_targets.key?(key)
+
+        preserved << "targets.#{key}"
       end
 
       snapshot["targets"] = next_target_base(base_targets, incoming_targets, current_targets(exercise), removed)
@@ -309,7 +392,7 @@ class Exercise::SourceMerge
       next_base
     end
 
-    def merge_visuals!(exercise, incoming_visuals, snapshot, changes)
+    def merge_visuals!(exercise, incoming_visuals, snapshot, changes, preserved)
       snapshot["visuals"] ||= {}
       snapshot["removed_visual_keys"] ||= []
       base_visuals = snapshot["visuals"]
@@ -351,7 +434,10 @@ class Exercise::SourceMerge
         next if visual.new_record?
 
         base = base_visuals[incoming[:source_key]]
-        next if household_changed_visual?(visual, base)
+        if household_changed_visual?(visual, base)
+          preserved << "visuals.#{incoming[:source_key]}"
+          next
+        end
         next unless upstream_changed_visual?(incoming, base)
 
         apply_visual_update!(visual, incoming, base)
@@ -390,6 +476,21 @@ class Exercise::SourceMerge
       end
 
       next_base
+    end
+
+    def current_visual_base(visual)
+      {
+        "alt_text" => visual.alt_text,
+        "caption" => visual.caption,
+        "frame_interval_ms" => visual.frame_interval_ms,
+        "items" => visual.sorted_items.map { |item|
+          {
+            "source_identifier" => item.source_identifier,
+            "source_checksum" => item.source_checksum,
+            "content_digest" => attached_digest(item)
+          }
+        }
+      }
     end
 
     def incoming_visual_base(visual, incoming)

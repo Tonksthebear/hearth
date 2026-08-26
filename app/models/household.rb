@@ -15,6 +15,7 @@ class Household < ApplicationRecord
   has_many :planned_workouts, dependent: :destroy
   has_many :workout_templates, dependent: :destroy
   has_many :exercises, dependent: :destroy
+  has_many :workout_guide_import_runs, class_name: "WorkoutGuide::ImportRun", dependent: :destroy
   has_many :habits, dependent: :destroy
   has_many :agent_profiles, class_name: "Agent::Profile", dependent: :restrict_with_exception
   has_many :agent_conversations, class_name: "Agent::Conversation", dependent: :restrict_with_exception

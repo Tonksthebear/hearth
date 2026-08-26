@@ -1,0 +1,32 @@
+<article id="exercise_show" aria-labelledby="exercise-heading">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400"><%= exercise.modality.humanize %> · <%= exercise.movement_pattern.humanize %></p>
+      <h1 id="exercise-heading" class="mt-2 text-3xl font-semibold tracking-tight"><%= exercise.name %></h1>
+    </div>
+    <div class="flex gap-3">
+      <%= link_to "Edit exercise", edit_exercise_path(exercise), class: yass(btn: [ :base, { lg: :base }, { neutral: :outline } ]) %>
+    </div>
+  </div>
+  <dl class="mt-8 grid gap-4 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-800/50 p-5 sm:grid-cols-2">
+    <div><dt class="text-sm text-gray-500 dark:text-gray-400">Equipment</dt><dd class="mt-1"><%= exercise.equipment.presence || "None recorded" %></dd></div>
+    <div><dt class="text-sm text-gray-500 dark:text-gray-400">Guidance</dt><dd class="mt-1"><%= exercise.guidance.presence || "None recorded" %></dd></div>
+  </dl>
+  <div class="mt-8">
+    <%= render "exercises/source_panel",
+          exercise: exercise,
+          catalog_result: catalog_result,
+          source_panel_notice: source_panel_notice %>
+  </div>
+  <% if exercise.exercise_visuals.any? %>
+    <section aria-label="Exercise visuals" class="mt-8 space-y-4">
+      <% exercise.exercise_visuals.each do |visual| %>
+        <%= render "exercises/visual", visual: visual %>
+      <% end %>
+    </section>
+  <% end %>
+  <%= render "exercises/muscle_map", muscle_map: muscle_map %>
+  <%= render "exercises/muscle_targets_list", muscle_map: muscle_map %>
+  <%= render "exercises/attribution", exercise: exercise %>
+  <p class="mt-8"><%= link_to "Back to exercises", exercises_path, class: "font-medium text-primary-800 dark:text-primary-300 underline" %></p>
+</article>

@@ -1,0 +1,79 @@
+<% catalog_result = local_assigns[:catalog_result] %>
+<% source_panel_notice = local_assigns[:source_panel_notice] %>
+<div id="exercise_source_panel">
+  <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:inset-ring dark:inset-ring-white/10">
+    <div class="px-4 py-6 sm:px-6">
+      <h2 class="text-base/7 font-semibold text-gray-900 dark:text-white">Catalog source</h2>
+      <p class="mt-1 max-w-2xl text-sm/6 text-gray-500 dark:text-gray-300">Source identity and household catalog actions for this exercise.</p>
+    </div>
+    <div class="border-t border-gray-100 dark:border-white/5">
+      <dl class="divide-y divide-gray-100 dark:divide-white/5">
+        <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+          <dt class="text-sm font-medium text-gray-900 dark:text-gray-100">Source key</dt>
+          <dd class="mt-1 text-sm/6 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300"><%= exercise.source_key.presence || "Not linked" %></dd>
+        </div>
+        <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+          <dt class="text-sm font-medium text-gray-900 dark:text-gray-100">Source version</dt>
+          <dd class="mt-1 text-sm/6 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300"><%= exercise.source_version.presence || "None" %></dd>
+        </div>
+        <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+          <dt class="text-sm font-medium text-gray-900 dark:text-gray-100">Attribution</dt>
+          <dd class="mt-1 text-sm/6 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300">
+            <% attribution = exercise.source_attribution %>
+            <% if attribution.values.any?(&:present?) %>
+              <%= [ attribution["creator"], attribution["license"], attribution["source_name"] ].compact_blank.join(" · ") %>
+            <% else %>
+              None recorded
+            <% end %>
+          </dd>
+        </div>
+        <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+          <dt class="text-sm font-medium text-gray-900 dark:text-gray-100">Removal state</dt>
+          <dd class="mt-1 text-sm/6 text-gray-700 sm:col-span-2 sm:mt-0 dark:text-gray-300">
+            <%= exercise.source_removed? ? "Removed from the current catalog" : "Present in the current catalog" %>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <% if source_panel_notice.present? %>
+    <div class="mt-4">
+      <%= render "layouts/alert",
+            color: :warning,
+            title: "Catalog action unavailable",
+            list: false,
+            messages: [ source_panel_notice ] %>
+    </div>
+  <% end %>
+
+  <% if catalog_result.present? %>
+    <ul role="list" class="mt-6 divide-y divide-gray-100 dark:divide-white/5">
+      <li class="flex gap-x-4 py-5">
+        <div class="flex-auto">
+          <div class="flex items-baseline justify-between gap-x-4">
+            <p class="text-sm/6 font-semibold text-gray-900 dark:text-white"><%= catalog_result["name"] %></p>
+            <p class="flex-none text-xs text-gray-600 dark:text-gray-400"><%= catalog_result["status"] %></p>
+          </div>
+          <p class="mt-1 line-clamp-2 text-sm/6 text-gray-600 dark:text-gray-400">
+            Changed: <%= Array(catalog_result["changes"]).presence&.join(", ") || "none" %>.
+            Preserved: <%= Array(catalog_result["preserved"]).presence&.join(", ") || "none" %>.
+            <% if Array(catalog_result["reasons"]).any? %>Reasons: <%= catalog_result["reasons"].join(", ") %>.<% end %>
+          </p>
+        </div>
+      </li>
+    </ul>
+  <% end %>
+
+  <div class="mt-6 flex flex-wrap gap-3">
+    <% if exercise.link_to_source_available? %>
+      <%= link_to "Link to catalog exercise", new_exercise_source_link_path(exercise),
+            class: yass(btn: [ :base, { lg: :base }, { primary: :solid } ]) %>
+    <% end %>
+    <% if exercise.replace_from_source_available? %>
+      <%= button_to "Replace from source", exercise_source_replacement_path(exercise),
+            form: { data: { turbo_confirm: "Replace this exercise from the catalog? Household edits to source-owned fields will be overwritten." } },
+            class: yass(btn: [ :base, { lg: :base }, { danger: :outline } ]) %>
+    <% end %>
+  </div>
+</div>

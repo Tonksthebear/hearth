@@ -144,6 +144,16 @@ class WorkoutGuide::ImportTest < ActiveSupport::TestCase
     assert_nil existing.source_key
     assert_equal "Household bar", existing.equipment
     assert_nil find_imported("bench-press")
+    skipped_entry = report.skipped.find { |entry| entry["name"] == "Bench Press" }
+    assert_equal "Bench Press", skipped_entry.fetch("colliding_name")
+    assert_equal "workout_guide:bench-press", skipped_entry.fetch("source_key")
+  end
+
+  test "catalog listing omits keys already linked in the household" do
+    import!
+    listing = WorkoutGuide::Import.new(household: households(:home), bundle: FIXTURE_ROOT).catalog_listing
+
+    assert_empty listing
   end
 
   test "a source record absent from a later bundle reports source_removed" do

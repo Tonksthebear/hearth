@@ -37,6 +37,7 @@ class ApplicationController < ActionController::Base
         activity_weeks activity_libraries activity_histories planned_workouts planned_workout/skips
         training_weeks weekly_dose_targets training_sessions
         recovery_days habit_check_ins habits person_habits workout_templates exercises
+        workout_guide_imports exercise/source_links exercise/source_replacements
       ].include?(controller_path)
       return :today if controller_path == "todays"
       return :coach if controller_path.start_with?("agent/")
@@ -59,7 +60,7 @@ class ApplicationController < ActionController::Base
       when :activities
         [
           [ "Week", activity_week_path, %w[activity_weeks planned_workouts planned_workout/skips training_sessions training_weeks weekly_dose_targets] ],
-          [ "Library", activity_library_path, %w[activity_libraries recovery_days habit_check_ins habits person_habits workout_templates exercises] ],
+          [ "Library", activity_library_path, %w[activity_libraries recovery_days habit_check_ins habits person_habits workout_templates exercises workout_guide_imports exercise/source_links exercise/source_replacements] ],
           [ "History", activity_history_path, %w[activity_histories] ]
         ]
       else

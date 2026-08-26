@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_26_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -1278,6 +1278,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_210000) do
     t.check_constraint "position > 0", name: "workout_blocks_positive_position"
   end
 
+  create_table "workout_guide_import_runs", force: :cascade do |t|
+    t.json "counts", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.json "details", default: [], null: false
+    t.json "failures", default: [], null: false
+    t.datetime "finished_at"
+    t.integer "household_id", null: false
+    t.json "skipped", default: [], null: false
+    t.datetime "started_at"
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["household_id"], name: "index_workout_guide_import_runs_active_household", unique: true, where: "status IN ('queued', 'running')"
+    t.index ["household_id"], name: "index_workout_guide_import_runs_on_household_id"
+    t.check_constraint "status IN ('queued', 'running', 'completed', 'failed')", name: "workout_guide_import_runs_status"
+  end
+
   create_table "workout_templates", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "description"
@@ -1446,5 +1462,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_210000) do
   add_foreign_key "training_sets", "training_session_exercises"
   add_foreign_key "users", "people"
   add_foreign_key "workout_blocks", "workout_templates"
+  add_foreign_key "workout_guide_import_runs", "households"
   add_foreign_key "workout_templates", "households"
 end
