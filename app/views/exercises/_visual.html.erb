@@ -10,7 +10,7 @@
   <% elsif visual.frame_sequence? %>
     <% animated_items = visual.animated_items %>
     <% if animated_items.any? %>
-      <%= tag.div data: { controller: "frame-sequence", frame_sequence_interval_value: visual.frame_interval_ms, playing: "true" }, class: "space-y-3" do %>
+      <%= tag.div data: { controller: "frame-sequence", frame_sequence_interval_value: visual.frame_interval_ms, playing: (animated_items.size >= 2) }, class: "space-y-3" do %>
         <%= tag.div role: "img", aria: { label: visual.alt_text }, class: class_names("relative overflow-hidden rounded-lg", "bg-gray-950" => visual.unmodified_source_art?) do %>
           <% animated_items.each_with_index do |item, index| %>
             <%= image_tag rails_storage_proxy_path(item.file),

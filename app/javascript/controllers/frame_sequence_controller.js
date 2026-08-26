@@ -6,7 +6,10 @@ export default class extends Controller {
 
   connect() {
     this.clearTimer()
-    if (this.frameTargets.length < 2) return
+    if (this.frameTargets.length < 2) {
+      this.setPlaying(false)
+      return
+    }
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       this.setPlaying(false)

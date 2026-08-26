@@ -256,6 +256,8 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     assert_select "video[controls][aria-label='Demo video']"
     assert_select "[role='img'][aria-label='Mixed sequence']"
     assert_select "[role='img'][aria-label='Mixed sequence'] img[alt='']"
+    assert_select "[data-controller='frame-sequence'][data-playing='false']"
+    assert_select "[role='group'][aria-label='Mixed sequence playback controls']", count: 0
     assert_select "a", text: "SVG image"
     assert_select "img[alt='SVG image']", count: 0
     svg_proxy = rails_storage_proxy_path(exercise.exercise_visuals.find_by!(alt_text: "Mixed sequence").download_items.sole.file)
