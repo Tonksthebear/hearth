@@ -205,6 +205,37 @@ class ExercisesAndWorkoutTemplatesTest < ApplicationSystemTestCase
     assert_selector "[data-frame-sequence-target='frame']", visible: :all, count: 1
   end
 
+  test "adds and saves a muscle target through the real browser form" do
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path new_exercise_path
+    fill_in_and_wait_for_value "Name", "Targeted hinge"
+    select_and_wait "Strength", from: "Modality"
+    select_and_wait "Hinge", from: "Movement pattern"
+    click_button_and_wait_for_count "Add muscle target", "el-select[name$='[muscle_id]']", 1
+    assert_field "Name", with: "Targeted hinge"
+    select_and_wait "Hamstrings", from: "Muscle"
+    select_and_wait "Primary", from: "Role"
+    click_button_and_wait_for_text "Create Exercise", "Targeted hinge"
+
+    exercise = households(:home).exercises.find_by!(name: "Targeted hinge")
+    target = exercise.exercise_muscle_targets.sole
+    assert_equal muscles(:hamstrings), target.muscle
+    assert_equal "primary", target.role
+  end
+
+  test "removes a persisted muscle target through the real browser form" do
+    exercise = create_catalog_exercise(name: "Removable target")
+    exercise.exercise_muscle_targets.create!(muscle: muscles(:glutes), role: :primary)
+    exercise.save!
+
+    sign_in_via_browser users(:one)
+    visit_and_wait_for_path edit_exercise_path(exercise)
+    click_button_and_wait_for_count "Remove muscle target", "el-select[name$='[muscle_id]']", 0
+    click_button_and_wait_for_text "Update Exercise", "Removable target"
+
+    assert_empty exercise.reload.exercise_muscle_targets
+  end
+
   test "exposes native controls on a video visual" do
     exercise = create_catalog_exercise(name: "Video show")
     add_video_visual(exercise, alt_text: "Demo video")

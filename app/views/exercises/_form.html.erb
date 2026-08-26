@@ -23,6 +23,48 @@
       <%= form.label :guidance, class: :label %>
       <%= form.text_area :guidance, rows: 3, class: :text_field %>
     </div>
+    <% if exercise.source_linked? %>
+      <aside class="sm:col-span-2 border-t border-gray-900/10 pt-6 dark:border-white/10" aria-labelledby="exercise-source-heading">
+        <h2 id="exercise-source-heading" class="text-base/7 font-semibold text-gray-900 dark:text-white">Catalog source</h2>
+        <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Source attribution is visible and does not lock household edits.</p>
+        <dl class="mt-4 grid gap-3 text-sm/6 text-gray-700 dark:text-gray-300 sm:grid-cols-2">
+          <% if (source_name = exercise.source_attribution["source_name"]).present? %>
+            <div>
+              <dt class="font-medium text-gray-900 dark:text-white">Source</dt>
+              <dd><%= source_name %></dd>
+            </div>
+          <% end %>
+          <% if (creator = exercise.source_attribution["creator"]).present? %>
+            <div>
+              <dt class="font-medium text-gray-900 dark:text-white">Creator</dt>
+              <dd><%= creator %></dd>
+            </div>
+          <% end %>
+          <% if exercise.source_version.present? %>
+            <div>
+              <dt class="font-medium text-gray-900 dark:text-white">Version</dt>
+              <dd><%= exercise.source_version %></dd>
+            </div>
+          <% end %>
+          <% if (license = exercise.source_attribution["license"]).present? %>
+            <div>
+              <dt class="font-medium text-gray-900 dark:text-white">License</dt>
+              <dd><%= license %></dd>
+            </div>
+          <% end %>
+          <% if (change_note = exercise.source_attribution["change_note"]).present? %>
+            <div class="sm:col-span-2">
+              <dt class="font-medium text-gray-900 dark:text-white">Change note</dt>
+              <dd><%= change_note %></dd>
+            </div>
+          <% end %>
+        </dl>
+        <% if exercise.source_removed? %>
+          <p class="mt-4 text-sm/6 text-gray-600 dark:text-gray-400">This exercise is no longer in the catalog. Household edits remain available.</p>
+        <% end %>
+      </aside>
+    <% end %>
+    <%= render "muscle_targets", form: form, muscles: muscles, target_roles: target_roles %>
     <%= render "visuals", form: form, visual_kinds: visual_kinds, provenance_statuses: provenance_statuses %>
     <div class="sm:col-span-2 flex items-center gap-4">
       <%= form.submit class: { btn: [ :base, { lg: :base }, { primary: :solid } ] } %>

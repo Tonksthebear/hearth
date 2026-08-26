@@ -4,9 +4,12 @@
     <%= form.hidden_field :_destroy, value: "1" %>
   </div>
 <% else %>
-  <div class="grid gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-800/50 sm:grid-cols-[1fr_auto]">
+  <div class="grid gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-800/50 sm:grid-cols-[1fr_1fr_auto]">
     <%= form.hidden_field :id if form.object.persisted? %>
-    <%= form.hidden_field :position %>
+    <div>
+      <%= form.label :position, class: :label %>
+      <%= form.number_field :position, min: 1, class: :text_field %>
+    </div>
     <div>
       <%= form.label :file, "File #{form.object.position}", class: :label %>
       <p class="mt-1 text-sm/6 text-gray-500 dark:text-gray-400">PNG, JPEG, WebP, GIF, SVG, MP4, or WebM. Images up to 10 MB. Videos up to 50 MB.</p>
