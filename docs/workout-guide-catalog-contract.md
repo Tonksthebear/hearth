@@ -1,6 +1,6 @@
 # Workout Guide catalog contract
 
-Status: normative catalog and import-shape contract, version `workout_guide/v1`. Runtime import belongs to a later ticket. This document defines the pinned vendor bundle, the reviewed Hearth mapping file, and the validation rules a clean checkout must satisfy offline.
+Status: normative catalog and import-shape contract, version `workout_guide/v1`. This document defines the pinned vendor bundle, the reviewed Hearth mapping file, the validation rules a clean checkout must satisfy offline, and the runtime importer that maps those records into one household.
 
 Hearth is a tracking and automation tool. The catalog is not medical advice.
 
@@ -106,9 +106,37 @@ A later change to the copy rules must be re-proved by placing a stale destinatio
 
 After a sync of an already-current pin, the command prints `no source changes`.
 
+## Runtime import
+
+`WorkoutGuide::Import` maps one vendored bundle into one household. The explicit entry point is:
+
+```bash
+bin/rails "workout_guide:import[household_id]"
+```
+
+The task requires one `household_id`. An omitted argument fails with a usage error before any mutation. A value that names no household also fails before any mutation. The importer does not run at boot and does not run from `db/seeds.rb`.
+
+Each source record becomes:
+
+| Target field | Source |
+| --- | --- |
+| `source_key` | `workout_guide:<slug>` |
+| `source_version` | `release_tag` from `vendor/workout_guide/VERSION` |
+| `name`, `equipment` | the source record, verbatim |
+| `modality`, `movement_pattern` | `config/workout_guide_overrides.yml` `exercises.<slug>` |
+| `targets` | `WorkoutGuide::MuscleMapping.targets_for` |
+| visuals | one `frame_sequence` visual with three ordered items |
+| visual `source_key` | `workout_guide:<slug>:frames` |
+| visual `frame_interval_ms` | `ExerciseVisual::DEFAULT_FRAME_INTERVAL_MS` (`700`), sent explicitly |
+| visual `provenance_status` | `verified` |
+
+`Exercise.merge_source_record!` writes each record. After the loop, `Exercise.mark_sources_removed!` sweeps only `source_key` values that match `workout_guide:%`. The `source_namespace:` keyword is required. A catalog-wide sweep is not allowed.
+
+Result values stay in the shared vocabulary below.
+
 ## Source snapshot and merge results
 
-Runtime import belongs to a later ticket. That importer must call `Exercise.merge_source_record!` and `Exercise.mark_sources_removed!`. This ticket defines the snapshot shape and the shared result vocabulary those callers use.
+The importer calls `Exercise.merge_source_record!` and the namespace-scoped `Exercise.mark_sources_removed!`. The snapshot shape and result vocabulary those callers use are:
 
 `exercises.source_snapshot` is the three-way merge base. It is one JSON object with these keys:
 

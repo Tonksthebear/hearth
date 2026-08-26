@@ -123,7 +123,7 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
       assert_equal "skipped", result.status
       assert_nil result.exercise
     end
-    assert_nil households(:home).exercises.find_by(source_key: "catalog-hinge")
+    assert_nil households(:home).exercises.find_by(source_key: "catalog:hinge")
   end
 
   test "a household role edit made through nested attributes survives a later merge" do
@@ -390,7 +390,7 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
     session_row.position = 2
     session_row.save!
 
-    first = Exercise.mark_sources_removed!(household: households(:home), present_source_keys: [])
+    first = Exercise.mark_sources_removed!(household: households(:home), present_source_keys: [], source_namespace: "catalog")
     removed = exercise.reload
 
     assert_equal [ "source_removed" ], first.map(&:status)
@@ -402,7 +402,7 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
     assert_equal 1, removed.exercise_muscle_targets.count
 
     retained_at = removed.source_removed_at
-    second = Exercise.mark_sources_removed!(household: households(:home), present_source_keys: [])
+    second = Exercise.mark_sources_removed!(household: households(:home), present_source_keys: [], source_namespace: "catalog")
     assert_equal [ "source_removed" ], second.map(&:status)
     assert_equal retained_at, exercise.reload.source_removed_at
 
@@ -411,6 +411,21 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
     assert_nil returned.exercise.source_removed_at
     assert returned.exercise.merges_automatically?
     assert_equal "Trap bar", returned.exercise.equipment
+  end
+
+  test "source removal sweep stays inside the named namespace" do
+    workout = merge_source!(source_record.merge(source_key: "workout_guide:bench-press", name: "Guide bench"))
+    foreign = merge_source!(source_record.merge(source_key: "other_catalog:hinge", name: "Foreign hinge"))
+
+    results = Exercise.mark_sources_removed!(
+      household: households(:home),
+      present_source_keys: [],
+      source_namespace: "workout_guide"
+    )
+
+    assert_equal [ "source_removed" ], results.map(&:status)
+    assert workout.exercise.reload.source_removed?
+    assert_nil foreign.exercise.reload.source_removed_at
   end
 
   test "failed mapping rolls back a new record and a later item without source_identifier" do
@@ -450,7 +465,7 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
       name: "Other hinge",
       modality: :strength,
       movement_pattern: :hinge,
-      source_key: "catalog-hinge"
+      source_key: "catalog:hinge"
     )
 
     assert_not duplicate.valid?
@@ -485,7 +500,7 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
 
     def source_record(**overrides)
       {
-        source_key: "catalog-hinge",
+        source_key: "catalog:hinge",
         source_version: "v1",
         name: "Catalog hinge",
         modality: "strength",

@@ -1,0 +1,9 @@
+contract_version: workout_guide/v1
+source: test
+exercises:
+  bench-press:
+    modality: strength
+    movement_pattern: horizontal_push
+muscle_aliases: {}
+muscle_compounds: {}
+muscle_unmapped: []
