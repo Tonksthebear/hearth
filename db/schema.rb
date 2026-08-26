@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_140100) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_150200) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -536,6 +536,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_140100) do
     t.check_constraint "status IN ('pending', 'claimed', 'running', 'succeeded', 'failed', 'cancelled')", name: "agent_turns_status"
   end
 
+  create_table "exercise_muscle_targets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "exercise_id", null: false
+    t.integer "muscle_id", null: false
+    t.string "role", null: false
+    t.datetime "updated_at", null: false
+    t.index ["exercise_id", "muscle_id"], name: "index_exercise_muscle_targets_on_exercise_id_and_muscle_id", unique: true
+    t.index ["exercise_id"], name: "index_exercise_muscle_targets_on_exercise_id"
+    t.index ["muscle_id"], name: "index_exercise_muscle_targets_on_muscle_id"
+    t.check_constraint "role IN ('primary', 'secondary', 'stabilizer')", name: "exercise_muscle_targets_role"
+  end
+
   create_table "exercise_prescriptions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "dose_class"
@@ -769,6 +781,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_140100) do
     t.index ["person_id"], name: "index_meals_on_person_id"
     t.index ["planned_meal_id", "person_id"], name: "index_meals_on_planned_meal_and_person", unique: true, where: "planned_meal_id IS NOT NULL"
     t.index ["planned_meal_id"], name: "index_meals_on_planned_meal_id"
+  end
+
+  create_table "muscles", force: :cascade do |t|
+    t.json "aliases", default: [], null: false
+    t.datetime "created_at", null: false
+    t.integer "display_position", null: false
+    t.string "key", null: false
+    t.string "muscle_group", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["display_position"], name: "index_muscles_on_display_position", unique: true
+    t.index ["key"], name: "index_muscles_on_key", unique: true
+    t.check_constraint "display_position > 0", name: "muscles_positive_display_position"
+    t.check_constraint "key IN ('trapezius', 'shoulders', 'rear_delts', 'chest', 'rhomboids', 'lats', 'biceps', 'triceps', 'forearms', 'rectus_abdominis', 'obliques', 'erector_spinae', 'hip_flexors', 'groin', 'adductors', 'glutes', 'quadriceps', 'hamstrings', 'calves')", name: "muscles_key"
+    t.check_constraint "muscle_group IN ('chest', 'shoulders', 'arms', 'back', 'core', 'hips', 'legs')", name: "muscles_muscle_group"
   end
 
   create_table "nutrients", force: :cascade do |t|
@@ -1341,6 +1368,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_140100) do
   add_foreign_key "agent_turns", "households"
   add_foreign_key "agent_turns", "people"
   add_foreign_key "agent_turns", "sessions", column: "browser_session_id", on_delete: :cascade
+  add_foreign_key "exercise_muscle_targets", "exercises"
+  add_foreign_key "exercise_muscle_targets", "muscles"
   add_foreign_key "exercise_prescriptions", "exercises", on_delete: :restrict
   add_foreign_key "exercise_prescriptions", "workout_blocks"
   add_foreign_key "exercise_visual_items", "exercise_visuals"

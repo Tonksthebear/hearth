@@ -84,6 +84,7 @@ production_database_assertion = <<~'RUBY'
   raise "Missing Active Storage tables: #{missing_tables.inspect}" if missing_tables.any?
   raise "Unexpected Active Storage service" unless Rails.application.config.active_storage.service == :local
   raise "Expected six reference nutrients" unless Nutrient.count == 6
+  raise "Expected nineteen reference muscles" unless Muscle.count == 19
   expected_storage_root = Rails.root.join("storage").to_s
   actual_storage_root = ActiveStorage::Blob.service.root.to_s
   raise "Active Storage root changed: #{actual_storage_root}" unless actual_storage_root == expected_storage_root

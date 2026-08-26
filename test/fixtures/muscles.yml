@@ -1,0 +1,145 @@
+trapezius:
+  key: trapezius
+  name: Trapezius
+  muscle_group: back
+  aliases: []
+  display_position: 1
+
+shoulders:
+  key: shoulders
+  name: Shoulders
+  muscle_group: shoulders
+  aliases:
+    - Shoulders
+  display_position: 2
+
+rear_delts:
+  key: rear_delts
+  name: Rear delts
+  muscle_group: shoulders
+  aliases:
+    - Rear Delts
+  display_position: 3
+
+chest:
+  key: chest
+  name: Chest
+  muscle_group: chest
+  aliases:
+    - Chest
+  display_position: 4
+
+rhomboids:
+  key: rhomboids
+  name: Rhomboids
+  muscle_group: back
+  aliases: []
+  display_position: 5
+
+lats:
+  key: lats
+  name: Lats
+  muscle_group: back
+  aliases:
+    - Lats
+  display_position: 6
+
+biceps:
+  key: biceps
+  name: Biceps
+  muscle_group: arms
+  aliases:
+    - Biceps
+  display_position: 7
+
+triceps:
+  key: triceps
+  name: Triceps
+  muscle_group: arms
+  aliases:
+    - Triceps
+  display_position: 8
+
+forearms:
+  key: forearms
+  name: Forearms
+  muscle_group: arms
+  aliases:
+    - Forearms
+  display_position: 9
+
+rectus_abdominis:
+  key: rectus_abdominis
+  name: Rectus abdominis
+  muscle_group: core
+  aliases: []
+  display_position: 10
+
+obliques:
+  key: obliques
+  name: Obliques
+  muscle_group: core
+  aliases: []
+  display_position: 11
+
+erector_spinae:
+  key: erector_spinae
+  name: Erector spinae
+  muscle_group: back
+  aliases: []
+  display_position: 12
+
+hip_flexors:
+  key: hip_flexors
+  name: Hip flexors
+  muscle_group: hips
+  aliases: []
+  display_position: 13
+
+groin:
+  key: groin
+  name: Groin
+  muscle_group: hips
+  aliases:
+    - Groin
+  display_position: 14
+
+adductors:
+  key: adductors
+  name: Adductors
+  muscle_group: hips
+  aliases:
+    - Adductors
+  display_position: 15
+
+glutes:
+  key: glutes
+  name: Glutes
+  muscle_group: hips
+  aliases:
+    - Glutes
+  display_position: 16
+
+quadriceps:
+  key: quadriceps
+  name: Quadriceps
+  muscle_group: legs
+  aliases:
+    - Quads
+  display_position: 17
+
+hamstrings:
+  key: hamstrings
+  name: Hamstrings
+  muscle_group: legs
+  aliases:
+    - Hamstrings
+  display_position: 18
+
+calves:
+  key: calves
+  name: Calves
+  muscle_group: legs
+  aliases:
+    - Calves
+  display_position: 19

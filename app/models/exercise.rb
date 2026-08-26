@@ -9,6 +9,8 @@ class Exercise < ApplicationRecord
   has_many :exercise_prescriptions, dependent: :restrict_with_exception
   has_many :training_session_exercises, dependent: :nullify
   has_many :exercise_visuals, -> { order(:position) }, inverse_of: :exercise, dependent: :destroy
+  has_many :exercise_muscle_targets, dependent: :destroy, inverse_of: :exercise
+  has_many :muscles, through: :exercise_muscle_targets
 
   accepts_nested_attributes_for :exercise_visuals, allow_destroy: true
   before_save :park_changed_nested_positions
@@ -54,6 +56,10 @@ class Exercise < ApplicationRecord
   def preserve_visuals_for_form
     active_visuals.each(&:preserve_items_for_form)
     self
+  end
+
+  def ordered_muscle_targets
+    exercise_muscle_targets.in_display_order
   end
 
   private
