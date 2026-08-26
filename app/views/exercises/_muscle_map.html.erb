@@ -1,0 +1,114 @@
+<% region_classes = "stroke-white/50 stroke-[0.8] fill-gray-300 dark:stroke-gray-950/50 dark:fill-gray-600 data-[role=primary]:fill-rose-500 dark:data-[role=primary]:fill-rose-400 data-[role=secondary]:fill-amber-400 dark:data-[role=secondary]:fill-amber-300 data-[role=stabilizer]:fill-sky-400 dark:data-[role=stabilizer]:fill-sky-300" %>
+<section aria-label="Muscle map" class="mt-8">
+  <h2 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Muscle map</h2>
+  <div class="mt-4 grid gap-6 rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-gray-800/50 sm:grid-cols-2">
+    <figure>
+      <figcaption class="text-sm font-medium text-gray-600 dark:text-gray-400">Front</figcaption>
+      <svg viewBox="0 0 220 460" role="img" aria-hidden="true" class="mt-3 h-auto w-full max-w-xs text-gray-900">
+        <path d="M95 10a15 18 0 1 1 30 0 16 20 0 1 1-30 0" class="fill-gray-200 dark:fill-gray-700" />
+        <%= tag.path d: "M52 58c0-10 18-16 36-8l-4 32c-14-6-30-10-32-24z",
+          class: region_classes,
+          data: { muscle_key: "shoulders", role: muscle_map.role_for("shoulders") } %>
+        <%= tag.path d: "M168 58c0-10-18-16-36-8l4 32c14-6 30-10 32-24z",
+          class: region_classes,
+          data: { muscle_key: "shoulders", role: muscle_map.role_for("shoulders") } %>
+        <%= tag.path d: "M88 60c12-6 32-6 44 0l-4 58c-12 8-28 8-36 0z",
+          class: region_classes,
+          data: { muscle_key: "chest", role: muscle_map.role_for("chest") } %>
+        <%= tag.path d: "M46 78c12-4 22 0 22 18l-6 34c-8 4-20-2-20-16z",
+          class: region_classes,
+          data: { muscle_key: "biceps", role: muscle_map.role_for("biceps") } %>
+        <%= tag.path d: "M174 78c-12-4-22 0-22 18l6 34c8 4 20-2 20-16z",
+          class: region_classes,
+          data: { muscle_key: "biceps", role: muscle_map.role_for("biceps") } %>
+        <%= tag.path d: "M42 128c14-2 22 4 20 24l-10 38c-12 4-18-8-16-24z",
+          class: region_classes,
+          data: { muscle_key: "forearms", role: muscle_map.role_for("forearms") } %>
+        <%= tag.path d: "M178 128c-14-2-22 4-20 24l10 38c12 4 18-8 16-24z",
+          class: region_classes,
+          data: { muscle_key: "forearms", role: muscle_map.role_for("forearms") } %>
+        <%= tag.path d: "M94 118c16 6 16 6 32 0l-4 80c-12 8-12 8-24 0z",
+          class: region_classes,
+          data: { muscle_key: "rectus_abdominis", role: muscle_map.role_for("rectus_abdominis") } %>
+        <%= tag.path d: "M76 118l18 6 4 74-24-12c-4-24-2-48 2-68z",
+          class: region_classes,
+          data: { muscle_key: "obliques", role: muscle_map.role_for("obliques") } %>
+        <%= tag.path d: "M144 118l-18 6-4 74 24-12c4-24 2-48-2-68z",
+          class: region_classes,
+          data: { muscle_key: "obliques", role: muscle_map.role_for("obliques") } %>
+        <%= tag.path d: "M72 186c12-6 24 0 26 14l-8 24c-12-2-22-12-18-38z",
+          class: region_classes,
+          data: { muscle_key: "hip_flexors", role: muscle_map.role_for("hip_flexors") } %>
+        <%= tag.path d: "M148 186c-12-6-24 0-26 14l8 24c12-2 22-12 18-38z",
+          class: region_classes,
+          data: { muscle_key: "hip_flexors", role: muscle_map.role_for("hip_flexors") } %>
+        <%= tag.path d: "M100 196c10 6 10 6 20 0l-4 28c-6 8-6 8-12 0z",
+          class: region_classes,
+          data: { muscle_key: "groin", role: muscle_map.role_for("groin") } %>
+        <%= tag.path d: "M94 220c12 6 16 14 14 34l-8 58c-10-2-16-30-14-68z",
+          class: region_classes,
+          data: { muscle_key: "adductors", role: muscle_map.role_for("adductors") } %>
+        <%= tag.path d: "M126 220c-12 6-16 14-14 34l8 58c10-2 16-30 14-68z",
+          class: region_classes,
+          data: { muscle_key: "adductors", role: muscle_map.role_for("adductors") } %>
+        <%= tag.path d: "M70 208c16-6 28 4 26 28l-10 92c-16-2-26-32-24-78z",
+          class: region_classes,
+          data: { muscle_key: "quadriceps", role: muscle_map.role_for("quadriceps") } %>
+        <%= tag.path d: "M150 208c-16-6-28 4-26 28l10 92c16-2 26-32 24-78z",
+          class: region_classes,
+          data: { muscle_key: "quadriceps", role: muscle_map.role_for("quadriceps") } %>
+      </svg>
+    </figure>
+    <figure>
+      <figcaption class="text-sm font-medium text-gray-600 dark:text-gray-400">Back</figcaption>
+      <svg viewBox="0 0 220 460" role="img" aria-hidden="true" class="mt-3 h-auto w-full max-w-xs text-gray-900">
+        <path d="M95 10a15 18 0 1 1 30 0 16 20 0 1 1-30 0" class="fill-gray-200 dark:fill-gray-700" />
+        <%= tag.path d: "M78 46c32-14 32-14 64 0l10 34c-22 12-62 12-84 0z",
+          class: region_classes,
+          data: { muscle_key: "trapezius", role: muscle_map.role_for("trapezius") } %>
+        <%= tag.path d: "M46 58c14-10 34-6 40 12l-10 24c-16-4-28-16-30-36z",
+          class: region_classes,
+          data: { muscle_key: "rear_delts", role: muscle_map.role_for("rear_delts") } %>
+        <%= tag.path d: "M174 58c-14-10-34-6-40 12l10 24c16-4 28-16 30-36z",
+          class: region_classes,
+          data: { muscle_key: "rear_delts", role: muscle_map.role_for("rear_delts") } %>
+        <%= tag.path d: "M96 84c14-8 14-8 28 0l-4 42c-10 8-10 8-20 0z",
+          class: region_classes,
+          data: { muscle_key: "rhomboids", role: muscle_map.role_for("rhomboids") } %>
+        <%= tag.path d: "M60 86c24 6 36 26 34 74l-26 28c-16-28-18-70-8-102z",
+          class: region_classes,
+          data: { muscle_key: "lats", role: muscle_map.role_for("lats") } %>
+        <%= tag.path d: "M160 86c-24 6-36 26-34 74l26 28c16-28 18-70 8-102z",
+          class: region_classes,
+          data: { muscle_key: "lats", role: muscle_map.role_for("lats") } %>
+        <%= tag.path d: "M42 74c14-4 24 6 22 26l-8 34c-12 4-20-10-18-28z",
+          class: region_classes,
+          data: { muscle_key: "triceps", role: muscle_map.role_for("triceps") } %>
+        <%= tag.path d: "M178 74c-14-4-24 6-22 26l8 34c12 4 20-10 18-28z",
+          class: region_classes,
+          data: { muscle_key: "triceps", role: muscle_map.role_for("triceps") } %>
+        <%= tag.path d: "M96 128h12l-2 70h-12z",
+          class: region_classes,
+          data: { muscle_key: "erector_spinae", role: muscle_map.role_for("erector_spinae") } %>
+        <%= tag.path d: "M112 128h12l2 70h-12z",
+          class: region_classes,
+          data: { muscle_key: "erector_spinae", role: muscle_map.role_for("erector_spinae") } %>
+        <%= tag.path d: "M74 190c36-8 36-8 72 0l6 46c-42 14-42 14-84 0z",
+          class: region_classes,
+          data: { muscle_key: "glutes", role: muscle_map.role_for("glutes") } %>
+        <%= tag.path d: "M74 232c22-6 34 4 32 36l-10 74c-18-2-28-40-26-86z",
+          class: region_classes,
+          data: { muscle_key: "hamstrings", role: muscle_map.role_for("hamstrings") } %>
+        <%= tag.path d: "M146 232c-22-6-34 4-32 36l10 74c18-2 28-40 26-86z",
+          class: region_classes,
+          data: { muscle_key: "hamstrings", role: muscle_map.role_for("hamstrings") } %>
+        <%= tag.path d: "M76 338c18-6 26 6 24 32l-10 60c-16-2-22-40-18-78z",
+          class: region_classes,
+          data: { muscle_key: "calves", role: muscle_map.role_for("calves") } %>
+        <%= tag.path d: "M144 338c-18-6-26 6-24 32l10 60c16-2 22-40 18-78z",
+          class: region_classes,
+          data: { muscle_key: "calves", role: muscle_map.role_for("calves") } %>
+      </svg>
+    </figure>
+  </div>
+</section>
