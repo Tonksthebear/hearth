@@ -2,7 +2,7 @@
 
 Ticket: `ticket_1787683377_217672`
 Run: `run_1787764348_813657`
-Step: `hotwire_plan` (revision 4, after Plan Reviews `review_1787767470_929261`, `review_1787768203_574756`, and `review_1787768767_870238`)
+Step: `hotwire_plan` (revision 5, after Plan Reviews `review_1787767470_929261`, `review_1787768203_574756`, `review_1787768767_870238`, and `review_1787769236_268997`)
 
 ## 0. Response to Plan Review
 
@@ -36,6 +36,23 @@ timer-alias findings. Two findings remain, both correct.
 |---|---|---|
 | The pause-and-freeze test does not prove disconnect cleared the old timer | blocking | **Fixed.** The reviewer identified a real blind spot. Under Turbo Drive the old DOM detaches and a fresh controller instance connects on return, so an orphaned interval keeps mutating the **detached** nodes from the previous page. Any assertion made against the newly rendered page therefore observes only the new controller's timer and can never see the leak. Section 7 replaces the check with a detached-node probe that holds a JavaScript reference to the original container across the navigation and watches those exact nodes. |
 | The dark source surface lacks a rendered negative check | major | **Fixed.** Revision 3 proved the positive arm in the browser and the negative arm only at the model tier, so an implementation that applied the dark surface unconditionally to every frame sequence would have passed every check. Section 7 now pairs both arms in one rendered test. |
+
+
+### Response to Plan Review `review_1787769236_268997` (revision 5)
+
+The reviewer confirmed that revision 4 fixed the rendered dark-surface check and finally targeted the
+correct detached DOM. One finding remains, and it is correct.
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| The detached-node probe still aliases after three intervals | blocking | **Fixed.** Revision 4 moved the probe onto the right nodes but kept an endpoint comparison at exactly three intervals. With three frames and wrap-around, an orphaned timer advances three times in that window and lands back on the starting frame, so the marker matches and the probe passes. This is the same aliasing defect revision 3 was sent back for, reintroduced in a new place. Section 7 now defines **frame-invariance sampling** once, as a named technique, and both timing-sensitive checks use it instead of comparing endpoints. |
+
+**Proactive fix in the same class.** The reduced-motion check carried the identical defect and was not
+flagged: it asserted that the same frame still lacked `data-hidden` "after three intervals". If the
+reduced-motion guard failed to prevent the timer, three advances on three frames would return the
+marker to its starting value and that check would pass too. It now uses frame-invariance sampling as
+well. Defining the technique once is the structural fix; the aliasing bug has now appeared in three
+separate checks across three revisions, so a named rule replaces repeated ad-hoc wording.
 
 
 ## 1. Context loaded
@@ -328,17 +345,38 @@ No migration. No route change. No `config/` change.
 | R3 | New markup could route an image through an Active Storage transform. | `test/integration/exercise_visual_rendering_test.rb` already prepends a raising guard for `variant`, `preview`, and `representation` on both `ActiveStorage::Attachment` and `ActiveStorage::Blob` and drives `get exercise_path`. That test must keep passing. |
 | R4 | Uploaded SVG could be rendered inline while adding map markup. | `ExerciseVisualItem#inline_renderable?` stays the single view gate. The integration test already asserts attachment disposition for SVG; a controller test asserts the rendered page yields an anchor and no `img` or inline `<svg>` built from blob content. |
 | R5 | Stimulus could mutate classes for playing or highlight state. | Section 4 rule 8. A system test captures the container and frame `class` attributes while playing, pauses by keyboard, and asserts the captured values are unchanged. |
-| R6 | A leaked interval after Turbo navigation keeps advancing the **detached** nodes of the page it was created on, so it is invisible to any assertion made against the newly rendered page. | Section 4 rule 4. Proven by the detached-node probe in section 7, which holds a reference to the original container across the navigation and watches those exact nodes. |
+| R6 | A leaked interval after Turbo navigation keeps advancing the **detached** nodes of the page it was created on, so it is invisible to any assertion made against the newly rendered page. | Section 4 rule 4. Proven by the detached-node probe in section 7, which holds a reference to the original container across the navigation and applies frame-invariance sampling to those exact nodes. |
 | R7 | Hearth parallel system tests flake and can look like a regression. | Classify with a serial `PARALLEL_WORKERS=1` full run, or matched base and head arms at the same seed, process count, browser, and driver. |
 | R8 | A fresh pipeline worktree has an empty `app/assets/builds`, so layout-rendering Rails tests fail on a missing `tailwind.css`. | Run `bin/rails tailwindcss:build` before every Rails test command, not only before system tests. |
 | R9 | Adding visual fixtures would break catalog destroy constraints. | Keep `test/fixtures/exercise_visuals.yml` and `exercise_visual_items.yml` empty; assemble visuals through `ExerciseVisualTestHelper`. |
 | R10 | Reading `Muscle::DEFAULTS` for display order produces wrong output after a household order change. | Order through `Exercise#ordered_muscle_targets`, which sorts loaded targets in memory by persisted `muscles.display_position`. |
 | R11 | White monochrome PNG art is invisible in light mode if the dark surface is missed, and household-replaced art is mis-surfaced if the dark background is applied unconditionally. | Both arms are proven in one rendered system test under emulated `prefers-color-scheme: light`: untouched Workout Guide art gets the dark background, the same exercise after a household frame replacement gets the default background, and the two computed values must differ. |
 | R12 | This branch was behind `origin/main` and lacked the dependency work. | Resolved. `origin/main` is merged into the ticket branch. The Implementer must not re-derive dependency code. |
+| R15 | Any endpoint comparison on a wrap-around animation aliases: with `F` frames, a check taken after a multiple of `F` advances cannot distinguish a running timer from a stopped one. This defect appeared in three separate checks across three revisions. | Frame-invariance sampling is defined once in section 7 and referenced by name from both timing-sensitive checks. It asserts a single distinct value across at least 12 sub-interval samples, never a first-versus-last comparison, and is independent of the frame count. |
 | R13 | Placing controls inside `role="img"` would hide them from assistive technology while leaving them focusable, producing controls that pass a naive keyboard test but fail a real screen-reader path. | Section 4 fixes the DOM: `role="img"` wraps frames only, controls live in a sibling `role="group"`, and the controller moves to a new outer element. A system test asserts the `role="img"` element contains no `button` descendant. |
 | R14 | A subset-style unchanged check would treat a household frame deletion as unchanged and paint deleted-from art on the dark source surface. | Section 3 D3 requires ordered pair-list equality, matching `Exercise::SourceMerge#household_changed_visual?`. Model tests cover replacement, deletion, addition, and reorder, and assert `false` for each. |
 
 ## 7. Acceptance checks and tests
+
+### Frame-invariance sampling
+
+Two checks must prove that a frame sequence is **not** advancing. Both are timing-sensitive, and a
+naive version of either aliases. With `F` frames and wrap-around, any comparison taken after a
+multiple of `F` advances returns the marker to its starting value, so a live timer looks identical to
+a stopped one. This defect has now appeared in three separate checks, so the technique is defined once
+here and referenced by name rather than re-described.
+
+Given the visual's `frame_interval_ms` as `I`:
+
+1. Sample the target element every `I / 4` milliseconds.
+2. Collect at least 12 samples, spanning at least `3 * I`.
+3. At each sample, record the `src` of the one frame lacking `data-hidden`.
+4. Assert the number of **distinct** recorded values across all samples is exactly 1.
+
+Never compare only the first and last sample. Quarter-interval sampling means a live timer sits on a
+frame other than the recorded one for three of every four samples, so at least one sample must differ
+and the assertion fails. The assertion is independent of the frame count, so it stays correct if a
+fixture gains or loses a frame.
 
 ### Traceability to every ticket acceptance criterion
 | Ticket criterion | Proof |
@@ -347,8 +385,8 @@ No migration. No route change. No `config/` change.
 | The three Workout Guide frames cycle as one animation | System test on an imported Workout Guide exercise: three frame targets in one container, exactly one without `data-hidden` at any moment, index advancing |
 | Render still images, animated GIFs, videos, and frame sequences (ticket scope line) | Each of the four forms gets its own explicit check. **Animated GIF:** an `image` visual holding `test/fixtures/files/exercises/animated.gif` at `image/gif` renders exactly one `img` whose `src` is the original blob proxy path, with no `/representations/` or `/variants/` segment, so the animation is never frozen into a still variant. It renders no player controls and no `role="group"`, because a GIF animates natively and `kind` is `image`, not `frame_sequence`. The request runs inside the existing transform guard, which raises if `variant`, `preview`, or `representation` is called |
 | Playback timing comes from the visual data attribute, not a JavaScript constant | Controller test asserts `data-frame-sequence-interval-value` equals the record's `frame_interval_ms`; a system test sets `frame_interval_ms` to 1500 and asserts the observed cadence matches, so no JS constant can satisfy both |
-| The player clears timers during Turbo disconnect | **Detached-node probe.** A timer that `disconnect()` failed to clear keeps firing against the DOM nodes of the page it was created on. Turbo Drive detaches those nodes and connects a fresh controller instance on return, so nothing asserted about the newly rendered page can observe the leak. The test therefore watches the original nodes: (a) on the exercise page, store the live container with `window.__frameLeakProbe = document.querySelector('[data-controller="frame-sequence"]')`; `window` survives Turbo Drive navigation, so the reference outlives the page. (b) Record which frame inside the probe lacks `data-hidden`. (c) Turbo-navigate away. (d) Assert `document.contains(window.__frameLeakProbe)` is false, so the test fails loudly rather than passing silently if Turbo restored a cached copy instead of detaching. (e) Wait three full intervals and re-read the probe. (f) Assert the same frame still lacks `data-hidden`. An uncleared interval would call `advance()` on these exact detached nodes and move the marker. Separately, after navigating back, assert `data-playing="true"` and exactly one `[data-controller="frame-sequence"]` element, which catches a double-connect. Counting advances remains forbidden: with three frames and wrap-around, three advances and six advances both land on the starting frame. A global live-timer count is also rejected, because `vendor/javascript/tailwindplus_elements_components.js` creates its own interval and would make the count ambiguous |
-| Reduced-motion users start with playback paused | System test emulates `prefers-reduced-motion: reduce` through `Emulation.setEmulatedMedia`, then asserts `data-playing="false"` and that the same frame still lacks `data-hidden` after three intervals |
+| The player clears timers during Turbo disconnect | **Detached-node probe plus frame-invariance sampling.** A timer that `disconnect()` failed to clear keeps firing against the DOM nodes of the page it was created on. Turbo Drive detaches those nodes and connects a fresh controller instance on return, so nothing asserted about the newly rendered page can observe the leak. The test therefore watches the original nodes: (a) on the exercise page, store the live container with `window.__frameLeakProbe = document.querySelector('[data-controller="frame-sequence"]')`; `window` survives Turbo Drive navigation, so the reference outlives the page. (b) Turbo-navigate away. (c) Assert `document.contains(window.__frameLeakProbe)` is false, so the test fails loudly rather than passing silently if Turbo restored a cached copy instead of detaching. (d) Apply frame-invariance sampling to the probe. An uncleared interval calls `advance()` on these exact detached nodes, so at least one sample observes a different frame. Separately, after navigating back, assert `data-playing="true"` and exactly one `[data-controller="frame-sequence"]` element, which catches a double-connect |
+| Reduced-motion users start with playback paused | System test emulates `prefers-reduced-motion: reduce` through `Emulation.setEmulatedMedia`, asserts `data-playing="false"` immediately after load, then applies **frame-invariance sampling** to the live container. Sampling is required here for the same reason as the leak probe: if the reduced-motion guard failed and the timer started, an endpoint comparison at a multiple of the frame count would return the marker to its starting value and pass |
 | All controls work by keyboard | System test tabs to each of Play, Pause, Previous, Next and activates each with `:enter` and `:space`, asserting the expected `data-playing` value, `aria-pressed` pair, and frame transition. It also asserts wrap-around in both directions and that no control is `disabled` |
 | The muscle list conveys all information without the SVG | Controller test asserts every target name and role appears in the list; system test asserts each SVG carries `aria-hidden="true"` and the list does not |
 | System tests cover each visual kind, controls, attribution, SVG safety, and light and dark modes | `test/system/exercise_visual_playback_test.rb` covers still image, animated GIF, video, frame sequence, SVG download link, attribution text, and both emulated color schemes |
