@@ -1,8 +1,10 @@
 require "test_helper"
 require_relative "../test_helpers/exercise_visual_test_helper"
+require_relative "../test_helpers/workout_guide_import_test_helper"
 
 class ExercisesControllerTest < ActionDispatch::IntegrationTest
   include ExerciseVisualTestHelper
+  include WorkoutGuideImportTestHelper
 
   test "requires authentication" do
     get exercises_path
@@ -744,6 +746,111 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   ensure
     connection&.execute("PRAGMA ignore_check_constraints = OFF")
+  end
+
+  test "index always renders the tracking disclaimer and credits only for Workout Guide rows" do
+    sign_in_as users(:one)
+
+    get exercises_path
+    assert_response :success
+    assert_select "#exercise-tracking-disclaimer", count: 1
+    assert_select "[data-catalog-credit]", count: 0
+    assert_select "#workout-guide-credits-heading", count: 0
+
+    create_source_exercise(
+      name: "Other namespace index",
+      source_key: "other_catalog:index",
+      attribution: catalog_attribution(creator: "Other Catalog", license: "Other License")
+    )
+    get exercises_path
+    assert_select "#exercise-tracking-disclaimer", count: 1
+    assert_select "[data-catalog-credit]", count: 0
+
+    create_source_exercise(
+      name: "WG complete credits",
+      source_key: "workout_guide:complete-credits",
+      attribution: catalog_attribution(
+        creator: "Bryl Lim",
+        creator_url: "https://bryllim.com",
+        source_name: "Everkinetic",
+        source_url: "https://example.com/source",
+        license: "CC BY-SA 4.0",
+        license_url: "https://creativecommons.org/licenses/by-sa/4.0/",
+        change_note: "Rasterized for display."
+      )
+    )
+    create_source_exercise(
+      name: "WG duplicate credits",
+      source_key: "workout_guide:duplicate-credits",
+      attribution: catalog_attribution(
+        creator: "Bryl Lim",
+        creator_url: "https://bryllim.com",
+        source_name: "Everkinetic",
+        source_url: "https://example.com/source",
+        license: "CC BY-SA 4.0",
+        license_url: "https://creativecommons.org/licenses/by-sa/4.0/",
+        change_note: "Rasterized for display."
+      )
+    )
+    create_source_exercise(
+      name: "WG blank optional",
+      source_key: "workout_guide:blank-optional",
+      attribution: catalog_attribution(
+        creator: "Solo Creator",
+        creator_url: "https://example.com/bare-url",
+        license: "",
+        source_name: "",
+        source_url: "https://example.com/orphan-source",
+        change_note: ""
+      )
+    )
+
+    get exercises_path
+    assert_response :success
+    assert_select "#exercise-tracking-disclaimer", count: 1
+    assert_select "[data-catalog-credit]", count: 2
+    assert_select "a[href='https://bryllim.com']", text: "Bryl Lim"
+    assert_select "a[href='https://example.com/source']", text: "Everkinetic"
+    assert_select "a[href='https://creativecommons.org/licenses/by-sa/4.0/']", text: "CC BY-SA 4.0"
+    assert_select "[data-catalog-credit]", text: /Rasterized for display/
+    assert_select "a", text: "Rasterized for display.", count: 0
+    assert_select "a[href='https://example.com/orphan-source']", count: 0
+    assert_select "[data-catalog-credit]", text: /Solo Creator/
+    assert_select "a[href='https://example.com/bare-url']", text: "Solo Creator"
+    assert_select "dt, span", text: /License/, count: 1
+  end
+
+  test "index disclaimer renders on an empty catalog" do
+    ExercisePrescription.delete_all
+    TrainingSessionExercise.update_all(exercise_id: nil)
+    households(:home).exercises.destroy_all
+    sign_in_as users(:one)
+
+    get exercises_path
+    assert_response :success
+    assert_select "#exercise-tracking-disclaimer", count: 1
+    assert_select "[data-catalog-credit]", count: 0
+  end
+
+  test "index query count does not grow with credit rows" do
+    sign_in_as users(:one)
+    get exercises_path
+    one_count = uncached_sql_count { get exercises_path }
+    assert_select "#exercise-tracking-disclaimer", count: 1
+    assert_select "[data-catalog-credit]", count: 0
+
+    4.times do |index|
+      create_source_exercise(
+        name: "WG growth #{index}",
+        source_key: "workout_guide:growth-#{index}",
+        attribution: catalog_attribution(creator: "Growth Creator", license: "CC BY-SA 4.0")
+      )
+    end
+
+    several_count = uncached_sql_count { get exercises_path }
+    assert_select "#exercise-tracking-disclaimer", count: 1
+    assert_select "[data-catalog-credit]", count: 1
+    assert_equal one_count, several_count
   end
 
   private

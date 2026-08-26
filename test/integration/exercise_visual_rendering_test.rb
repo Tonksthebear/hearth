@@ -1,21 +1,6 @@
 require "test_helper"
 require_relative "../test_helpers/exercise_visual_test_helper"
 
-module ExerciseVisualTransformGuard
-  %i[variant preview representation].each do |method_name|
-    define_method(method_name) do |*arguments, **keywords, &block|
-      if Thread.current[:exercise_visual_forbid_transforms]
-        raise "#{self.class.name}##{method_name} must not be called while rendering exercise visuals"
-      end
-
-      super(*arguments, **keywords, &block)
-    end
-  end
-end
-
-ActiveStorage::Attachment.prepend(ExerciseVisualTransformGuard)
-ActiveStorage::Blob.prepend(ExerciseVisualTransformGuard)
-
 class ExerciseVisualRenderingTest < ActionDispatch::IntegrationTest
   include ExerciseVisualTestHelper
 
@@ -30,8 +15,9 @@ class ExerciseVisualRenderingTest < ActionDispatch::IntegrationTest
     exercise.save!
 
     sign_in_as users(:one)
-    Thread.current[:exercise_visual_forbid_transforms] = true
-    get exercise_path(exercise)
+    with_forbidden_active_storage_transforms(:variant, :preview, :representation) do
+      get exercise_path(exercise)
+    end
     assert_response :success
     assert_select "[data-controller='frame-sequence']"
     assert_select "[data-muscle-key='chest']"
@@ -42,8 +28,6 @@ class ExerciseVisualRenderingTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{svg_proxy}']"
     assert_no_match %r{/rails/active_storage/representations/}, response.body
     assert_no_match %r{/rails/active_storage/variants/}, response.body
-  ensure
-    Thread.current[:exercise_visual_forbid_transforms] = false
   end
 
   test "video blobs serve inline and svg blobs serve as attachments" do

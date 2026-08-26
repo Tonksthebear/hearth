@@ -68,6 +68,10 @@ class ExerciseVisual < ApplicationRecord
     active_items.sort_by { |item| [ item.position || Float::INFINITY, item.object_id ] }
   end
 
+  def thumbnail_item
+    sorted_items.first
+  end
+
   def unmodified_source_art?
     return false unless source_key.present? && source_key.start_with?("workout_guide:")
 

@@ -1,6 +1,8 @@
 require "test_helper"
+require_relative "../test_helpers/exercise_visual_test_helper"
 
 class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
+  include ExerciseVisualTestHelper
   test "renders provenance source safety copy and a production start path" do
     sign_in_as users(:one)
 
@@ -164,6 +166,125 @@ class WorkoutTemplatesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :see_other
     assert_equal [ 1, 2 ], WorkoutTemplate.find_by!(title: "Test template").workout_blocks.pluck(:position)
+  end
+
+  test "show renders one thumbnail node per prescription and no empty image" do
+    raster = create_catalog_exercise(name: "Raster thumb")
+    add_image_visual(raster, filename: "frame-a.png", content_type: "image/png", alt_text: "PNG")
+    raster.save!
+    gif = create_catalog_exercise(name: "Gif thumb")
+    add_image_visual(gif, filename: "animated.gif", content_type: "image/gif", alt_text: "GIF")
+    gif.save!
+    svg = create_catalog_exercise(name: "Svg thumb")
+    add_image_visual(svg, filename: "icon.svg", content_type: "image/svg+xml", alt_text: "SVG")
+    svg.save!
+    video = create_catalog_exercise(name: "Video thumb")
+    add_video_visual(video, alt_text: "Video")
+    video.save!
+    empty = create_catalog_exercise(name: "Empty thumb")
+    template = create_workout_template_with([ raster, gif, svg, video, empty ], title: "Thumbnail types")
+
+    sign_in_as users(:one)
+    get workout_template_path(template)
+
+    assert_response :success
+    assert_select "[data-exercise-thumbnail]", count: 5
+    assert_select "[data-exercise-thumbnail] img[src*='representations']", count: 1
+    gif_proxy = rails_storage_proxy_path(gif.thumbnail_item.file)
+    assert_select "[data-exercise-thumbnail] img[src='#{gif_proxy}']", count: 1
+    assert_select "[data-exercise-thumbnail] svg", count: 3
+    assert_select "img:not([src]), img[src='']", count: 0
+  end
+
+  test "show applies the dark thumbnail surface only to unmodified Workout Guide source art" do
+    source = create_workout_guide_sequence_exercise(name: "Dark surface source")
+    personal = create_catalog_exercise(name: "Dark surface personal")
+    add_image_visual(personal, filename: "frame-a.png", content_type: "image/png", alt_text: "Personal")
+    personal.save!
+    modified = create_workout_guide_sequence_exercise(name: "Dark surface modified")
+    modified.thumbnail_item.update!(source_identifier: "household-edit.png")
+    template = create_workout_template_with([ source, personal, modified ], title: "Dark surface thumbs")
+
+    sign_in_as users(:one)
+    get workout_template_path(template)
+
+    assert_response :success
+    assert_select "[data-exercise-thumbnail].bg-gray-950", count: 1
+    assert_select "[data-exercise-thumbnail]:not(.bg-gray-950)", count: 2
+  end
+
+  test "show forbids every transform for non-variant thumbnails" do
+    gif = create_catalog_exercise(name: "Guard gif")
+    add_image_visual(gif, filename: "animated.gif", content_type: "image/gif", alt_text: "GIF")
+    gif.save!
+    svg = create_catalog_exercise(name: "Guard svg")
+    add_image_visual(svg, filename: "icon.svg", content_type: "image/svg+xml", alt_text: "SVG")
+    svg.save!
+    mp4 = create_catalog_exercise(name: "Guard mp4")
+    add_video_visual(mp4, filename: "clip.mp4", content_type: "video/mp4", alt_text: "MP4")
+    mp4.save!
+    webm = create_catalog_exercise(name: "Guard webm")
+    add_video_visual(webm, filename: "clip.webm", content_type: "video/webm", alt_text: "WEBM")
+    webm.save!
+    empty = create_catalog_exercise(name: "Guard empty")
+    template = create_workout_template_with([ gif, svg, mp4, webm, empty ], title: "Forbidden transform thumbs")
+
+    sign_in_as users(:one)
+    with_forbidden_active_storage_transforms(:variant, :preview, :representation) do
+      get workout_template_path(template)
+    end
+    assert_response :success
+  end
+
+  test "show forbids preview and representation for raster thumbnails and serves a usable variant" do
+    png = create_catalog_exercise(name: "Usable png")
+    add_image_visual(png, filename: "frame-a.png", content_type: "image/png", alt_text: "PNG")
+    png.save!
+    jpeg = create_catalog_exercise(name: "Usable jpeg")
+    add_image_visual(jpeg, filename: "photo.jpg", content_type: "image/jpeg", alt_text: "JPEG")
+    jpeg.save!
+    webp = create_catalog_exercise(name: "Usable webp")
+    add_image_visual(webp, filename: "photo.webp", content_type: "image/webp", alt_text: "WEBP")
+    webp.save!
+    template = create_workout_template_with([ png, jpeg, webp ], title: "Usable raster thumbs")
+
+    sign_in_as users(:one)
+    with_forbidden_active_storage_transforms(:preview, :representation) do
+      get workout_template_path(template)
+    end
+    assert_response :success
+    assert_select "[data-exercise-thumbnail] img[src*='representations']", count: 3
+
+    css_select("[data-exercise-thumbnail] img").each do |image|
+      get image["src"]
+      follow_redirect! while response.redirect?
+      assert_response :success
+      assert_match %r{\Aimage/}, response.media_type
+      assert response.body.present?
+    end
+  end
+
+  test "show query count does not grow with rendered thumbnail count" do
+    one = create_catalog_exercise(name: "Query one")
+    add_image_visual(one, filename: "frame-a.png", content_type: "image/png", alt_text: "One")
+    one.save!
+    several = 4.times.map { |index|
+      exercise = create_catalog_exercise(name: "Query several #{index}")
+      add_image_visual(exercise, filename: "frame-a.png", content_type: "image/png", alt_text: "Several #{index}")
+      exercise.save!
+      exercise
+    }
+    one_template = create_workout_template_with([ one ], title: "Query one template")
+    several_template = create_workout_template_with(several, title: "Query several template")
+
+    sign_in_as users(:one)
+    get workout_template_path(one_template)
+    get workout_template_path(several_template)
+    one_count = uncached_sql_count { get workout_template_path(one_template) }
+    assert_select "[data-exercise-thumbnail]", count: 1
+    several_count = uncached_sql_count { get workout_template_path(several_template) }
+    assert_select "[data-exercise-thumbnail]", count: 4
+    assert_equal one_count, several_count
   end
 
   private

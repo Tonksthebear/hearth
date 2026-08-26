@@ -1,0 +1,48 @@
+<% credits = local_assigns.fetch(:catalog_credits, @catalog_credits) %>
+<% if credits.present? %>
+  <aside aria-labelledby="workout-guide-credits-heading" class="mt-8 border-t border-gray-200 pt-6 dark:border-white/10">
+    <h2 id="workout-guide-credits-heading" class="text-base font-semibold text-gray-900 dark:text-white">Workout Guide credits</h2>
+    <ul class="mt-4 space-y-3">
+      <% credits.each do |credit| %>
+        <li data-catalog-credit class="text-sm text-gray-600 dark:text-gray-400">
+          <% if credit["creator"].present? %>
+            <p>
+              <span class="font-medium text-gray-900 dark:text-white">Creator:</span>
+              <% if credit["creator_url"].present? %>
+                <%= link_to credit["creator"], credit["creator_url"], class: "font-medium text-primary-800 underline dark:text-primary-300" %>
+              <% else %>
+                <%= credit["creator"] %>
+              <% end %>
+            </p>
+          <% end %>
+          <% if credit["source_name"].present? %>
+            <p>
+              <span class="font-medium text-gray-900 dark:text-white">Source:</span>
+              <% if credit["source_url"].present? %>
+                <%= link_to credit["source_name"], credit["source_url"], class: "font-medium text-primary-800 underline dark:text-primary-300" %>
+              <% else %>
+                <%= credit["source_name"] %>
+              <% end %>
+            </p>
+          <% end %>
+          <% if credit["license"].present? %>
+            <p>
+              <span class="font-medium text-gray-900 dark:text-white">License:</span>
+              <% if credit["license_url"].present? %>
+                <%= link_to credit["license"], credit["license_url"], class: "font-medium text-primary-800 underline dark:text-primary-300" %>
+              <% else %>
+                <%= credit["license"] %>
+              <% end %>
+            </p>
+          <% end %>
+          <% if credit["change_note"].present? %>
+            <p>
+              <span class="font-medium text-gray-900 dark:text-white">Change note:</span>
+              <%= credit["change_note"] %>
+            </p>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </aside>
+<% end %>

@@ -82,7 +82,24 @@ class TrainingSessionsController < ApplicationController
 
   private
     def set_training_session
-      @training_session = Current.person.training_sessions.find(params[:id])
+      scope = Current.person.training_sessions
+      if action_name.in?(%w[show edit])
+        scope = scope.includes(
+          training_session_blocks: {
+            training_session_exercises: [
+              :training_sets,
+              {
+                exercise: {
+                  exercise_visuals: {
+                    exercise_visual_items: { file_attachment: { blob: :variant_records } }
+                  }
+                }
+              }
+            ]
+          }
+        )
+      end
+      @training_session = scope.find(params[:id])
     end
 
     def planned_workout_return_path(planned_workout)

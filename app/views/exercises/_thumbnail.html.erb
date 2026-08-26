@@ -1,0 +1,15 @@
+<%# locals: (exercise:) %>
+<% dark_surface = exercise&.thumbnail_dark_surface? %>
+<% rendering = exercise&.thumbnail_rendering || :placeholder %>
+<% item = exercise&.thumbnail_item %>
+<div data-exercise-thumbnail class="<%= class_names("flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg", "bg-gray-950" => dark_surface, "bg-gray-100 dark:bg-gray-800" => !dark_surface) %>">
+  <% if rendering == :variant && item&.file&.attached? %>
+    <%= image_tag item.file.variant(:thumb), alt: "", class: "size-full object-contain" %>
+  <% elsif rendering == :original && item&.file&.attached? %>
+    <%= image_tag rails_storage_proxy_path(item.file), alt: "", class: "size-full object-contain" %>
+  <% else %>
+    <div aria-hidden="true" class="flex size-full items-center justify-center text-gray-400 dark:text-gray-500">
+      <%= icon "bolt", variant: :solid, class: "size-8 shrink-0" %>
+    </div>
+  <% end %>
+</div>

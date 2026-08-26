@@ -20,9 +20,12 @@
         <% if block.planned_duration_minutes %><p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= block.planned_duration_minutes %> planned minutes</p><% end %>
         <ol class="mt-4 space-y-3">
           <% block.exercise_prescriptions.each do |prescription| %>
-            <li class="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
-              <p class="font-medium"><%= prescription.exercise.name %> · <%= prescription.target_summary %></p>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= prescription.effective_dose_class.humanize %><% if prescription.cue_summary.present? %> · <%= prescription.cue_summary %><% end %></p>
+            <li class="flex items-start gap-3 rounded-lg bg-gray-50 p-3 dark:bg-white/5">
+              <%= render "exercises/thumbnail", exercise: prescription.exercise %>
+              <div class="min-w-0">
+                <p class="font-medium"><%= prescription.exercise.name %> · <%= prescription.target_summary %></p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><%= prescription.effective_dose_class.humanize %><% if prescription.cue_summary.present? %> · <%= prescription.cue_summary %><% end %></p>
+              </div>
             </li>
           <% end %>
         </ol>

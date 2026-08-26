@@ -10,7 +10,10 @@
     <%= form.hidden_field :id if form.object.persisted? %>
     <%= form.hidden_field :position %>
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm font-semibold">Exercise <%= form.object.position %></p>
+      <div class="flex items-center gap-3">
+        <%= render "exercises/thumbnail", exercise: form.object.exercise %>
+        <p class="text-sm font-semibold">Exercise <%= form.object.position %></p>
+      </div>
       <%= form.button "Remove exercise", name: "remove_session_exercise", value: coordinate, formnovalidate: true, class: { btn: [ :base, { xs: :base }, { danger: :outline } ] } %>
     </div>
     <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Select a reusable catalog exercise, or leave it blank and enter a structured one-off exercise below. Inline entries do not change the catalog. <%= link_to "Create a reusable exercise", new_exercise_path, target: "_blank", rel: "noopener", class: "font-medium text-primary-800 underline dark:text-primary-300" %>.</p>

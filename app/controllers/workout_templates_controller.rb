@@ -7,7 +7,20 @@ class WorkoutTemplatesController < ApplicationController
   end
 
   def show
-    @workout_template.workout_blocks.includes(exercise_prescriptions: :exercise).load
+    ActiveRecord::Associations::Preloader.new(
+      records: [ @workout_template ],
+      associations: {
+        workout_blocks: {
+          exercise_prescriptions: {
+            exercise: {
+              exercise_visuals: {
+                exercise_visual_items: { file_attachment: { blob: :variant_records } }
+              }
+            }
+          }
+        }
+      }
+    ).call
   end
 
   def new

@@ -3,9 +3,12 @@ require_relative "../config/environment"
 require "rails/test_help"
 require_relative "test_helpers/session_test_helper"
 require_relative "test_helpers/household_week_test_helper"
+require_relative "test_helpers/active_storage_transform_guard"
 
 module ActiveSupport
   class TestCase
+    include ActiveStorageTransformGuard
+
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)
 

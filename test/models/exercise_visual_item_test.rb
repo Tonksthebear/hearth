@@ -177,4 +177,35 @@ class ExerciseVisualItemTest < ActiveSupport::TestCase
     assert second_item.reload.file.attached?
     assert_equal blob, second_item.file.blob
   end
+
+  test "thumbnail_rendering uses the explicit content-type list and never blob.variable?" do
+    {
+      "frame-a.png" => [ "image/png", :variant ],
+      "photo.jpg" => [ "image/jpeg", :variant ],
+      "photo.webp" => [ "image/webp", :variant ],
+      "animated.gif" => [ "image/gif", :original ],
+      "icon.svg" => [ "image/svg+xml", :placeholder ]
+    }.each do |filename, (content_type, expected)|
+      exercise = create_catalog_exercise(name: "Thumb #{content_type}")
+      visual = add_image_visual(exercise, filename:, content_type:, alt_text: content_type)
+      item = visual.exercise_visual_items.first
+      assert_equal expected, item.thumbnail_rendering, content_type
+      if content_type == "image/gif"
+        assert item.file.blob.variable?
+        assert_equal :original, item.thumbnail_rendering
+      end
+    end
+
+    {
+      "clip.mp4" => "video/mp4",
+      "clip.webm" => "video/webm"
+    }.each do |filename, content_type|
+      exercise = create_catalog_exercise(name: "Thumb #{content_type}")
+      visual = add_video_visual(exercise, filename:, content_type:, alt_text: content_type)
+      assert_equal :placeholder, visual.exercise_visual_items.first.thumbnail_rendering
+    end
+
+    unattached = ExerciseVisualItem.new
+    assert_equal :placeholder, unattached.thumbnail_rendering
+  end
 end

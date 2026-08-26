@@ -1,6 +1,8 @@
 require "test_helper"
+require_relative "../test_helpers/exercise_visual_test_helper"
 
 class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
+  include ExerciseVisualTestHelper
   test "new uses the selected logging date" do
     sign_in_as users(:one)
 
@@ -259,6 +261,108 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
       training_session: { snapshot_title: "Forged" }
     }
     assert_response :not_found
+  end
+
+  test "show and edit render thumbnails including a nullified catalog exercise" do
+    raster = create_catalog_exercise(name: "Session raster")
+    add_image_visual(raster, filename: "frame-a.png", content_type: "image/png", alt_text: "PNG")
+    raster.save!
+    gif = create_catalog_exercise(name: "Session gif")
+    add_image_visual(gif, filename: "animated.gif", content_type: "image/gif", alt_text: "GIF")
+    gif.save!
+    empty = create_catalog_exercise(name: "Session empty")
+    template = create_workout_template_with([ raster, gif, empty ], title: "Session thumbs")
+    session = start_training_session_from(template)
+    session.training_session_blocks.flat_map(&:training_session_exercises)
+      .find { |row| row.snapshot_name == empty.name }
+      .update!(exercise_id: nil)
+
+    sign_in_as users(:one)
+    get training_session_path(session)
+    assert_response :success
+    assert_select "[data-exercise-thumbnail]", count: 3
+    assert_select "[data-exercise-thumbnail] img[src*='representations']", count: 1
+    gif_proxy = rails_storage_proxy_path(gif.thumbnail_item.file)
+    assert_select "[data-exercise-thumbnail] img[src='#{gif_proxy}']", count: 1
+    assert_select "img:not([src]), img[src='']", count: 0
+
+    get edit_training_session_path(session)
+    assert_response :success
+    assert_select "[data-exercise-thumbnail]", count: 3
+    assert_select "img:not([src]), img[src='']", count: 0
+  end
+
+  test "show and edit forbid every transform for non-variant thumbnails" do
+    gif = create_catalog_exercise(name: "Session guard gif")
+    add_image_visual(gif, filename: "animated.gif", content_type: "image/gif", alt_text: "GIF")
+    gif.save!
+    svg = create_catalog_exercise(name: "Session guard svg")
+    add_image_visual(svg, filename: "icon.svg", content_type: "image/svg+xml", alt_text: "SVG")
+    svg.save!
+    mp4 = create_catalog_exercise(name: "Session guard mp4")
+    add_video_visual(mp4, filename: "clip.mp4", content_type: "video/mp4", alt_text: "MP4")
+    mp4.save!
+    webm = create_catalog_exercise(name: "Session guard webm")
+    add_video_visual(webm, filename: "clip.webm", content_type: "video/webm", alt_text: "WEBM")
+    webm.save!
+    empty = create_catalog_exercise(name: "Session guard empty")
+    template = create_workout_template_with([ gif, svg, mp4, webm, empty ], title: "Session forbidden thumbs")
+    session = start_training_session_from(template)
+
+    sign_in_as users(:one)
+    with_forbidden_active_storage_transforms(:variant, :preview, :representation) do
+      get training_session_path(session)
+      assert_response :success
+      get edit_training_session_path(session)
+      assert_response :success
+    end
+  end
+
+  test "show and edit forbid preview and representation for raster thumbnails" do
+    png = create_catalog_exercise(name: "Session usable png")
+    add_image_visual(png, filename: "frame-a.png", content_type: "image/png", alt_text: "PNG")
+    png.save!
+    template = create_workout_template_with([ png ], title: "Session usable thumbs")
+    session = start_training_session_from(template)
+
+    sign_in_as users(:one)
+    with_forbidden_active_storage_transforms(:preview, :representation) do
+      get training_session_path(session)
+      assert_response :success
+      get edit_training_session_path(session)
+      assert_response :success
+    end
+  end
+
+  test "show and edit query counts do not grow with rendered thumbnail count" do
+    one = create_catalog_exercise(name: "Session query one")
+    add_image_visual(one, filename: "frame-a.png", content_type: "image/png", alt_text: "One")
+    one.save!
+    several = 4.times.map { |index|
+      exercise = create_catalog_exercise(name: "Session query several #{index}")
+      add_image_visual(exercise, filename: "frame-a.png", content_type: "image/png", alt_text: "Several #{index}")
+      exercise.save!
+      exercise
+    }
+    one_session = start_training_session_from(create_workout_template_with([ one ], title: "Session query one"))
+    several_session = start_training_session_from(create_workout_template_with(several, title: "Session query several"))
+
+    sign_in_as users(:one)
+    get training_session_path(one_session)
+    get training_session_path(several_session)
+    show_one = uncached_sql_count { get training_session_path(one_session) }
+    assert_select "[data-exercise-thumbnail]", count: 1
+    show_several = uncached_sql_count { get training_session_path(several_session) }
+    assert_select "[data-exercise-thumbnail]", count: 4
+    assert_equal show_one, show_several
+
+    get edit_training_session_path(one_session)
+    get edit_training_session_path(several_session)
+    edit_one = uncached_sql_count { get edit_training_session_path(one_session) }
+    assert_select "[data-exercise-thumbnail]", count: 1
+    edit_several = uncached_sql_count { get edit_training_session_path(several_session) }
+    assert_select "[data-exercise-thumbnail]", count: 4
+    assert_equal edit_one, edit_several
   end
 
   private
