@@ -1,0 +1,26 @@
+<% if form.object.marked_for_destruction? %>
+  <div hidden>
+    <%= form.hidden_field :id if form.object.persisted? %>
+    <%= form.hidden_field :_destroy, value: "1" %>
+  </div>
+<% else %>
+  <div class="grid gap-4 rounded-lg bg-gray-50 p-4 dark:bg-white/5 sm:grid-cols-[1fr_1fr_auto]">
+    <%= form.hidden_field :id if form.object.persisted? %>
+    <div>
+      <%= form.label :muscle_id, "Muscle", class: :label %>
+      <%= form.elements_select :muscle_id, muscles.map { |muscle| [ muscle.name, muscle.id ] }, { prompt: "Choose muscle" } %>
+    </div>
+    <div>
+      <%= form.label :role, class: :label %>
+      <%= form.elements_select :role, target_roles.map { |value| [ value.humanize, value ] }, { prompt: "Choose role" } %>
+    </div>
+    <div class="flex items-end">
+      <%= form.button "Remove muscle target",
+        name: "remove_muscle_target",
+        value: form.index,
+        formnovalidate: true,
+        class: { btn: [ :base, { md: :base }, { danger: :outline } ] },
+        aria: { label: "Remove muscle target #{form.index.to_i + 1}" } %>
+    </div>
+  </div>
+<% end %>

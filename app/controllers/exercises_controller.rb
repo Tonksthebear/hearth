@@ -58,6 +58,8 @@ class ExercisesController < ApplicationController
     def prepare_form
       @modalities = Exercise::MODALITIES
       @movement_patterns = Exercise::MOVEMENT_PATTERNS
+      @muscles = Muscle.displayed
+      @target_roles = ExerciseMuscleTarget::ROLES
       @visual_kinds = ExerciseVisual::KINDS
       @provenance_statuses = ExerciseVisual.provenance_statuses.keys
     end
@@ -69,6 +71,12 @@ class ExercisesController < ApplicationController
         :movement_pattern,
         :equipment,
         :guidance,
+        exercise_muscle_targets_attributes: [
+          :id,
+          :muscle_id,
+          :role,
+          :_destroy
+        ],
         exercise_visuals_attributes: [
           :id,
           :kind,
@@ -109,7 +117,11 @@ class ExercisesController < ApplicationController
     end
 
     def structural_action?
-      if params[:add_visual]
+      if params[:add_muscle_target]
+        @exercise.add_muscle_target
+      elsif params[:remove_muscle_target]
+        @exercise.remove_muscle_target(params[:remove_muscle_target])
+      elsif params[:add_visual]
         @exercise.add_visual
       elsif params[:remove_visual]
         @exercise.remove_visual(params[:remove_visual])
@@ -124,11 +136,13 @@ class ExercisesController < ApplicationController
     end
 
     def render_form_update
-      render turbo_stream: turbo_stream.replace(
-        "exercise_form",
-        partial: "exercises/form",
-        locals: form_locals
-      ), status: @exercise.errors.any? ? :unprocessable_entity : :ok
+      status = @exercise.errors.any? ? :unprocessable_entity : :ok
+      respond_to do |format|
+        format.turbo_stream do
+          render turbo_stream: turbo_stream.replace("exercise_form", partial: "exercises/form", locals: form_locals), status: status
+        end
+        format.html { render(@exercise.persisted? ? :edit : :new, status: status) }
+      end
     end
 
     def form_locals
@@ -136,6 +150,8 @@ class ExercisesController < ApplicationController
         exercise: @exercise,
         modalities: @modalities,
         movement_patterns: @movement_patterns,
+        muscles: @muscles,
+        target_roles: @target_roles,
         visual_kinds: @visual_kinds,
         provenance_statuses: @provenance_statuses
       }

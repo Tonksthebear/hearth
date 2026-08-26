@@ -64,4 +64,61 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_not removed.valid?
     assert_includes removed.errors[:source_removed_at], "requires a source key"
   end
+
+  test "add_muscle_target builds one blank row" do
+    exercise = households(:home).exercises.build(name: "Targeted hinge", modality: :strength, movement_pattern: :hinge)
+
+    assert_difference -> { exercise.exercise_muscle_targets.size }, 1 do
+      exercise.add_muscle_target
+    end
+    assert_not exercise.exercise_muscle_targets.last.persisted?
+    assert_nil exercise.exercise_muscle_targets.last.muscle_id
+  end
+
+  test "remove_muscle_target marks a persisted row and deletes an unsaved row" do
+    exercise = exercises(:squat)
+    exercise.exercise_muscle_targets.load
+    persisted = exercise.exercise_muscle_targets.target.first
+    unsaved = exercise.exercise_muscle_targets.build(muscle: muscles(:calves), role: :stabilizer)
+    persisted_index = exercise.exercise_muscle_targets.target.index(persisted)
+    unsaved_index = exercise.exercise_muscle_targets.target.index(unsaved)
+
+    exercise.remove_muscle_target(unsaved_index)
+    assert_not_includes exercise.exercise_muscle_targets.target, unsaved
+
+    exercise.remove_muscle_target(persisted_index)
+    assert persisted.marked_for_destruction?
+  end
+
+  test "remove_muscle_target raises for an out-of-range index" do
+    exercise = exercises(:squat)
+
+    error = assert_raises(ArgumentError) { exercise.remove_muscle_target(99) }
+    assert_equal "Invalid exercise muscle target row.", error.message
+  end
+
+  test "two active targets naming one muscle are invalid and name the muscle" do
+    exercise = households(:home).exercises.build(
+      name: "Duplicate targets",
+      modality: :strength,
+      movement_pattern: :squat
+    )
+    exercise.exercise_muscle_targets.build(muscle: muscles(:quadriceps), role: :primary)
+    exercise.exercise_muscle_targets.build(muscle: muscles(:quadriceps), role: :secondary)
+
+    assert_not exercise.valid?
+    assert_includes exercise.errors[:base], "Quadriceps is assigned more than once"
+  end
+
+  test "a new visual and visual item start at position 1" do
+    exercise = households(:home).exercises.build(name: "Positioned hinge", modality: :strength, movement_pattern: :hinge)
+
+    exercise.add_visual
+    visual = exercise.exercise_visuals.last
+    assert_equal 1, visual.position
+    assert_equal 1, visual.exercise_visual_items.last.position
+
+    visual.add_item
+    assert_equal [ 1, 2 ], visual.exercise_visual_items.map(&:position)
+  end
 end

@@ -1,0 +1,19 @@
+<fieldset class="sm:col-span-2 border-t border-gray-900/10 pt-6 dark:border-white/10">
+  <legend class="text-base/7 font-semibold text-gray-900 dark:text-white">Muscle targets</legend>
+  <div class="flex items-center justify-end gap-4">
+    <%= form.button "Add muscle target",
+      name: "add_muscle_target",
+      value: "1",
+      formnovalidate: true,
+      class: { btn: [ :base, { md: :base }, { neutral: :outline } ] } %>
+  </div>
+  <p id="exercise-muscle-targets-hint" class="mt-1 text-sm/6 text-gray-600 dark:text-gray-400">Assign one or more muscles and a role for each target.</p>
+  <div class="mt-6 space-y-4">
+    <%= form.fields_for :exercise_muscle_targets do |target_form| %>
+      <%= render "muscle_target_fields",
+        form: target_form,
+        muscles: muscles,
+        target_roles: target_roles %>
+    <% end %>
+  </div>
+</fieldset>

@@ -126,6 +126,31 @@ class Exercise::SourceMergeTest < ActiveSupport::TestCase
     assert_nil households(:home).exercises.find_by(source_key: "catalog-hinge")
   end
 
+  test "a household role edit made through nested attributes survives a later merge" do
+    created = merge_source!(source_record)
+    target = created.exercise.exercise_muscle_targets.sole
+
+    created.exercise.update!(exercise_muscle_targets_attributes: {
+      "0" => { id: target.id, muscle_id: target.muscle_id, role: "stabilizer" }
+    })
+
+    result = merge_source!(source_record)
+    assert_equal "stabilizer", result.exercise.exercise_muscle_targets.sole.role
+  end
+
+  test "a household target removal made through nested attributes is not re-added by a later merge" do
+    created = merge_source!(source_record)
+    target = created.exercise.exercise_muscle_targets.sole
+
+    created.exercise.update!(exercise_muscle_targets_attributes: {
+      "0" => { id: target.id, _destroy: "1" }
+    })
+
+    result = merge_source!(source_record)
+    assert_empty result.exercise.exercise_muscle_targets
+    assert_includes result.exercise.source_snapshot.fetch("removed_target_keys"), "glutes"
+  end
+
   test "adds an incoming target and leaves a household-added target untouched" do
     created = merge_source!(source_record)
     created.exercise.exercise_muscle_targets.create!(muscle: muscles(:calves), role: :stabilizer)

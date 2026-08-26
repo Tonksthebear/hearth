@@ -6,8 +6,11 @@
 <% else %>
   <div class="grid gap-4 rounded-lg bg-gray-50 p-4 dark:bg-white/5">
     <%= form.hidden_field :id if form.object.persisted? %>
-    <%= form.hidden_field :position %>
     <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <%= form.label :position, class: :label %>
+        <%= form.number_field :position, min: 1, class: :text_field %>
+      </div>
       <div>
         <%= form.label :kind, class: :label %>
         <%= form.elements_select :kind, visual_kinds.map { |value| [ value.humanize, value ] }, {} %>

@@ -13,6 +13,7 @@ class Exercise < ApplicationRecord
   has_many :muscles, through: :exercise_muscle_targets
 
   accepts_nested_attributes_for :exercise_visuals, allow_destroy: true
+  accepts_nested_attributes_for :exercise_muscle_targets, allow_destroy: true
   before_validation :normalize_source_identity
   before_save :park_changed_nested_positions
 
@@ -23,6 +24,7 @@ class Exercise < ApplicationRecord
   validates :source_key, uniqueness: { scope: :household_id }, allow_nil: true
   validate :source_snapshot_is_object
   validate :source_removed_at_requires_source_key
+  validate :active_muscle_targets_are_unique
 
   scope :from_source, -> { where.not(source_key: nil) }
 
@@ -34,6 +36,15 @@ class Exercise < ApplicationRecord
     def mark_sources_removed!(household:, present_source_keys:)
       SourceMerge.mark_removed!(household:, present_source_keys:)
     end
+  end
+
+  def add_muscle_target
+    exercise_muscle_targets.build
+    self
+  end
+
+  def remove_muscle_target(index)
+    remove_nested_record(exercise_muscle_targets, index, "exercise muscle target")
   end
 
   def add_visual
@@ -78,6 +89,13 @@ class Exercise < ApplicationRecord
     exercise_muscle_targets.in_display_order
   end
 
+  def source_attribution
+    snapshot = source_snapshot
+    return {} unless snapshot.is_a?(Hash)
+
+    snapshot["attribution"].is_a?(Hash) ? snapshot["attribution"] : {}
+  end
+
   def source_linked?
     source_key.present?
   end
@@ -105,6 +123,20 @@ class Exercise < ApplicationRecord
       return if source_removed_at.blank? || source_key.present?
 
       errors.add(:source_removed_at, "requires a source key")
+    end
+
+    def active_muscle_targets
+      exercise_muscle_targets.load_target
+      exercise_muscle_targets.target.reject(&:marked_for_destruction?)
+    end
+
+    def active_muscle_targets_are_unique
+      active_muscle_targets.group_by(&:muscle_id).each do |muscle_id, rows|
+        next if muscle_id.blank? || rows.size < 2
+
+        name = rows.filter_map { |row| row.muscle&.name }.first || "Muscle"
+        errors.add(:base, "#{name} is assigned more than once")
+      end
     end
 
     def active_visuals
