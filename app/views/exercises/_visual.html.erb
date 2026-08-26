@@ -10,19 +10,40 @@
   <% elsif visual.frame_sequence? %>
     <% animated_items = visual.animated_items %>
     <% if animated_items.any? %>
-      <div
-        role="img"
-        aria-label="<%= visual.alt_text %>"
-        data-controller="frame-sequence"
-        data-frame-sequence-interval-value="<%= visual.frame_interval_ms %>"
-        class="relative">
-        <% animated_items.each_with_index do |item, index| %>
-          <%= image_tag rails_storage_proxy_path(item.file),
-            alt: "",
-            class: "max-w-full rounded-lg data-[hidden]:hidden",
-            data: { frame_sequence_target: "frame" }.merge(index.positive? ? { hidden: true } : {}) %>
+      <%= tag.div data: { controller: "frame-sequence", frame_sequence_interval_value: visual.frame_interval_ms, playing: "true" }, class: "space-y-3" do %>
+        <%= tag.div role: "img", aria: { label: visual.alt_text }, class: class_names("relative overflow-hidden rounded-lg", "bg-gray-950" => visual.unmodified_source_art?) do %>
+          <% animated_items.each_with_index do |item, index| %>
+            <%= image_tag rails_storage_proxy_path(item.file),
+              alt: "",
+              class: "max-w-full rounded-lg data-[hidden]:hidden",
+              data: { frame_sequence_target: "frame" }.merge(index.positive? ? { hidden: true } : {}) %>
+          <% end %>
         <% end %>
-      </div>
+        <% if animated_items.size >= 2 %>
+          <%= tag.div role: "group", aria: { label: "#{visual.alt_text} playback controls" }, class: "flex flex-wrap gap-2" do %>
+            <%= tag.button "Play",
+              type: "button",
+              class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]),
+              data: { action: "frame-sequence#play", frame_sequence_target: "play" },
+              aria: { label: "Play animation", pressed: "true" } %>
+            <%= tag.button "Pause",
+              type: "button",
+              class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]),
+              data: { action: "frame-sequence#pause", frame_sequence_target: "pause" },
+              aria: { label: "Pause animation", pressed: "false" } %>
+            <%= tag.button "Previous",
+              type: "button",
+              class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]),
+              data: { action: "frame-sequence#previous" },
+              aria: { label: "Previous frame" } %>
+            <%= tag.button "Next",
+              type: "button",
+              class: yass(btn: [ :base, { md: :base }, { neutral: :outline } ]),
+              data: { action: "frame-sequence#next" },
+              aria: { label: "Next frame" } %>
+          <% end %>
+        <% end %>
+      <% end %>
     <% end %>
     <% visual.download_items.each do |item| %>
       <p class="mt-3">

@@ -270,6 +270,63 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match %r{/rails/active_storage/previews/}, response.body
   end
 
+  test "renders map targets attribution player contract and gif original path" do
+    sign_in_as users(:one)
+    exercise = create_workout_guide_sequence_exercise(
+      name: "Detail playback",
+      targets: [ [ muscles(:chest), :primary ], [ muscles(:triceps), :secondary ] ]
+    )
+    add_image_visual(exercise, filename: "animated.gif", content_type: "image/gif", alt_text: "Animated gif")
+    add_image_visual(exercise, filename: "icon.svg", content_type: "image/svg+xml", alt_text: "Uploaded svg")
+    add_video_visual(exercise, alt_text: "Detail video")
+    exercise.save!
+    sequence = exercise.exercise_visuals.find_by!(kind: "frame_sequence")
+    gif = exercise.exercise_visuals.find_by!(alt_text: "Animated gif")
+    svg = exercise.exercise_visuals.find_by!(alt_text: "Uploaded svg")
+    gif_proxy = rails_storage_proxy_path(gif.exercise_visual_items.sole.file)
+    svg_proxy = rails_storage_proxy_path(svg.exercise_visual_items.sole.file)
+
+    get exercise_path(exercise)
+    assert_response :success
+    assert_select "[data-controller='frame-sequence'][data-frame-sequence-interval-value='#{sequence.frame_interval_ms}'][data-playing='true']"
+    assert_select "[role='img'][aria-label='#{sequence.alt_text}']"
+    assert_select "[role='img'][aria-label='#{sequence.alt_text}'] button", count: 0
+    assert_select "[role='group'][aria-label='#{sequence.alt_text} playback controls']"
+    assert_select "button[type='button'][aria-label='Play animation'][aria-pressed='true']", text: "Play"
+    assert_select "button[type='button'][aria-label='Pause animation'][aria-pressed='false']", text: "Pause"
+    assert_select "button[type='button'][aria-label='Previous frame']", text: "Previous"
+    assert_select "button[type='button'][aria-label='Next frame']", text: "Next"
+    assert_select "button[disabled]", count: 0
+    assert_select "svg[aria-hidden='true'] [data-muscle-key='chest']"
+    assert_select "section[aria-label='Muscle targets']", text: /Chest/
+    assert_select "section[aria-label='Muscle targets']", text: /Primary/
+    assert_select "section[aria-label='Muscle targets']", text: /Triceps/
+    assert_select "section[aria-label='Muscle targets']", text: /Secondary/
+    assert_select "section[aria-label='Source attribution']", text: /Workout Guide/
+    assert_select "img[alt='Animated gif'][src='#{gif_proxy}']"
+    assert_select "[role='group'][aria-label='Animated gif playback controls']", count: 0
+    assert_select "a[href='#{svg_proxy}']"
+    assert_select "img[src='#{svg_proxy}']", count: 0
+    assert_no_match %r{/rails/active_storage/representations/}, response.body
+    assert_no_match %r{/rails/active_storage/variants/}, response.body
+  end
+
+  test "show query count stays bounded at the production entry point" do
+    sign_in_as users(:one)
+    exercise = create_workout_guide_sequence_exercise(
+      name: "Query count hinge",
+      targets: [ [ muscles(:chest), :primary ], [ muscles(:triceps), :secondary ] ]
+    )
+
+    get exercise_path(exercise)
+    assert_response :success
+    ActiveRecord::Base.connection.clear_query_cache
+    assert_queries_count(12) do
+      get exercise_path(exercise)
+    end
+    assert_response :success
+  end
+
   test "creates a personal exercise with several muscle targets and roles" do
     sign_in_as users(:one)
     get new_exercise_path

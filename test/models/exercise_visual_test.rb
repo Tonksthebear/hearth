@@ -287,6 +287,39 @@ class ExerciseVisualTest < ActiveSupport::TestCase
     connection&.execute("PRAGMA ignore_check_constraints = OFF")
   end
 
+  test "unmodified_source_art is true only for an exact workout guide item list" do
+    exercise = create_workout_guide_sequence_exercise
+    visual = exercise.exercise_visuals.sole
+    assert visual.unmodified_source_art?
+
+    replaced = create_workout_guide_sequence_exercise(name: "Replaced hinge")
+    replaced_visual = replaced.exercise_visuals.sole
+    replaced_visual.sorted_items.first.file.attach(visual_upload("icon.svg", "image/svg+xml"))
+    replaced_visual.save!
+    assert_not replaced_visual.reload.unmodified_source_art?
+
+    deleted = create_workout_guide_sequence_exercise(name: "Deleted hinge")
+    deleted_visual = deleted.exercise_visuals.sole
+    deleted_visual.sorted_items.last.destroy!
+    assert_not deleted_visual.reload.unmodified_source_art?
+
+    added = create_workout_guide_sequence_exercise(name: "Added hinge")
+    added_visual = added.exercise_visuals.sole
+    attach_item(added_visual, "icon.svg", "image/svg+xml", source_identifier: "extra")
+    added_visual.normalize_positions
+    added_visual.save!
+    assert_not added_visual.reload.unmodified_source_art?
+
+    reordered = create_workout_guide_sequence_exercise(name: "Reordered hinge")
+    reordered_visual = reordered.exercise_visuals.sole
+    first, second, third = reordered_visual.sorted_items
+    first.position = 2
+    second.position = 3
+    third.position = 1
+    reordered_visual.save!
+    assert_not reordered_visual.reload.unmodified_source_art?
+  end
+
   test "a prescription-protected exercise keeps its visuals when destroy is restricted" do
     exercise = exercises(:squat)
     add_image_visual(exercise, alt_text: "Protected image")
