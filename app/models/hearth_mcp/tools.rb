@@ -354,8 +354,8 @@ module HearthMcp
     class ListExercises < Base
       contract name: "list_exercises", description: "List exercises in the authorized household library.", properties: PAGE_PROPERTIES
       def self.call(limit: Page::DEFAULT_LIMIT, cursor: nil, server_context:)
-        paginated_response(household(server_context).exercises, limit: limit, cursor: cursor,
-          server_context: server_context, &Serializer.method(:exercise))
+        paginated_response(household(server_context).exercises.includes(exercise_muscle_targets: :muscle),
+          limit: limit, cursor: cursor, server_context: server_context, &Serializer.method(:exercise))
       end
     end
 

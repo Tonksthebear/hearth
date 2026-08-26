@@ -107,7 +107,22 @@ module HearthMcp
       end
 
       def exercise(record)
-        record.attributes.symbolize_keys.slice(:id, :name, :modality, :movement_pattern, :equipment, :guidance)
+        record.attributes.symbolize_keys
+          .slice(:id, :name, :modality, :movement_pattern, :equipment, :guidance)
+          .merge(
+            muscle_targets: record.ordered_muscle_targets.map { |target|
+              {
+                muscle_key: target.muscle.key,
+                name: target.muscle.name,
+                muscle_group: target.muscle.muscle_group,
+                role: target.role
+              }
+            },
+            source_key: record.source_key,
+            source_version: record.source_version,
+            source_removed_at: record.source_removed_at&.utc&.iso8601,
+            source_attribution: exercise_source_attribution(record)
+          )
       end
 
       def workout_template(record)
@@ -186,6 +201,16 @@ module HearthMcp
             metric(metric, measurement).merge(measurement_id: measurement&.id)
           end
         }
+      end
+
+      def exercise_source_attribution(record)
+        return if record.source_key.nil?
+
+        attribution = record.source_snapshot
+        attribution = attribution["attribution"] if attribution.is_a?(Hash)
+        attribution = {} unless attribution.is_a?(Hash)
+        attribution = attribution.deep_stringify_keys
+        Exercise::SourceMerge::ATTRIBUTION_FIELDS.index_with { |field| attribution[field] }.symbolize_keys
       end
 
       def activity_item(item)

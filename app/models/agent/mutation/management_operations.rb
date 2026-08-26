@@ -8,7 +8,10 @@ module Agent::Mutation::ManagementOperations
     "workout_template" => "create_workout_template", "habit" => "create_habit"
   }.freeze
   NESTED_KEYS = {
-    "recipe" => %w[ingredients instructions], "workout_template" => %w[blocks], "habit" => %w[metrics]
+    "recipe" => %w[ingredients instructions],
+    "exercise" => %w[muscle_targets],
+    "workout_template" => %w[blocks],
+    "habit" => %w[metrics]
   }.freeze
   SCALAR_KEYS = CREATE_OPERATIONS.to_h do |type, operation|
     properties = HearthMcp::ManagementTools::DEFINITIONS.fetch(operation).fetch(2)
@@ -23,6 +26,19 @@ module Agent::Mutation::ManagementOperations
       if operation.include?("recipe") && arguments["ingredients"]
         keys = arguments["ingredients"].map { |row| row["key"] }
         raise ArgumentError, "Recipe ingredient keys must be unique" unless keys.compact.uniq.length == keys.length
+      end
+      if arguments.key?("muscle_targets")
+        entries = arguments["muscle_targets"]
+        raise ArgumentError, "muscle_targets must be an array" unless entries.is_a?(Array)
+
+        keys = entries.map { |row| row["muscle_key"] }
+        raise ArgumentError, "Exercise muscle keys must be unique" unless keys.compact.uniq.length == keys.length
+        entries.each do |row|
+          key = row["muscle_key"]
+          role = row["role"]
+          raise ArgumentError, "Unknown muscle key: #{key.inspect}" unless Muscle::KEYS.include?(key.to_s)
+          raise ArgumentError, "Invalid muscle target role: #{role.inspect}" unless ExerciseMuscleTarget::ROLES.include?(role.to_s)
+        end
       end
     end
 
@@ -47,7 +63,7 @@ module Agent::Mutation::ManagementOperations
       when "create_recipe", "update_recipe"
         apply_recipe(operation, arguments, context)
       when "create_exercise", "update_exercise"
-        apply_simple(operation, arguments, context, Exercise, SCALAR_KEYS.fetch("exercise"))
+        apply_exercise(operation, arguments, context)
       when "create_workout_template", "update_workout_template"
         apply_workout(operation, arguments, context)
       when "create_habit", "update_habit"
@@ -60,7 +76,11 @@ module Agent::Mutation::ManagementOperations
       when Person
         scalar_snapshot(record, "person")
       when Exercise
-        scalar_snapshot(record, "exercise")
+        scalar_snapshot(record, "exercise").merge(
+          "muscle_targets" => record.ordered_muscle_targets.map.with_index(1) { |target, position|
+            { "muscle_key" => target.muscle.key, "role" => target.role, "position" => position }
+          }
+        )
       when Recipe
         scalar_snapshot(record, "recipe").merge(
           "ingredients" => record.recipe_ingredients.map do |row|
@@ -121,10 +141,13 @@ module Agent::Mutation::ManagementOperations
     end
 
     private
-      def apply_simple(operation, arguments, context, klass, keys)
-        record = operation.start_with?("create_") ? context.household.public_send(klass.model_name.collection).build : record_for(operation:, arguments:, context:)
-        record.assign_attributes(arguments.slice(*keys))
-        record.save!
+      def apply_exercise(operation, arguments, context)
+        record = operation == "create_exercise" ? context.household.exercises.build : record_for(operation:, arguments:, context:)
+        Exercise.transaction do
+          record.assign_attributes(arguments.slice(*SCALAR_KEYS.fetch("exercise")))
+          record.save!
+          record.replace_muscle_targets!(arguments["muscle_targets"]) if arguments.key?("muscle_targets")
+        end
         record
       end
 
@@ -219,7 +242,7 @@ module Agent::Mutation::ManagementOperations
         child_names(type).each do |name|
           next unless arguments.key?(name)
           before_by_id = Array(before[name]).index_by { |row| row["id"].to_s }
-          after[name] = arguments[name].map.with_index(1) do |row, position|
+          after[name] = canonical_child_order(type, name, arguments[name]).map.with_index(1) do |row, position|
             row = normalize_child_projection(type, name, row.deep_stringify_keys)
             prior = row["id"] ? before_by_id.fetch(row["id"].to_s, {}) : {}
             projected = prior.merge(row).merge("position" => position)
@@ -250,6 +273,17 @@ module Agent::Mutation::ManagementOperations
 
         row.transform_keys("name" => "display_name", "quantity" => "display_quantity").tap do |ingredient|
           ingredient["key"] = "ingredient-#{ingredient['id']}" if ingredient["id"]
+        end
+      end
+
+      def canonical_child_order(type, name, rows)
+        return rows unless type == "exercise" && name == "muscle_targets"
+
+        keys = rows.map { |row| row.deep_stringify_keys["muscle_key"].to_s }
+        positions = Muscle.where(key: keys).pluck(:key, :display_position).to_h
+        rows.sort_by.with_index do |row, index|
+          key = row.deep_stringify_keys["muscle_key"].to_s
+          [ positions.fetch(key, Float::INFINITY), index ]
         end
       end
 
@@ -297,10 +331,10 @@ module Agent::Mutation::ManagementOperations
         }
       end
 
-      def child_identity(row) = (row["id"] || row["key"] || "position-#{row['position']}").to_s
+      def child_identity(row) = (row["id"] || row["key"] || row["muscle_key"] || "position-#{row['position']}").to_s
 
       def compact_child(row)
-        label = row["name"] || row["display_name"] || row["title"] || row["label"] || row["body"]
+        label = row["name"] || row["display_name"] || row["title"] || row["label"] || row["body"] || row["muscle_key"]
         { "identity" => child_identity(row), "position" => row["position"], "label" => summarized(label) }
       end
 
