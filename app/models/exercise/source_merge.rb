@@ -6,10 +6,10 @@ class Exercise::SourceMerge
   SCALAR_FIELDS = %w[name modality movement_pattern equipment].freeze
   ATTRIBUTION_FIELDS = %w[creator creator_url license license_url source_name source_url change_note].freeze
 
-  def self.mark_removed!(household:, present_source_keys:)
+  def self.mark_removed!(household:, present_source_keys:, source_namespace:)
     present = Array(present_source_keys).filter_map { |key| key.to_s.presence }.to_set
 
-    household.exercises.from_source.filter_map { |exercise|
+    household.exercises.from_source_namespace(source_namespace).filter_map { |exercise|
       next if present.include?(exercise.source_key)
 
       if exercise.source_removed_at.blank?

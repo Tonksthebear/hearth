@@ -1,0 +1,196 @@
+[
+  {
+    "id": "exercise-bench-press",
+    "slug": "bench-press",
+    "name": "Bench Press",
+    "exerciseType": "weight_reps",
+    "equipment": "Barbell",
+    "primaryMuscle": "Chest",
+    "secondaryMuscles": [
+      "Triceps",
+      "Shoulders"
+    ],
+    "isStretch": false,
+    "frames": [
+      {
+        "index": 1,
+        "path": "assets/bench-press/frame-1.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "source": {
+            "name": "Everkinetic",
+            "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0042-tension.svg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+            "changes": "Rasterized on a transparent 512 \u00d7 512 canvas and recolored for monochrome display."
+          }
+        }
+      },
+      {
+        "index": 2,
+        "path": "assets/bench-press/frame-2.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      },
+      {
+        "index": 3,
+        "path": "assets/bench-press/frame-3.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      }
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": {
+        "name": "Everkinetic",
+        "url": "https://github.com/everkinetic/data/blob/main/dist/svg/0042-tension.svg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "changes": "Rasterized on a transparent 512 \u00d7 512 canvas and recolored for monochrome display."
+      }
+    }
+  },
+  {
+    "id": "exercise-sumo-deadlift",
+    "slug": "sumo-deadlift",
+    "name": "Sumo Deadlift",
+    "exerciseType": "weight_reps",
+    "equipment": "Barbell",
+    "primaryMuscle": "Posterior Chain",
+    "secondaryMuscles": [
+      "Glutes",
+      "Quads"
+    ],
+    "isStretch": false,
+    "frames": [
+      {
+        "index": 1,
+        "path": "assets/sumo-deadlift/frame-1.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      },
+      {
+        "index": 2,
+        "path": "assets/sumo-deadlift/frame-2.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      },
+      {
+        "index": 3,
+        "path": "assets/sumo-deadlift/frame-3.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      }
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
+    "id": "exercise-cat-cow-stretch",
+    "slug": "cat-cow-stretch",
+    "name": "Cat-Cow Stretch",
+    "exerciseType": "duration",
+    "equipment": "Bodyweight",
+    "primaryMuscle": "Mobility",
+    "secondaryMuscles": [
+      "Back",
+      "Core"
+    ],
+    "isStretch": true,
+    "frames": [
+      {
+        "index": 1,
+        "path": "assets/cat-cow-stretch/frame-1.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      },
+      {
+        "index": 2,
+        "path": "assets/cat-cow-stretch/frame-2.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      },
+      {
+        "index": 3,
+        "path": "assets/cat-cow-stretch/frame-3.png",
+        "width": 512,
+        "height": 512,
+        "format": "png",
+        "attribution": {
+          "creator": "Bryl Lim",
+          "creatorUrl": "https://bryllim.com",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      }
+    ],
+    "attribution": {
+      "creator": "Bryl Lim",
+      "creatorUrl": "https://bryllim.com",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  }
+]

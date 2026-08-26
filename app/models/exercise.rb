@@ -27,14 +27,17 @@ class Exercise < ApplicationRecord
   validate :active_muscle_targets_are_unique
 
   scope :from_source, -> { where.not(source_key: nil) }
+  scope :from_source_namespace, ->(namespace) {
+    from_source.where("source_key LIKE ? ESCAPE ?", "#{sanitize_sql_like(namespace.to_s)}:%", "\\")
+  }
 
   class << self
     def merge_source_record!(household:, record:)
       SourceMerge.new(household:, record:).merge_record!
     end
 
-    def mark_sources_removed!(household:, present_source_keys:)
-      SourceMerge.mark_removed!(household:, present_source_keys:)
+    def mark_sources_removed!(household:, present_source_keys:, source_namespace:)
+      SourceMerge.mark_removed!(household:, present_source_keys:, source_namespace:)
     end
   end
 
