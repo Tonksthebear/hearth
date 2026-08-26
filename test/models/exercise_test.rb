@@ -20,4 +20,18 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:name], "has already been taken"
   end
+
+  test "household created exercises use the same muscle targets as imported exercises" do
+    exercise = households(:home).exercises.create!(
+      name: "Household squat",
+      modality: :strength,
+      movement_pattern: :squat
+    )
+    target = exercise.exercise_muscle_targets.create!(muscle: muscles(:quadriceps), role: :primary)
+
+    assert_equal muscles(:quadriceps), target.muscle
+    assert_equal "primary", target.role
+    assert_includes exercise.muscles, muscles(:quadriceps)
+    refute_includes ExerciseMuscleTarget.column_names, "household_id"
+  end
 end

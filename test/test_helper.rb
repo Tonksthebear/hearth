@@ -100,6 +100,7 @@ module ActiveSupport
         WorkoutTemplate.delete_all
         ExerciseVisualItem.delete_all
         ExerciseVisual.delete_all
+        ExerciseMuscleTarget.delete_all
         Exercise.delete_all
         RecipeInstructionIngredient.delete_all
         RecipeInstruction.delete_all

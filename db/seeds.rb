@@ -1,5 +1,6 @@
 # Demo data is opt-in so a normal production boot remains on the first-run setup path.
 Nutrient.ensure_defaults!
+Muscle.ensure_defaults!
 
 if ENV["HEARTH_DEMO_DATA"] == "1"
   demo_email = "demo@example.com"

@@ -1,0 +1,111 @@
+# Hearth muscle vocabulary v1.
+# display_position orders the text target list head to toe.
+# SVG regions map by the stable key, not by display_position.
+adductors:
+  name: Adductors
+  muscle_group: hips
+  aliases:
+    - Adductors
+  display_position: 15
+biceps:
+  name: Biceps
+  muscle_group: arms
+  aliases:
+    - Biceps
+  display_position: 7
+calves:
+  name: Calves
+  muscle_group: legs
+  aliases:
+    - Calves
+  display_position: 19
+chest:
+  name: Chest
+  muscle_group: chest
+  aliases:
+    - Chest
+  display_position: 4
+erector_spinae:
+  name: Erector spinae
+  muscle_group: back
+  aliases: []
+  display_position: 12
+forearms:
+  name: Forearms
+  muscle_group: arms
+  aliases:
+    - Forearms
+  display_position: 9
+glutes:
+  name: Glutes
+  muscle_group: hips
+  aliases:
+    - Glutes
+  display_position: 16
+groin:
+  name: Groin
+  muscle_group: hips
+  aliases:
+    - Groin
+  display_position: 14
+hamstrings:
+  name: Hamstrings
+  muscle_group: legs
+  aliases:
+    - Hamstrings
+  display_position: 18
+hip_flexors:
+  name: Hip flexors
+  muscle_group: hips
+  aliases: []
+  display_position: 13
+lats:
+  name: Lats
+  muscle_group: back
+  aliases:
+    - Lats
+  display_position: 6
+obliques:
+  name: Obliques
+  muscle_group: core
+  aliases: []
+  display_position: 11
+quadriceps:
+  name: Quadriceps
+  muscle_group: legs
+  aliases:
+    - Quads
+  display_position: 17
+rear_delts:
+  name: Rear delts
+  muscle_group: shoulders
+  aliases:
+    - Rear Delts
+  display_position: 3
+rectus_abdominis:
+  name: Rectus abdominis
+  muscle_group: core
+  aliases: []
+  display_position: 10
+rhomboids:
+  name: Rhomboids
+  muscle_group: back
+  aliases: []
+  display_position: 5
+shoulders:
+  name: Shoulders
+  muscle_group: shoulders
+  aliases:
+    - Shoulders
+  display_position: 2
+trapezius:
+  name: Trapezius
+  muscle_group: back
+  aliases: []
+  display_position: 1
+triceps:
+  name: Triceps
+  muscle_group: arms
+  aliases:
+    - Triceps
+  display_position: 8

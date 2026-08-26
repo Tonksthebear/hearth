@@ -1,0 +1,14 @@
+squat_quadriceps:
+  exercise: squat
+  muscle: quadriceps
+  role: primary
+
+squat_glutes:
+  exercise: squat
+  muscle: glutes
+  role: secondary
+
+bike_quadriceps:
+  exercise: bike
+  muscle: quadriceps
+  role: primary
