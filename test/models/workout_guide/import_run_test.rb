@@ -18,6 +18,25 @@ class WorkoutGuide::ImportRunTest < ActiveSupport::TestCase
     end
   end
 
+  test "start! enqueues the job after the lock transaction commits" do
+    household = households(:home)
+    caller_depth = WorkoutGuide::ImportRun.connection.open_transactions
+    enqueue_depth = nil
+    enqueued_id = nil
+
+    with_stubbed_method(WorkoutGuide::ImportJob, :perform_later, ->(id) {
+      enqueue_depth = WorkoutGuide::ImportRun.connection.open_transactions
+      enqueued_id = id
+    }) do
+      result = WorkoutGuide::ImportRun.start!(household:)
+      assert_not result.refused?
+      assert_equal result.run.id, enqueued_id
+    end
+
+    assert_equal caller_depth, enqueue_depth
+    assert WorkoutGuide::ImportRun.exists?(enqueued_id)
+  end
+
   test "a second start! while a run is queued creates no second row" do
     household = households(:home)
     first = WorkoutGuide::ImportRun.start!(household:)

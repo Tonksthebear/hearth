@@ -41,20 +41,24 @@ class WorkoutGuide::ImportRun < ApplicationRecord
     end
 
     def start!(household:)
-      household.with_lock do
+      result = household.with_lock do
         existing = active_for(household)
-        return StartResult.new(run: existing, refused: true) if existing
-
-        run = create!(household:, status: "queued")
-        begin
-          WorkoutGuide::ImportJob.perform_later(run.id)
-        rescue StandardError
-          run.mark_failed!(SAFE_ENQUEUE_FAILURE_MESSAGE)
-          return StartResult.new(run:, refused: true)
+        if existing
+          StartResult.new(run: existing, refused: true)
+        else
+          StartResult.new(run: create!(household:, status: "queued"), refused: false)
         end
-
-        StartResult.new(run:, refused: false)
       end
+      return result if result.refused?
+
+      begin
+        WorkoutGuide::ImportJob.perform_later(result.run.id)
+      rescue StandardError
+        result.run.mark_failed!(SAFE_ENQUEUE_FAILURE_MESSAGE)
+        return StartResult.new(run: result.run, refused: true)
+      end
+
+      result
     rescue ActiveRecord::RecordNotUnique
       StartResult.new(run: active_for(household), refused: true)
     end
