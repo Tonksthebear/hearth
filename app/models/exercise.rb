@@ -75,7 +75,25 @@ class Exercise < ApplicationRecord
   end
 
   def ordered_muscle_targets
-    exercise_muscle_targets.in_display_order
+    return exercise_muscle_targets.in_display_order unless exercise_muscle_targets.loaded?
+
+    exercise_muscle_targets.sort_by { |target| target.muscle.display_position }
+  end
+
+  def replace_muscle_targets!(entries)
+    raise ArgumentError, "Exercise must be persisted" unless persisted?
+
+    rows = normalize_muscle_target_entries(entries)
+    transaction do
+      exercise_muscle_targets.where.not(muscle_id: rows.keys).destroy_all
+      rows.each do |muscle_id, role|
+        target = exercise_muscle_targets.find_or_initialize_by(muscle_id:)
+        target.role = role
+        target.save!
+      end
+    end
+    exercise_muscle_targets.reset
+    self
   end
 
   def source_linked?
@@ -141,6 +159,25 @@ class Exercise < ApplicationRecord
       self
     rescue ArgumentError, IndexError
       raise ArgumentError, "Invalid #{label} row."
+    end
+
+    def normalize_muscle_target_entries(entries)
+      raise ArgumentError, "muscle_targets must be an array" unless entries.is_a?(Array)
+
+      seen = []
+      entries.each_with_object({}) do |entry, rows|
+        row = entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : {}
+        key = row["muscle_key"]
+        role = row["role"]
+        raise ArgumentError, "Exercise muscle keys must be unique" if seen.include?(key)
+
+        seen << key
+        muscle = Muscle.find_by(key: key.to_s)
+        raise ArgumentError, "Unknown muscle key: #{key.inspect}" unless muscle
+        raise ArgumentError, "Invalid muscle target role: #{role.inspect}" unless ExerciseMuscleTarget::ROLES.include?(role.to_s)
+
+        rows[muscle.id] = role.to_s
+      end
     end
 
     def park_changed_nested_positions

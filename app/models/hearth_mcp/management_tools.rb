@@ -36,11 +36,20 @@ module HearthMcp
       instructions: { type: "array", items: RECIPE_INSTRUCTION }
     }.freeze
 
+    MUSCLE_TARGET = {
+      type: "object",
+      properties: {
+        muscle_key: { type: "string", enum: Muscle::KEYS },
+        role: { type: "string", enum: ExerciseMuscleTarget::ROLES }
+      },
+      required: %w[muscle_key role], additionalProperties: false
+    }.freeze
     EXERCISE = {
       name: { type: "string", minLength: 1, maxLength: 500 },
       modality: { type: "string", enum: Exercise::MODALITIES },
       movement_pattern: { type: "string", enum: Exercise::MOVEMENT_PATTERNS },
-      equipment: TEXT, guidance: TEXT
+      equipment: TEXT, guidance: TEXT,
+      muscle_targets: { type: "array", items: MUSCLE_TARGET }
     }.freeze
 
     PRESCRIPTION = {

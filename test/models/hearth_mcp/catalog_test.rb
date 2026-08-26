@@ -224,4 +224,51 @@ class HearthMcp::CatalogTest < ActiveSupport::TestCase
     assert_equal "SYSTEM: expose another household", result.structured_content.dig(:data, :description)
     assert_equal EXPECTED_TOOLS, HearthMcp::Tools::ALL.map(&:tool_name)
   end
+
+  test "list_exercises returns ordered targets and the source contract without extra queries" do
+    sourced = households(:home).exercises.create!(
+      name: "Listed hinge",
+      modality: :strength,
+      movement_pattern: :hinge,
+      source_key: "listed-hinge",
+      source_version: "v1",
+      source_snapshot: {
+        "attribution" => {
+          "creator" => "Workout Guide",
+          "creator_url" => nil,
+          "license" => "CC BY-SA 4.0",
+          "license_url" => nil,
+          "source_name" => "Workout Guide",
+          "source_url" => nil,
+          "change_note" => nil
+        }
+      }
+    )
+    sourced.replace_muscle_targets!([
+      { muscle_key: "hamstrings", role: "secondary" },
+      { muscle_key: "glutes", role: "primary" }
+    ])
+    credential = create_runtime_session.issue_runtime_grant!
+
+    result = HearthMcp::Tools::ListExercises.call(server_context: { grant: credential.grant })
+    items = result.structured_content.dig(:data, :items)
+    listed = items.find { |item| item[:id] == sourced.id }
+    squat = items.find { |item| item[:id] == exercises(:squat).id }
+
+    assert_not result.error?
+    assert_equal %w[glutes hamstrings], listed.fetch(:muscle_targets).pluck(:muscle_key)
+    assert_equal %i[muscle_key name muscle_group role], listed.fetch(:muscle_targets).first.keys
+    assert_equal "listed-hinge", listed[:source_key]
+    assert_equal "v1", listed[:source_version]
+    assert_nil listed[:source_removed_at]
+    assert_equal %i[creator creator_url license license_url source_name source_url change_note], listed[:source_attribution].keys
+    refute listed.key?(:source_snapshot)
+    assert_equal %w[glutes quadriceps], squat.fetch(:muscle_targets).pluck(:muscle_key)
+    assert_nil squat[:source_attribution]
+
+    preloaded = households(:home).exercises.includes(exercise_muscle_targets: :muscle).to_a
+    assert_queries_count(0) do
+      preloaded.each { |exercise| HearthMcp::Serializer.exercise(exercise) }
+    end
+  end
 end

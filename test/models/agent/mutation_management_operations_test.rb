@@ -342,6 +342,244 @@ class Agent::MutationManagementOperationsTest < ActiveSupport::TestCase
     refute Agent::MutationProposal.exists?(idempotency_key: "mismatched-preview-capability")
   end
 
+  test "create_exercise persists multiple muscle targets on a personal exercise" do
+    exercise = execute("create_exercise", {
+      name: "Targeted suitcase carry",
+      modality: "strength",
+      movement_pattern: "carry",
+      muscle_targets: [
+        { muscle_key: "forearms", role: "primary" },
+        { muscle_key: "glutes", role: "secondary" },
+        { muscle_key: "obliques", role: "stabilizer" }
+      ]
+    }, "create-exercise-targets")
+
+    assert_nil exercise.source_key
+    assert_equal(
+      [ [ "forearms", "primary" ], [ "obliques", "stabilizer" ], [ "glutes", "secondary" ] ],
+      exercise.ordered_muscle_targets.map { |target| [ target.muscle.key, target.role ] }
+    )
+  end
+
+  test "update_exercise replaces, omits, or clears muscle targets by key presence" do
+    exercise = execute("create_exercise", {
+      name: "Replacement hinge",
+      modality: "strength",
+      movement_pattern: "hinge",
+      muscle_targets: [
+        { muscle_key: "glutes", role: "primary" },
+        { muscle_key: "hamstrings", role: "secondary" }
+      ]
+    }, "replace-targets-create")
+
+    execute("update_exercise", {
+      id: exercise.id,
+      muscle_targets: [
+        { muscle_key: "glutes", role: "secondary" },
+        { muscle_key: "erector_spinae", role: "stabilizer" }
+      ]
+    }, "replace-targets-update")
+    assert_equal(
+      [ [ "erector_spinae", "stabilizer" ], [ "glutes", "secondary" ] ],
+      exercise.reload.ordered_muscle_targets.map { |target| [ target.muscle.key, target.role ] }
+    )
+
+    execute("update_exercise", { id: exercise.id, guidance: "Keep the bar close" }, "omit-targets-update")
+    assert_equal "Keep the bar close", exercise.reload.guidance
+    assert_equal(
+      [ [ "erector_spinae", "stabilizer" ], [ "glutes", "secondary" ] ],
+      exercise.ordered_muscle_targets.map { |target| [ target.muscle.key, target.role ] }
+    )
+
+    execute("update_exercise", { id: exercise.id, muscle_targets: [] }, "clear-targets-update")
+    assert_empty exercise.reload.exercise_muscle_targets
+  end
+
+  test "exercise snapshots and previews use muscle_key identity and derived display order" do
+    exercise = execute("create_exercise", {
+      name: "Preview hinge",
+      modality: "strength",
+      movement_pattern: "hinge",
+      muscle_targets: [
+        { muscle_key: "glutes", role: "primary" },
+        { muscle_key: "hamstrings", role: "secondary" }
+      ]
+    }, "preview-exercise-create")
+
+    snapshot = Agent::Mutation::ManagementOperations.snapshot(exercise)
+    assert_equal(
+      [
+        { "muscle_key" => "glutes", "role" => "primary", "position" => 1 },
+        { "muscle_key" => "hamstrings", "role" => "secondary", "position" => 2 }
+      ],
+      snapshot.fetch("muscle_targets")
+    )
+
+    role_change = {
+      id: exercise.id,
+      muscle_targets: [
+        { muscle_key: "hamstrings", role: "secondary" },
+        { muscle_key: "glutes", role: "stabilizer" }
+      ]
+    }
+    proposal, token = stage("update_exercise", role_change, "preview-role-change")
+    targets = proposal.preview.dig("children", "muscle_targets")
+    assert_equal [ "glutes" ], targets.fetch("updated").map { |row| row["identity"] }
+    assert_empty targets.fetch("added")
+    assert_empty targets.fetch("removed")
+    assert_empty targets.fetch("reordered")
+
+    reorder = {
+      id: exercise.id,
+      muscle_targets: [
+        { muscle_key: "hamstrings", role: "secondary" },
+        { muscle_key: "glutes", role: "primary" }
+      ]
+    }
+    reorder_proposal, reorder_token = stage("update_exercise", reorder, "preview-request-reorder")
+    reorder_diff = reorder_proposal.preview.dig("children", "muscle_targets")
+    assert_empty reorder_diff.fetch("added")
+    assert_empty reorder_diff.fetch("removed")
+    assert_empty reorder_diff.fetch("updated")
+    assert_empty reorder_diff.fetch("reordered")
+
+    execution = reorder_proposal.decide!(outcome: "approved", by: users(:two), token: reorder_token)
+    assert_equal snapshot.fetch("muscle_targets"), execution.after_state.fetch("muscle_targets")
+    assert_equal snapshot.fetch("muscle_targets"), Agent::Mutation::ManagementOperations.snapshot(exercise.reload).fetch("muscle_targets")
+
+    confirmed = proposal.decide!(outcome: "approved", by: users(:two), token: token)
+    assert_equal(
+      [
+        { "muscle_key" => "glutes", "role" => "stabilizer", "position" => 1 },
+        { "muscle_key" => "hamstrings", "role" => "secondary", "position" => 2 }
+      ],
+      confirmed.after_state.fetch("muscle_targets")
+    )
+    assert_equal(
+      [ [ "glutes", "stabilizer" ], [ "hamstrings", "secondary" ] ],
+      exercise.reload.ordered_muscle_targets.map { |target| [ target.muscle.key, target.role ] }
+    )
+  end
+
+  test "recipe ingredient preview identities stay unchanged after the muscle_key fallback" do
+    recipe = execute("create_recipe", {
+      title: "Identity soup", provenance_status: "personal",
+      ingredients: [ { key: "stock", name: "Stock", quantity: "2", unit: "cups" } ],
+      instructions: [ { body: "Warm", ingredient_keys: %w[stock] } ]
+    }, "identity-recipe-create")
+    ingredient = recipe.recipe_ingredients.sole
+    proposal, = stage("update_recipe", {
+      id: recipe.id,
+      ingredients: [ { id: ingredient.id, key: "stock", name: "Bone stock", quantity: "3", unit: "cups" } ]
+    }, "identity-recipe-update")
+
+    updated = proposal.preview.dig("children", "ingredients", "updated").sole
+    assert_equal ingredient.id.to_s, updated.fetch("identity")
+    refute_match(/muscle/, updated.fetch("identity"))
+    assert_empty proposal.preview.dig("children", "ingredients", "added")
+    assert_empty proposal.preview.dig("children", "ingredients", "removed")
+  end
+
+  test "exercise expected_state includes targets so later target edits make a proposal stale" do
+    exercise = execute("create_exercise", {
+      name: "Stale hinge",
+      modality: "strength",
+      movement_pattern: "hinge",
+      muscle_targets: [ { muscle_key: "glutes", role: "primary" } ]
+    }, "stale-targets-create")
+    proposal, token = stage("update_exercise", { id: exercise.id, guidance: "Staged cue" }, "stale-targets-update")
+    exercise.replace_muscle_targets!([ { muscle_key: "hamstrings", role: "primary" } ])
+
+    assert_raises(ActiveRecord::StaleObjectError) do
+      proposal.decide!(outcome: "approved", by: users(:two), token: token)
+    end
+    assert_equal "failed", proposal.reload.status
+    assert_nil exercise.reload.guidance
+  end
+
+  test "invalid muscle targets roll back create_exercise and leave no exercise" do
+    count = Exercise.count
+
+    unknown = assert_raises(ArgumentError) do
+      execute("create_exercise", {
+        name: "Unknown target carry",
+        modality: "strength",
+        movement_pattern: "carry",
+        muscle_targets: [ { muscle_key: "not_a_muscle", role: "primary" } ]
+      }, "unknown-target-create")
+    end
+    invalid = assert_raises(ArgumentError) do
+      execute("create_exercise", {
+        name: "Invalid role carry",
+        modality: "strength",
+        movement_pattern: "carry",
+        muscle_targets: [ { muscle_key: "glutes", role: "assistant" } ]
+      }, "invalid-role-create")
+    end
+
+    assert_match(/Unknown muscle key/, unknown.message)
+    assert_match(/Invalid muscle target role/, invalid.message)
+    assert_equal count, Exercise.count
+    refute Exercise.exists?(name: "Unknown target carry")
+    refute Exercise.exists?(name: "Invalid role carry")
+  end
+
+  test "dropping a source-supplied target records a merge tombstone and does not re-add the muscle" do
+    created = Exercise.merge_source_record!(
+      household: households(:home),
+      record: {
+        source_key: "catalog-agent-hinge",
+        source_version: "v1",
+        name: "Catalog agent hinge",
+        modality: "strength",
+        movement_pattern: "hinge",
+        equipment: "Barbell",
+        targets: { "glutes" => "primary", "hamstrings" => "secondary" },
+        visuals: [],
+        attribution: {
+          "creator" => "Workout Guide",
+          "creator_url" => "https://example.test/creator",
+          "license" => "CC BY-SA 4.0",
+          "license_url" => "https://creativecommons.org/licenses/by-sa/4.0/",
+          "source_name" => "Workout Guide",
+          "source_url" => "https://example.test/source",
+          "change_note" => "Initial catalog import"
+        }
+      }
+    )
+    exercise = created.exercise
+
+    execute("update_exercise", {
+      id: exercise.id,
+      muscle_targets: [ { muscle_key: "glutes", role: "primary" } ]
+    }, "drop-source-target")
+    result = Exercise.merge_source_record!(
+      household: households(:home),
+      record: {
+        source_key: "catalog-agent-hinge",
+        source_version: "v1",
+        name: "Catalog agent hinge",
+        modality: "strength",
+        movement_pattern: "hinge",
+        equipment: "Barbell",
+        targets: { "glutes" => "primary", "hamstrings" => "secondary" },
+        visuals: [],
+        attribution: {
+          "creator" => "Workout Guide",
+          "creator_url" => "https://example.test/creator",
+          "license" => "CC BY-SA 4.0",
+          "license_url" => "https://creativecommons.org/licenses/by-sa/4.0/",
+          "source_name" => "Workout Guide",
+          "source_url" => "https://example.test/source",
+          "change_note" => "Initial catalog import"
+        }
+      }
+    )
+
+    assert_equal [ "glutes" ], result.exercise.ordered_muscle_targets.map { |target| target.muscle.key }
+    assert_includes result.exercise.source_snapshot.fetch("removed_target_keys"), "hamstrings"
+  end
+
   private
     def prescription_keys
       %i[

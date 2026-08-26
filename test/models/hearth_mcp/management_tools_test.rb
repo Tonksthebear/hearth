@@ -92,6 +92,159 @@ class HearthMcp::ManagementToolsTest < ActiveSupport::TestCase
     assert_equal proposal_count, Agent::MutationProposal.count
   end
 
+  test "create_exercise with muscle targets stages one proposal and writes no domain rows" do
+    grant = issue_grant(%w[catalog_manage])
+    counts = domain_counts
+    target_count = ExerciseMuscleTarget.count
+    tool = management_tool("create_exercise")
+
+    result = tool.call(
+      **exercise_target_arguments,
+      idempotency_key: "stage-exercise-targets",
+      server_context: { grant: grant }
+    )
+
+    assert_not result.error?, result.content.inspect
+    proposal = Agent::MutationProposal.find(result.structured_content.fetch(:proposal_id))
+    assert_equal "pending", proposal.status
+    assert_equal "catalog.manage", proposal.permission_request.capability
+    assert_equal 1, Agent::MutationProposal.where(idempotency_key: "stage-exercise-targets").count
+    assert_equal counts, domain_counts
+    assert_equal target_count, ExerciseMuscleTarget.count
+  end
+
+  test "invalid muscle target requests fail before a proposal is staged" do
+    grant = issue_grant(%w[catalog_manage])
+    tool = management_tool("create_exercise")
+    proposal_count = Agent::MutationProposal.count
+
+    duplicate = tool.call(
+      name: "Duplicate targets",
+      modality: "strength",
+      movement_pattern: "carry",
+      muscle_targets: [
+        { muscle_key: "glutes", role: "primary" },
+        { muscle_key: "glutes", role: "secondary" }
+      ],
+      idempotency_key: "duplicate-muscle-keys",
+      server_context: { grant: grant }
+    )
+    unknown = tool.call(
+      name: "Unknown target",
+      modality: "strength",
+      movement_pattern: "carry",
+      muscle_targets: [ { muscle_key: "not_a_muscle", role: "primary" } ],
+      idempotency_key: "unknown-muscle-key",
+      server_context: { grant: grant }
+    )
+    invalid = tool.call(
+      name: "Invalid role",
+      modality: "strength",
+      movement_pattern: "carry",
+      muscle_targets: [ { muscle_key: "glutes", role: "assistant" } ],
+      idempotency_key: "invalid-muscle-role",
+      server_context: { grant: grant }
+    )
+
+    assert duplicate.error?
+    assert unknown.error?
+    assert invalid.error?
+    assert_match(/unique/i, duplicate.content.sole[:text])
+    assert_match(/Unknown muscle key|not_a_muscle/, unknown.content.sole[:text])
+    assert_match(/Invalid muscle target role|assistant/, invalid.content.sole[:text])
+    assert_equal proposal_count, Agent::MutationProposal.count
+  end
+
+  test "update_exercise rejects a foreign-household exercise id before staging" do
+    grant = issue_grant(%w[catalog_manage])
+    connection = ActiveRecord::Base.connection
+    connection.execute("PRAGMA ignore_check_constraints = ON")
+    foreign = Household.new(name: "Foreign household", installation_key: 2)
+    foreign.save!(validate: false)
+    foreign_exercise = foreign.exercises.create!(name: "Foreign carry", modality: "strength", movement_pattern: "carry")
+    connection.execute("PRAGMA ignore_check_constraints = OFF")
+    proposal_count = Agent::MutationProposal.count
+
+    result = management_tool("update_exercise").call(
+      id: foreign_exercise.id,
+      guidance: "Should not stage",
+      idempotency_key: "foreign-exercise-update",
+      server_context: { grant: grant }
+    )
+
+    assert result.error?
+    assert_equal proposal_count, Agent::MutationProposal.count
+  ensure
+    connection&.execute("PRAGMA ignore_check_constraints = OFF")
+  end
+
+  test "health.write and people.manage grants cannot call exercise management tools" do
+    health = issue_grant(%w[health_write])
+    people = issue_grant(%w[people_manage])
+    proposal_count = Agent::MutationProposal.count
+
+    denied = [
+      management_tool("create_exercise").call(
+        **exercise_target_arguments,
+        idempotency_key: "health-cannot-create-exercise",
+        server_context: { grant: health }
+      ),
+      management_tool("update_exercise").call(
+        id: exercises(:squat).id,
+        guidance: "Denied",
+        idempotency_key: "people-cannot-update-exercise",
+        server_context: { grant: people }
+      )
+    ]
+
+    assert denied.all?(&:error?)
+    assert_match(/catalog\.manage authorization is required/, denied.first.content.sole[:text])
+    assert_match(/catalog\.manage authorization is required/, denied.second.content.sole[:text])
+    assert_equal proposal_count, Agent::MutationProposal.count
+  end
+
+  test "confirmed exercise target execution writes audit snapshots and failed execution leaves no partial rows" do
+    grant = issue_grant(%w[catalog_manage])
+    staged = management_tool("create_exercise").call(
+      **exercise_target_arguments,
+      idempotency_key: "audit-exercise-targets",
+      server_context: { grant: grant }
+    )
+    proposal = Agent::MutationProposal.find(staged.structured_content.fetch(:proposal_id))
+    execution = proposal.decide!(outcome: "approved", by: users(:two), token: proposal.confirmation_token)
+    exercise = Exercise.find(execution.result.fetch("id"))
+
+    assert_equal({}, execution.before_state)
+    assert_equal(
+      [
+        { "muscle_key" => "forearms", "role" => "primary", "position" => 1 },
+        { "muscle_key" => "glutes", "role" => "secondary", "position" => 2 }
+      ],
+      execution.after_state.fetch("muscle_targets")
+    )
+    assert_equal [ "forearms", "glutes" ], exercise.ordered_muscle_targets.map { |target| target.muscle.key }
+
+    count = Exercise.count
+    colliding = management_tool("create_exercise").call(
+      name: exercises(:squat).name,
+      modality: "strength",
+      movement_pattern: "squat",
+      muscle_targets: [ { muscle_key: "glutes", role: "primary" } ],
+      idempotency_key: "audit-exercise-failure",
+      server_context: { grant: grant }
+    )
+    failed = Agent::MutationProposal.find(colliding.structured_content.fetch(:proposal_id))
+    assert_raises(ActiveRecord::RecordInvalid) do
+      failed.decide!(outcome: "approved", by: users(:two), token: failed.confirmation_token)
+    end
+    assert_equal "failed", failed.reload.status
+    assert_nil failed.execution
+    assert_equal count, Exercise.count
+    assert Agent::AuditEvent.exists?(
+      subject_type: failed.class.name, subject_id: failed.id, event_type: "mutation.failed"
+    )
+  end
+
   test "schema-valid unsourced verified recipe fails through the management tool path" do
     grant = issue_grant(%w[catalog_manage])
     recipe_count = Recipe.count
@@ -171,5 +324,21 @@ class HearthMcp::ManagementToolsTest < ActiveSupport::TestCase
       assert_equal false, schema[:additionalProperties], label if schema[:type] == "object"
       schema.fetch(:properties, {}).each_value { |child| assert_closed_schema(child, label) if child.is_a?(Hash) }
       assert_closed_schema(schema[:items], label) if schema[:items].is_a?(Hash)
+    end
+
+    def management_tool(name)
+      HearthMcp::ManagementTools::ALL.find { |tool| tool.tool_name == name }
+    end
+
+    def exercise_target_arguments
+      {
+        name: "Loaded suitcase carry",
+        modality: "strength",
+        movement_pattern: "carry",
+        muscle_targets: [
+          { muscle_key: "forearms", role: "primary" },
+          { muscle_key: "glutes", role: "secondary" }
+        ]
+      }
     end
 end
